@@ -53,3 +53,15 @@ def test_cold_start_profiles_joined_recently():
     for profile in cold_start:
         months_ago = (now - profile["createdAt"]).days / 30
         assert months_ago <= config.cold_start_recent_months + 1
+
+
+def test_identities_carry_a_created_at_matching_their_profile():
+    config = GeneratorConfig(seed=42, num_profiles=100, timeline_months=18)
+    identities, profiles = generate_identities_and_profiles(config)
+    identities_by_local_id = {i["_localId"]: i for i in identities}
+    now = datetime.utcnow()
+    for profile in profiles:
+        identity = identities_by_local_id[profile["identityLocalId"]]
+        assert isinstance(identity["createdAt"], datetime)
+        assert identity["createdAt"] <= now
+        assert identity["createdAt"] == profile["createdAt"]

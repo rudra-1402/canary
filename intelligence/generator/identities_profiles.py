@@ -56,6 +56,11 @@ def generate_identities_and_profiles(config: GeneratorConfig) -> tuple[list[dict
             "_localId": f"identity-{i}",
             "email": fake.unique.email(),
             "authProviderId": f"seed-provider|{i}",
+            # Reuses the same created_at as the profile below — an Identity and
+            # its first Profile are created at the same signup moment. Needed
+            # explicitly because the orchestrator writes via raw pymongo, which
+            # never triggers Mongoose's timestamps:true default.
+            "createdAt": created_at,
         }
         identities.append(identity)
 
