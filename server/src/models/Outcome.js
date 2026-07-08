@@ -10,10 +10,9 @@ const outcomeSchema = new Schema(
     ghosted: { type: Boolean, default: false },
     endedAs: { type: String, enum: ['completed', 'cancelled', 'ghosted'], required: true },
     labelSource: { type: String, enum: ['synthetic', 'heuristic', 'self-reported'], required: true },
+    recordedAt: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: false, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } }
 );
-
-outcomeSchema.add({ recordedAt: { type: Date, default: Date.now } });
 
 export default model('Outcome', outcomeSchema);

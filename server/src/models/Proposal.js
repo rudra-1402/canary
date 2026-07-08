@@ -14,7 +14,7 @@ const proposalSchema = new Schema(
     payModel: { type: String, enum: ['project', 'milestone'], required: true },
     proposedMilestones: { type: [milestoneSchema], default: [] },
     durationEstimate: String,
-    coverLetter: String,
+    coverLetter: { type: String, maxlength: 5000 },
     screeningAnswers: { type: [String], default: [] },
     status: {
       type: String,

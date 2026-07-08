@@ -6,7 +6,7 @@ const jobPostSchema = new Schema(
     clientProfileId: { type: Schema.Types.ObjectId, ref: 'Profile', required: true },
     title: { type: String, required: true },
     category: { type: String, required: true },
-    description: { type: String, required: true },
+    description: { type: String, required: true, maxlength: 5000 },
     skills: { type: [String], default: [] },
     jobType: { type: String, enum: ['hourly', 'fixed'], required: true },
     budgetOrRate: { type: Number, required: true },

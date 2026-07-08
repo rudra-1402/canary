@@ -8,7 +8,7 @@ const riskAssessmentSchema = new Schema(
     level: { type: String, enum: ['low', 'med', 'high'], required: true },
     verdict: { type: String, enum: ['proceed', 'caution', 'avoid'], required: true },
     confidence: { type: Number, min: 0, max: 1, required: true },
-    explanation: String,
+    explanation: { type: String, maxlength: 5000 },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

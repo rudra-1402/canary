@@ -15,7 +15,7 @@ const briefAnalysisSchema = new Schema(
   {
     engagementId: { type: Schema.Types.ObjectId, ref: 'Engagement', required: true, unique: true },
     flags: { type: flagsSchema, required: true },
-    rationale: String,
+    rationale: { type: String, maxlength: 5000 },
     sourceSnippets: { type: [String], default: [] },
     modelMetadata: { type: Schema.Types.Mixed, default: {} },
   },

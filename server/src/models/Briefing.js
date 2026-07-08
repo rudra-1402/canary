@@ -15,7 +15,11 @@ const briefingSchema = new Schema(
     confidence: { type: Number, min: 0, max: 1, required: true },
     citations: { type: [{ type: Schema.Types.Mixed }], default: [] },
     generatedAt: { type: Date, default: Date.now },
-  }
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
 );
+
+briefingSchema.index({ engagementId: 1 });
+briefingSchema.index({ subjectProfileId: 1 }, { sparse: true });
 
 export default model('Briefing', briefingSchema);
