@@ -11,11 +11,28 @@ RED_FLAG_PHRASES = {
 }
 
 
+# Downstream stages add further delay on top of a jobpost's createdAt: a
+# Proposal can land up to 14 days later, and an Engagement up to 10 days after
+# that (see proposals.py / engagements.py). Reserve enough buffer before "now"
+# so those chained offsets can never push a later timestamp past the present —
+# for the common case. For a client who joined very recently (e.g. cold-start,
+# within the last cold_start_recent_months), there may not be room for the full
+# buffer before "now" at all; proposals.py/engagements.py independently clamp
+# their own output to "now" as a second line of defense for exactly that case,
+# so a compressed/no-buffer jobpost here still can't produce a future timestamp
+# downstream.
+_DOWNSTREAM_BUFFER_DAYS = 14 + 10 + 1
+
+
 def _jobpost_created_at(rng: random.Random, client: dict, now: datetime) -> datetime:
     earliest = client["createdAt"] + timedelta(days=1)
-    latest = now - timedelta(days=24)
+    latest = now - timedelta(days=_DOWNSTREAM_BUFFER_DAYS)
     if earliest >= latest:
-        return earliest
+        # Not enough natural room (client joined too recently) — clamp to "now"
+        # rather than returning `earliest` unclamped, which could otherwise be
+        # in the future relative to "now" (client.createdAt can be as late as
+        # "now" itself for a same-day join).
+        return min(earliest, now)
     span_days = (latest - earliest).days
     return earliest + timedelta(days=rng.randint(0, span_days))
 

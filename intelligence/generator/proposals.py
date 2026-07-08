@@ -1,5 +1,5 @@
 import random
-from datetime import timedelta
+from datetime import datetime, timedelta
 from faker import Faker
 from generator.config import GeneratorConfig
 
@@ -9,6 +9,7 @@ def generate_proposals(config: GeneratorConfig, profiles: list[dict], jobposts: 
     fake = Faker()
     Faker.seed(config.seed + 2)
 
+    now = datetime.utcnow()
     freelancers = [p for p in profiles if p["role"] == "freelancer"]
     proposals = []
 
@@ -18,7 +19,9 @@ def generate_proposals(config: GeneratorConfig, profiles: list[dict], jobposts: 
         for freelancer in applicants:
             base = jobpost["budgetOrRate"]
             bid = round(base * rng.uniform(0.8, 1.15), 2)
-            created_at = jobpost["createdAt"] + timedelta(days=rng.randint(1, 14))
+            # Clamped to "now" — a jobpost from a very-recently-joined client may
+            # not have the full 14-day buffer available (see jobposts.py).
+            created_at = min(jobpost["createdAt"] + timedelta(days=rng.randint(1, 14)), now)
             proposals.append(
                 {
                     "_localId": f"proposal-{jobpost['_localId']}-{freelancer['_localId']}",
