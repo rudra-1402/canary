@@ -64,11 +64,20 @@ def generate_reviews(
         if not reliable_targets:
             break
         victim = rng.choice(reliable_targets)
+        # Re-tally per-engagement review counts each iteration (cheap — saboteurs
+        # are a small fraction of profiles) so neither this nor a prior sabotage
+        # review can push an engagement past the 2-review cap. A saboteur who's
+        # also an organic party to an engagement that already has 2 reviews
+        # (from the loop above) must not add a 3rd.
+        review_counts: dict[str, int] = {}
+        for r in reviews:
+            review_counts[r["engagementLocalId"]] = review_counts.get(r["engagementLocalId"], 0) + 1
         matching_engagement = next(
             (
                 e
                 for e in engagements
                 if saboteur["_localId"] in (e["freelancerProfileLocalId"], e["clientProfileLocalId"])
+                and review_counts.get(e["_localId"], 0) < 2
             ),
             None,
         )
