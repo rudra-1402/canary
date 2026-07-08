@@ -15,3 +15,7 @@ def get_client(uri: str | None = None) -> MongoClient:
 def get_database(uri: str | None = None):
     client = get_client(uri)
     return client.get_default_database()
+
+
+def close_client(client: MongoClient) -> None:
+    client.close()
