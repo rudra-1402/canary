@@ -22,7 +22,7 @@ def _assign_join_month_index(rng: random.Random, config: GeneratorConfig) -> int
     return rng.randint(0, max(0, config.timeline_months - config.cold_start_recent_months - 1))
 
 
-def generate_identities_and_profiles(config: GeneratorConfig):
+def generate_identities_and_profiles(config: GeneratorConfig) -> tuple[list[dict], list[dict]]:
     rng = random.Random(config.seed)
     fake = Faker()
     Faker.seed(config.seed)

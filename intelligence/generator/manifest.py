@@ -2,13 +2,14 @@ from generator.config import GeneratorConfig
 
 
 def build_manifest(
+    *,
     config: GeneratorConfig,
     profiles: list[dict],
     jobposts: list[dict],
     engagements: list[dict],
+    outcomes: list[dict],
     reviews: list[dict],
     rings: list[dict],
-    outcomes: list[dict],
 ) -> dict:
     ring_membership = {m: ring["_localId"] for ring in rings for m in ring["memberLocalIds"]}
 
@@ -46,10 +47,23 @@ def build_manifest(
         for jp in jobposts
     ]
 
+    # Ground truth for the review-authenticity detector (Slice 2): which reviews
+    # were deliberately planted as fraudulent, so "planted X, caught Y" checks
+    # have something concrete to grade against.
+    review_records = [
+        {
+            "reviewLocalId": r["_localId"],
+            "isPlantedCollusion": r.get("isPlantedCollusion", False),
+            "isPlantedSabotage": r.get("isPlantedSabotage", False),
+        }
+        for r in reviews
+    ]
+
     return {
         "config": {"seed": config.seed, "num_profiles": config.num_profiles},
         "profiles": profile_records,
         "rings": ring_records,
         "engagements": engagement_records,
         "jobposts": jobpost_records,
+        "reviews": review_records,
     }

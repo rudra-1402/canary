@@ -1,5 +1,5 @@
 import random
-from datetime import timedelta
+from datetime import datetime, timedelta
 from generator.config import GeneratorConfig
 
 
@@ -7,6 +7,7 @@ def generate_payments(
     config: GeneratorConfig, profiles: list[dict], engagements: list[dict], outcomes: list[dict]
 ) -> list[dict]:
     rng = random.Random(config.seed + 7)
+    now = datetime.utcnow()
     outcomes_by_engagement = {o["engagementLocalId"]: o for o in outcomes}
     payments = []
 
@@ -15,8 +16,11 @@ def generate_payments(
         if outcome is None or not outcome["paidInFull"]:
             continue
 
-        received_at = engagement["createdAt"] + timedelta(
-            days=30 + (outcome["daysLate"] or 0)
+        # Clamped to "now" — same defense as jobposts/proposals/engagements:
+        # a late payment (daysLate up to ~100) on an engagement created close
+        # to "now" could otherwise land in the future.
+        received_at = min(
+            engagement["createdAt"] + timedelta(days=30 + (outcome["daysLate"] or 0)), now
         )
         payments.append(
             {

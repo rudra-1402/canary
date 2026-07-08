@@ -1,4 +1,14 @@
-def validate_dataset(profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest) -> dict:
+def validate_dataset(
+    *,
+    profiles: list[dict],
+    jobposts: list[dict],
+    proposals: list[dict],
+    engagements: list[dict],
+    outcomes: list[dict],
+    reviews: list[dict],
+    rings: list[dict],
+    manifest: dict,
+) -> dict:
     profile_ids = {p["_localId"] for p in profiles}
     jobpost_ids = {jp["_localId"] for jp in jobposts}
     engagement_ids = {e["_localId"] for e in engagements}

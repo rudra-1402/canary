@@ -19,13 +19,23 @@ def _build_full_dataset(num_profiles=400):
     outcomes = generate_outcomes(config, profiles, engagements)
     rings = build_collusion_rings(config, profiles)
     reviews = generate_reviews(config, profiles, engagements, outcomes, rings)
-    manifest = build_manifest(config, profiles, jobposts, engagements, reviews, rings, outcomes)
+    manifest = build_manifest(
+        config=config, profiles=profiles, jobposts=jobposts, engagements=engagements,
+        outcomes=outcomes, reviews=reviews, rings=rings,
+    )
     return config, profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest
+
+
+def _validate(profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest):
+    return validate_dataset(
+        profiles=profiles, jobposts=jobposts, proposals=proposals, engagements=engagements,
+        outcomes=outcomes, reviews=reviews, rings=rings, manifest=manifest,
+    )
 
 
 def test_referential_integrity_has_no_orphans():
     _, profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest = _build_full_dataset()
-    report = validate_dataset(profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest)
+    report = _validate(profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest)
     assert report["referentialIntegrity"]["orphanProposals"] == 0
     assert report["referentialIntegrity"]["orphanReviews"] == 0
     assert report["referentialIntegrity"]["orphanOutcomes"] == 0
@@ -33,12 +43,12 @@ def test_referential_integrity_has_no_orphans():
 
 def test_ring_signature_check_passes_for_every_ring():
     _, profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest = _build_full_dataset()
-    report = validate_dataset(profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest)
+    report = _validate(profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest)
     assert report["ringSignatureCheck"]["ringsWithoutReciprocity"] == 0
 
 
 def test_manifest_reconciles_with_counts():
     _, profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest = _build_full_dataset()
-    report = validate_dataset(profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest)
+    report = _validate(profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest)
     assert report["manifestReconciliation"]["profileCountMatches"] is True
     assert report["manifestReconciliation"]["ringCountMatches"] is True
