@@ -54,7 +54,7 @@ jobs:
         working-directory: apps/intelligence
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version-file: 'apps/intelligence/.python-version'
       - run: pip install -r requirements.txt
