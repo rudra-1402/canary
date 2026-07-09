@@ -20,7 +20,7 @@ const jobPostSchema = new Schema(
     screeningQuestions: { type: [String], default: [] },
     status: { type: String, enum: ['draft', 'open', 'closed'], default: 'draft' },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('JobPost', jobPostSchema);

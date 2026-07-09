@@ -9,7 +9,7 @@ const paymentSchema = new Schema(
     receivedAt: { type: Date, required: true },
     importSource: { type: String, enum: ['manual', 'csv', 'stripe-test'], required: true },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('Payment', paymentSchema);

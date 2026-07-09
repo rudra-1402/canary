@@ -10,7 +10,7 @@ const riskAssessmentSchema = new Schema(
     confidence: { type: Number, min: 0, max: 1, required: true },
     explanation: { type: String, maxlength: 5000 },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 riskAssessmentSchema.index({ engagementId: 1 });

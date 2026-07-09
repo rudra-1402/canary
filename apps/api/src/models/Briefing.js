@@ -16,7 +16,7 @@ const briefingSchema = new Schema(
     citations: { type: [{ type: Schema.Types.Mixed }], default: [] },
     generatedAt: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 briefingSchema.index({ engagementId: 1 });

@@ -12,7 +12,7 @@ const incomeForecastSchema = new Schema(
     },
     generatedAt: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('IncomeForecast', incomeForecastSchema);

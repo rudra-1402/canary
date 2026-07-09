@@ -12,7 +12,7 @@ const notificationSchema = new Schema(
     targetRef: { type: Schema.Types.Mixed, required: true },
     readAt: { type: Date, default: null },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('Notification', notificationSchema);

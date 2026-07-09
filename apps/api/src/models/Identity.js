@@ -7,7 +7,7 @@ const identitySchema = new Schema(
     phone: { type: String },
     authProviderId: { type: String, required: true },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('Identity', identitySchema);

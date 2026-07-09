@@ -11,7 +11,7 @@ const riskSignalSchema = new Schema(
     source: { type: String, enum: ['structured-data', 'brief-analysis'], required: true },
     sourceBriefAnalysisId: { type: Schema.Types.ObjectId, ref: 'BriefAnalysis', default: null },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 riskSignalSchema.index({ parentType: 1, parentId: 1 });

@@ -3,7 +3,7 @@ const { Schema, model } = mongoose;
 
 const milestoneSchema = new Schema(
   { description: { type: String, required: true }, amount: { type: Number, required: true } },
-  { _id: false }
+  { _id: false },
 );
 
 const proposalSchema = new Schema(
@@ -22,7 +22,7 @@ const proposalSchema = new Schema(
       default: 'submitted',
     },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('Proposal', proposalSchema);

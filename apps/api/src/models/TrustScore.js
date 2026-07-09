@@ -8,7 +8,7 @@ const trustScoreSchema = new Schema(
     level: { type: String, enum: ['low', 'med', 'high'], required: true },
     generatedAt: { type: Date, required: true },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 trustScoreSchema.index({ profileId: 1, generatedAt: -1 });

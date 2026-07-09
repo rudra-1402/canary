@@ -1,7 +1,25 @@
 import { pathToFileURL } from 'node:url';
-import { Identity, Profile, JobPost, Proposal, Engagement, Outcome, Review, Payment } from '../src/models/index.js';
+import {
+  Identity,
+  Profile,
+  JobPost,
+  Proposal,
+  Engagement,
+  Outcome,
+  Review,
+  Payment,
+} from '../src/models/index.js';
 
-const MODELS_TO_CHECK = { Identity, Profile, JobPost, Proposal, Engagement, Outcome, Review, Payment };
+const MODELS_TO_CHECK = {
+  Identity,
+  Profile,
+  JobPost,
+  Proposal,
+  Engagement,
+  Outcome,
+  Review,
+  Payment,
+};
 
 export async function validateSeededCollections() {
   const report = [];

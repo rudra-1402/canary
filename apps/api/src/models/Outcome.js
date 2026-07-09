@@ -9,10 +9,14 @@ const outcomeSchema = new Schema(
     scopeCreepOccurred: { type: Boolean, default: false },
     ghosted: { type: Boolean, default: false },
     endedAs: { type: String, enum: ['completed', 'cancelled', 'ghosted'], required: true },
-    labelSource: { type: String, enum: ['synthetic', 'heuristic', 'self-reported'], required: true },
+    labelSource: {
+      type: String,
+      enum: ['synthetic', 'heuristic', 'self-reported'],
+      required: true,
+    },
     recordedAt: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('Outcome', outcomeSchema);

@@ -10,7 +10,7 @@ const reviewSchema = new Schema(
     text: { type: String, maxlength: 5000 },
     visibleAt: { type: Date, default: null },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('Review', reviewSchema);

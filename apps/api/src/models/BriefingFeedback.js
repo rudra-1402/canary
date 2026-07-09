@@ -7,7 +7,7 @@ const briefingFeedbackSchema = new Schema(
     raterProfileId: { type: Schema.Types.ObjectId, ref: 'Profile', required: true },
     vote: { type: String, enum: ['up', 'down'], required: true },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('BriefingFeedback', briefingFeedbackSchema);

@@ -10,7 +10,7 @@ const reviewAuthenticitySchema = new Schema(
     detectedAt: { type: Date, default: Date.now },
     collusionClusterId: { type: Schema.Types.ObjectId, ref: 'CollusionCluster', default: null },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('ReviewAuthenticity', reviewAuthenticitySchema);

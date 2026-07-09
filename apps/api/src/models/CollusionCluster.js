@@ -11,7 +11,7 @@ const collusionClusterSchema = new Schema(
     severity: { type: Number, min: 0, max: 1, required: true },
     detectedAt: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('CollusionCluster', collusionClusterSchema);

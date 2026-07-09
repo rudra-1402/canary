@@ -8,7 +8,7 @@ const flagsSchema = new Schema(
     urgencyPressure: { type: Boolean, default: false },
     missingTerms: { type: Boolean, default: false },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const briefAnalysisSchema = new Schema(
@@ -19,7 +19,7 @@ const briefAnalysisSchema = new Schema(
     sourceSnippets: { type: [String], default: [] },
     modelMetadata: { type: Schema.Types.Mixed, default: {} },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('BriefAnalysis', briefAnalysisSchema);

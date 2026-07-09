@@ -1,0 +1,6 @@
+node_modules/
+dist/
+venv/
+.pytest_cache/
+apps/intelligence/ground-truth-manifest.json
+package-lock.json

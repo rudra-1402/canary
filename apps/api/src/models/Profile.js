@@ -33,7 +33,7 @@ const profileSchema = new Schema(
     typicalBudget: Number,
     paymentTermsNorm: String,
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 profileSchema.index({ identityId: 1, role: 1 }, { unique: true });

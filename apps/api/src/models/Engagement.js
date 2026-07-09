@@ -8,7 +8,7 @@ const agreedTermsSchema = new Schema(
     paymentTerms: { type: String, required: true },
     timeline: { type: String, required: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const engagementSchema = new Schema(
@@ -25,7 +25,7 @@ const engagementSchema = new Schema(
       },
     },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('Engagement', engagementSchema);

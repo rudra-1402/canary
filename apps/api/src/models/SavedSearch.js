@@ -8,7 +8,7 @@ const savedSearchSchema = new Schema(
     facets: { type: Schema.Types.Mixed, default: {} },
     name: { type: String, required: true },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('SavedSearch', savedSearchSchema);

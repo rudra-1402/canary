@@ -10,7 +10,7 @@ const savedItemSchema = new Schema(
     targetType: { type: String, enum: ['job', 'profile'], required: true },
     targetId: { type: Schema.Types.ObjectId, required: true },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export default model('SavedItem', savedItemSchema);

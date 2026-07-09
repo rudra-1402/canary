@@ -21,7 +21,16 @@ describe('seed conformance', () => {
     const report = await validateSeededCollections();
     const checked = report.map((r) => r.collection).sort();
     expect(checked).toEqual(
-      ['Identity', 'Engagement', 'JobPost', 'Outcome', 'Payment', 'Profile', 'Proposal', 'Review'].sort()
+      [
+        'Identity',
+        'Engagement',
+        'JobPost',
+        'Outcome',
+        'Payment',
+        'Profile',
+        'Proposal',
+        'Review',
+      ].sort(),
     );
   });
 });

@@ -16,7 +16,12 @@ describe('Engagement schema', () => {
       freelancerProfileId,
       clientProfileId,
       status: 'active',
-      agreedTerms: { scope: 'Build a site', price: 1200, paymentTerms: 'net-30', timeline: '4 weeks' },
+      agreedTerms: {
+        scope: 'Build a site',
+        price: 1200,
+        paymentTerms: 'net-30',
+        timeline: '4 weeks',
+      },
     });
     expect(doc.validateSync()).toBeUndefined();
   });
