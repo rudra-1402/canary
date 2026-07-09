@@ -1,0 +1,9 @@
+{
+  "apps/{web,api}/**/*.{js,jsx}": ["prettier --write", "eslint --fix"],
+  "packages/**/*.js": ["prettier --write", "eslint --fix"],
+  "*.{json,md}": ["prettier --write"],
+  "apps/intelligence/**/*.py": [
+    "apps/intelligence/venv/Scripts/python.exe -m black",
+    "apps/intelligence/venv/Scripts/python.exe -m ruff check --fix"
+  ]
+}
