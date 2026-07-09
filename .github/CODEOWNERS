@@ -1,0 +1,10 @@
+# Feature-folder ownership — GitHub suggests these reviewers automatically on a matching PR.
+# Real usernames pending (teammate GitHub handles not yet known) — placeholders below,
+# update once Teammate 2 / Teammate 3 are invited (see .ai/onboarding/tooling-primer.md).
+
+apps/web/src/features/landing/**  @teammate2-placeholder
+apps/web/src/features/help/**     @teammate3-placeholder
+apps/web/src/features/about/**    @teammate3-placeholder
+
+# Everything else defaults to Rudra (repo owner) — no entry needed, GitHub falls back to the
+# repo owner for unmatched paths once a default reviewer is set in repo settings.
