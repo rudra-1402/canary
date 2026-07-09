@@ -4,8 +4,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import os
+
 import pytest
-from generator.db import get_client, close_client
+
+from generator.db import close_client, get_client
 
 
 @pytest.fixture

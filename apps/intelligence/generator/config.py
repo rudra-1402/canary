@@ -22,9 +22,7 @@ class GeneratorConfig:
     shock_probability: float = 0.04
     shock_std: float = 0.12
 
-    archetype_thresholds: dict = field(
-        default_factory=lambda: {"reliable": 0.68, "bad-actor": 0.42}
-    )
+    archetype_thresholds: dict = field(default_factory=lambda: {"reliable": 0.68, "bad-actor": 0.42})
 
     cold_start_join_rate: float = 0.06
     cold_start_recent_months: int = 2

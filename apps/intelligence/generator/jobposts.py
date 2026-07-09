@@ -1,6 +1,8 @@
 import random
 from datetime import datetime, timedelta
+
 from faker import Faker
+
 from generator.config import GeneratorConfig
 
 RED_FLAG_PHRASES = {

@@ -1,9 +1,10 @@
 from datetime import datetime
+
 from generator.config import GeneratorConfig
+from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
 from generator.proposals import generate_proposals
-from generator.engagements import generate_engagements
 
 
 def test_engagements_accept_exactly_one_proposal_per_jobpost():

@@ -1,11 +1,11 @@
-from generator.config import GeneratorConfig
 from generator.archetypes import (
     assign_archetypes,
-    assign_traits,
-    simulate_trait_drift,
-    derive_archetype,
     assign_special_roles,
+    assign_traits,
+    derive_archetype,
+    simulate_trait_drift,
 )
+from generator.config import GeneratorConfig
 
 
 def test_assign_archetypes_respects_mix_within_tolerance():
@@ -44,7 +44,7 @@ def test_reliability_and_responsiveness_are_correlated():
     mean_r = sum(reliabilities) / len(reliabilities)
     mean_s = sum(responsivenesses) / len(responsivenesses)
     covariance = sum(
-        (r - mean_r) * (s - mean_s) for r, s in zip(reliabilities, responsivenesses)
+        (r - mean_r) * (s - mean_s) for r, s in zip(reliabilities, responsivenesses, strict=True)
     ) / len(reliabilities)
     assert covariance > 0, "traits should be positively correlated, not independent noise"
 

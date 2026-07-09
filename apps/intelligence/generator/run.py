@@ -3,22 +3,28 @@ import json
 import sys
 from datetime import datetime
 
+from generator.collusion_rings import build_collusion_rings
 from generator.config import GeneratorConfig
 from generator.db import get_database
+from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
-from generator.proposals import generate_proposals
-from generator.engagements import generate_engagements
-from generator.outcomes import generate_outcomes
-from generator.collusion_rings import build_collusion_rings
-from generator.reviews import generate_reviews
-from generator.payments import generate_payments
 from generator.manifest import build_manifest
+from generator.outcomes import generate_outcomes
+from generator.payments import generate_payments
+from generator.proposals import generate_proposals
+from generator.reviews import generate_reviews
 from generator.validation import validate_dataset
 
 COLLECTIONS = [
-    "identities", "profiles", "jobposts", "proposals", "engagements",
-    "outcomes", "reviews", "payments",
+    "identities",
+    "profiles",
+    "jobposts",
+    "proposals",
+    "engagements",
+    "outcomes",
+    "reviews",
+    "payments",
 ]
 
 
@@ -148,12 +154,23 @@ def main():
     # Both calls use keyword arguments — build_manifest/validate_dataset are
     # keyword-only.
     manifest = build_manifest(
-        config=config, profiles=profiles, jobposts=jobposts, engagements=engagements,
-        outcomes=outcomes, reviews=reviews, rings=rings,
+        config=config,
+        profiles=profiles,
+        jobposts=jobposts,
+        engagements=engagements,
+        outcomes=outcomes,
+        reviews=reviews,
+        rings=rings,
     )
     report = validate_dataset(
-        profiles=profiles, jobposts=jobposts, proposals=proposals, engagements=engagements,
-        outcomes=outcomes, reviews=reviews, rings=rings, manifest=manifest,
+        profiles=profiles,
+        jobposts=jobposts,
+        proposals=proposals,
+        engagements=engagements,
+        outcomes=outcomes,
+        reviews=reviews,
+        rings=rings,
+        manifest=manifest,
     )
     if any(v > 0 for v in report["referentialIntegrity"].values()):
         print("Self-validation FAILED — aborting seed:", json.dumps(report, indent=2), file=sys.stderr)
@@ -161,8 +178,11 @@ def main():
     if report["ringSignatureCheck"]["ringsWithoutReciprocity"] > 0:
         print("Ring signature check FAILED — aborting seed:", json.dumps(report, indent=2), file=sys.stderr)
         sys.exit(1)
-    if not (report["manifestReconciliation"]["profileCountMatches"] and report["manifestReconciliation"]["ringCountMatches"]):
-        print("Manifest reconciliation FAILED — aborting seed:", json.dumps(report, indent=2), file=sys.stderr)
+    reconciliation = report["manifestReconciliation"]
+    if not (reconciliation["profileCountMatches"] and reconciliation["ringCountMatches"]):
+        print(
+            "Manifest reconciliation FAILED — aborting seed:", json.dumps(report, indent=2), file=sys.stderr
+        )
         sys.exit(1)
 
     _resolve_ids(db, identities, profiles, jobposts, proposals, engagements, outcomes, reviews, payments)

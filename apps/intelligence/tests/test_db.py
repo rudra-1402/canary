@@ -1,4 +1,5 @@
 import pytest
+
 from generator.db import get_client
 
 

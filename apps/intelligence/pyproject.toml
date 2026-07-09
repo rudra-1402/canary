@@ -1,0 +1,14 @@
+[tool.black]
+line-length = 110
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.lint]
+# "I" = import sorting. Ruff's own isort-equivalent replaces standalone isort —
+# running both risks the two disagreeing on edge cases; Ruff's docs recommend
+# this consolidation. Black stays for formatting (Ruff doesn't format).
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = []

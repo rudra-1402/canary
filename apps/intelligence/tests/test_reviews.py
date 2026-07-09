@@ -1,10 +1,10 @@
+from generator.collusion_rings import build_collusion_rings
 from generator.config import GeneratorConfig
+from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
-from generator.proposals import generate_proposals
-from generator.engagements import generate_engagements
 from generator.outcomes import generate_outcomes
-from generator.collusion_rings import build_collusion_rings
+from generator.proposals import generate_proposals
 from generator.reviews import generate_reviews
 
 

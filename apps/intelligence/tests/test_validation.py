@@ -1,12 +1,12 @@
+from generator.collusion_rings import build_collusion_rings
 from generator.config import GeneratorConfig
+from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
-from generator.proposals import generate_proposals
-from generator.engagements import generate_engagements
-from generator.outcomes import generate_outcomes
-from generator.reviews import generate_reviews
-from generator.collusion_rings import build_collusion_rings
 from generator.manifest import build_manifest
+from generator.outcomes import generate_outcomes
+from generator.proposals import generate_proposals
+from generator.reviews import generate_reviews
 from generator.validation import validate_dataset
 
 
@@ -20,16 +20,27 @@ def _build_full_dataset(num_profiles=400):
     rings = build_collusion_rings(config, profiles)
     reviews = generate_reviews(config, profiles, engagements, outcomes, rings)
     manifest = build_manifest(
-        config=config, profiles=profiles, jobposts=jobposts, engagements=engagements,
-        outcomes=outcomes, reviews=reviews, rings=rings,
+        config=config,
+        profiles=profiles,
+        jobposts=jobposts,
+        engagements=engagements,
+        outcomes=outcomes,
+        reviews=reviews,
+        rings=rings,
     )
     return config, profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest
 
 
 def _validate(profiles, jobposts, proposals, engagements, outcomes, reviews, rings, manifest):
     return validate_dataset(
-        profiles=profiles, jobposts=jobposts, proposals=proposals, engagements=engagements,
-        outcomes=outcomes, reviews=reviews, rings=rings, manifest=manifest,
+        profiles=profiles,
+        jobposts=jobposts,
+        proposals=proposals,
+        engagements=engagements,
+        outcomes=outcomes,
+        reviews=reviews,
+        rings=rings,
+        manifest=manifest,
     )
 
 

@@ -1,5 +1,7 @@
 import random
+
 import networkx as nx
+
 from generator.config import GeneratorConfig
 
 

@@ -1,7 +1,8 @@
 import networkx as nx
+
+from generator.collusion_rings import build_collusion_rings
 from generator.config import GeneratorConfig
 from generator.identities_profiles import generate_identities_and_profiles
-from generator.collusion_rings import build_collusion_rings
 
 
 def test_each_ring_has_at_least_two_members_and_reciprocal_edges():

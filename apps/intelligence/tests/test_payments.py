@@ -1,10 +1,10 @@
 from generator.config import GeneratorConfig
+from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
-from generator.proposals import generate_proposals
-from generator.engagements import generate_engagements
 from generator.outcomes import generate_outcomes
 from generator.payments import generate_payments
+from generator.proposals import generate_proposals
 
 
 def test_payments_only_generated_for_freelancers_with_concluded_paid_engagements():

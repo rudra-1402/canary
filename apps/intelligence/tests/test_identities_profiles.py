@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from generator.config import GeneratorConfig
 from generator.identities_profiles import generate_identities_and_profiles
 
@@ -11,7 +12,12 @@ def test_generates_one_profile_per_identity_with_archetype():
     for profile in profiles:
         assert profile["role"] in ("freelancer", "client")
         assert profile["trueArchetype"] in (
-            "reliable", "risky", "bad-actor", "cold-start", "colluder", "saboteur",
+            "reliable",
+            "risky",
+            "bad-actor",
+            "cold-start",
+            "colluder",
+            "saboteur",
         )
         assert profile["origin"] in ("user-registered", "synthetic-seeded")
 
@@ -29,8 +35,10 @@ def test_verification_status_correlates_with_bad_actor_archetype():
     _, profiles = generate_identities_and_profiles(config)
     bad_actors = [p for p in profiles if p["trueArchetype"] == "bad-actor"]
     reliable = [p for p in profiles if p["trueArchetype"] == "reliable"]
-    bad_actor_verified_rate = sum(p["verificationStatus"] == "id-verified" for p in bad_actors) / len(bad_actors)
-    reliable_verified_rate = sum(p["verificationStatus"] == "id-verified" for p in reliable) / len(reliable)
+    bad_actor_verified = sum(p["verificationStatus"] == "id-verified" for p in bad_actors)
+    reliable_verified = sum(p["verificationStatus"] == "id-verified" for p in reliable)
+    bad_actor_verified_rate = bad_actor_verified / len(bad_actors)
+    reliable_verified_rate = reliable_verified / len(reliable)
     assert bad_actor_verified_rate < reliable_verified_rate
 
 

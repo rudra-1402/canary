@@ -1,4 +1,5 @@
 import random
+
 from generator.config import GeneratorConfig
 
 ARCHETYPES = ["reliable", "risky", "bad-actor"]
@@ -79,6 +80,6 @@ def assign_archetypes(config: GeneratorConfig) -> list[str]:
     initial_traits = assign_traits(config)
     special_roles = assign_special_roles(config)
     labels = []
-    for traits, role in zip(initial_traits, special_roles):
+    for traits, role in zip(initial_traits, special_roles, strict=True):
         labels.append(role if role else derive_archetype(traits, config))
     return labels

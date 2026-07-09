@@ -1,12 +1,12 @@
+from generator.collusion_rings import build_collusion_rings
 from generator.config import GeneratorConfig
+from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
-from generator.proposals import generate_proposals
-from generator.engagements import generate_engagements
-from generator.outcomes import generate_outcomes
-from generator.collusion_rings import build_collusion_rings
-from generator.reviews import generate_reviews
 from generator.manifest import build_manifest
+from generator.outcomes import generate_outcomes
+from generator.proposals import generate_proposals
+from generator.reviews import generate_reviews
 
 
 def test_manifest_records_every_profile_archetype():
@@ -41,8 +41,13 @@ def test_manifest_records_rings_and_bad_terms_engagements():
     rings = build_collusion_rings(config, profiles)
 
     manifest = build_manifest(
-        config=config, profiles=profiles, jobposts=jobposts, engagements=engagements,
-        outcomes=[], reviews=[], rings=rings,
+        config=config,
+        profiles=profiles,
+        jobposts=jobposts,
+        engagements=engagements,
+        outcomes=[],
+        reviews=[],
+        rings=rings,
     )
     assert len(manifest["rings"]) == len(rings)
     assert any(e["badTerms"] for e in manifest["engagements"])
@@ -59,8 +64,13 @@ def test_manifest_records_which_reviews_were_planted():
     reviews = generate_reviews(config, profiles, engagements, outcomes, rings)
 
     manifest = build_manifest(
-        config=config, profiles=profiles, jobposts=jobposts, engagements=engagements,
-        outcomes=outcomes, reviews=reviews, rings=rings,
+        config=config,
+        profiles=profiles,
+        jobposts=jobposts,
+        engagements=engagements,
+        outcomes=outcomes,
+        reviews=reviews,
+        rings=rings,
     )
     assert len(manifest["reviews"]) == len(reviews)
     planted_collusion = [r for r in manifest["reviews"] if r["isPlantedCollusion"]]

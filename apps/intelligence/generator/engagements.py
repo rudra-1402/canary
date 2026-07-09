@@ -1,5 +1,6 @@
 import random
 from datetime import datetime, timedelta
+
 from generator.config import GeneratorConfig
 
 

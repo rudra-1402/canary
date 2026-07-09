@@ -1,5 +1,7 @@
 import random
+
 from faker import Faker
+
 from generator.config import GeneratorConfig
 
 RATING_WEIGHTS = {5: 0.55, 4: 0.25, 3: 0.1, 2: 0.05, 1: 0.05}
@@ -23,9 +25,7 @@ def generate_reviews(
     Faker.seed(config.seed + 6)
 
     outcomes_by_engagement = {o["engagementLocalId"]: o for o in outcomes}
-    engagements_by_local_id = {e["_localId"]: e for e in engagements}
     ring_member_ids = {m for ring in rings for m in ring["memberLocalIds"]}
-    profiles_by_id = {p["_localId"]: p for p in profiles}
 
     reviews = []
 

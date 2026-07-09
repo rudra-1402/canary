@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
+
 from generator.config import GeneratorConfig
+from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
-from generator.proposals import generate_proposals
-from generator.engagements import generate_engagements
 from generator.outcomes import generate_outcomes
+from generator.proposals import generate_proposals
 
 
 def _setup(num_profiles=300):
@@ -53,22 +54,30 @@ def test_drifting_profile_shows_worse_outcomes_later_than_earlier():
         for i in range(19)
     ]
     freelancer = {
-        "_localId": "f1", "role": "freelancer", "trueArchetype": "risky",
+        "_localId": "f1",
+        "role": "freelancer",
+        "trueArchetype": "risky",
         "_traitTrajectory": declining_trajectory,
     }
     client = {
-        "_localId": "c1", "role": "client", "trueArchetype": "reliable",
+        "_localId": "c1",
+        "role": "client",
+        "trueArchetype": "reliable",
         "_traitTrajectory": [{"reliability": 0.9, "responsiveness": 0.9}] * 19,
     }
     profiles = [freelancer, client]
     early_engagement = {
-        "_localId": "e-early", "status": "concluded",
-        "freelancerProfileLocalId": "f1", "clientProfileLocalId": "c1",
+        "_localId": "e-early",
+        "status": "concluded",
+        "freelancerProfileLocalId": "f1",
+        "clientProfileLocalId": "c1",
         "createdAt": now - timedelta(days=30 * 17),
     }
     late_engagement = {
-        "_localId": "e-late", "status": "concluded",
-        "freelancerProfileLocalId": "f1", "clientProfileLocalId": "c1",
+        "_localId": "e-late",
+        "status": "concluded",
+        "freelancerProfileLocalId": "f1",
+        "clientProfileLocalId": "c1",
         "createdAt": now - timedelta(days=30 * 1),
     }
 

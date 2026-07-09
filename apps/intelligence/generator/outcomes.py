@@ -1,5 +1,6 @@
 import random
 from datetime import datetime, timedelta
+
 from generator.config import GeneratorConfig
 
 SPECIAL_ROLE_GHOST_RATE = {"colluder": 0.02, "saboteur": 0.03}
@@ -75,9 +76,9 @@ def generate_outcomes(config: GeneratorConfig, profiles: list[dict], engagements
                 "daysLate": days_late if not ghosted else None,
                 "scopeCreepOccurred": scope_creep,
                 "ghosted": ghosted,
-                "endedAs": "ghosted" if ghosted else rng.choices(
-                    ["completed", "cancelled"], weights=[0.9, 0.1]
-                )[0],
+                "endedAs": (
+                    "ghosted" if ghosted else rng.choices(["completed", "cancelled"], weights=[0.9, 0.1])[0]
+                ),
                 "labelSource": "synthetic",
             }
         )

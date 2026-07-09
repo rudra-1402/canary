@@ -1,8 +1,15 @@
 import random
 from datetime import datetime, timedelta
+
 from faker import Faker
+
+from generator.archetypes import (
+    assign_special_roles,
+    assign_traits,
+    derive_archetype,
+    simulate_trait_drift,
+)
 from generator.config import GeneratorConfig
-from generator.archetypes import assign_traits, simulate_trait_drift, assign_special_roles, derive_archetype
 
 VERIFIED_RATE_BY_ARCHETYPE = {
     "reliable": 0.85,
@@ -36,7 +43,7 @@ def generate_identities_and_profiles(config: GeneratorConfig) -> tuple[list[dict
     profiles = []
 
     for i, (traits, trajectory, special_role) in enumerate(
-        zip(initial_traits, trajectories, special_roles)
+        zip(initial_traits, trajectories, special_roles, strict=True)
     ):
         role = "freelancer" if rng.random() < 0.6 else "client"
         origin = "synthetic-seeded" if rng.random() < 0.9 else "user-registered"
