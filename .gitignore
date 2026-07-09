@@ -1,6 +1,7 @@
 # Node
 node_modules/
 npm-debug.log*
+dist/
 
 # Python
 __pycache__/
@@ -8,11 +9,12 @@ __pycache__/
 venv/
 .venv/
 *.egg-info/
+.pytest_cache/
 
 # Env files (real secrets — .env.example files ARE committed)
 .env
-server/.env
-intelligence/.env
+apps/api/.env
+apps/intelligence/.env
 
 # Generator output (regeneratable, not source)
 ground-truth-manifest.json
