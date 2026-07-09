@@ -11,10 +11,8 @@ What's automated (you don't have to remember it) vs. what's a human's job.
 - **CI on every push/PR.** Re-runs the same formatters/linters plus the full test suite in the
   cloud — even if someone's local hooks were somehow bypassed, a red CI check blocks the merge. See
   `.ai/protocols/branching-and-review.md`.
-- **Dependabot** opens PRs for outdated/vulnerable npm and pip dependencies automatically.
-- **GitHub secret scanning + push protection** — GitHub itself scans pushed commits for
-  recognizable secret patterns (API keys, tokens) and can block a push that contains one, before it
-  ever lands in history.
+- **Dependabot** opens PRs for outdated/vulnerable npm and pip dependencies automatically —
+  confirmed working (opened 8 real update PRs the moment the repo was created).
 - **`npm audit` / `pip-audit`** run as a CI step, surfacing known-vulnerable dependencies.
 - **Branch protection on `main`** — direct pushes are rejected; everything goes through a reviewable
   PR that must pass CI first.
@@ -33,15 +31,33 @@ What's automated (you don't have to remember it) vs. what's a human's job.
   tagging Rudra) rather than trying to quietly fix it yourself — a leaked key needs to be rotated,
   not just deleted from the file.
 
-## A note on what we evaluated and didn't ship
+## ⚠️ Known gap: no automated secret scanning at all, right now
 
-We tried `gitleaks` (no reliable npm distribution — would've meant every teammate manually
-installing a Go binary) and `secretlint` (npm-native, but verified broken: it silently failed to
-detect an AWS example key, an RSA private key, and a GitHub PAT in testing, with no error). Neither
-made it into the pre-commit hook. **Don't re-add either without re-verifying it actually detects
-something first** — a security tool that silently catches nothing is worse than no tool, because it
-creates false confidence. GitHub's server-side secret scanning + push protection is the real
-backstop for secrets right now.
+Neither a local nor a server-side secret scanner is currently active on this repo — this is a real
+gap, not an oversight to gloss over:
+
+- **`gitleaks`** — no reliable npm distribution (would mean every teammate manually installing a Go
+  binary on Windows). Never installed.
+- **`secretlint`** (npm-native alternative) — installed, configured, and **verified broken**: it
+  silently failed to detect an AWS example key, an RSA private key, and a GitHub PAT in direct
+  testing, with no error (exit 0, empty results). Removed rather than shipped — a security tool
+  that silently catches nothing is worse than no tool, because it creates false confidence.
+- **GitHub server-side secret scanning + push protection** — attempted via the API, confirmed
+  unavailable: `"Secret scanning is not available for this repository"`. This is a **private** repo,
+  and GitHub only offers secret scanning for free on **public** repos; private-repo secret scanning
+  needs GitHub Advanced Security, which isn't included on this account's current plan.
+
+**What actually backstops this right now:** `.gitignore` correctly excludes every real `.env` file
+(verified — only `.env.example` files are tracked), and no real API key exists in this repo yet
+(Rudra holds all keys locally, per the working agreement). That's discipline, not automation.
+
+**Real options if this needs to close**, in rough order of cost: (1) make the repo public once it's
+demo-ready — free secret scanning included, but exposes the code early; (2) a paid GitHub plan or
+GitHub Advanced Security add-on for private-repo secret scanning; (3) re-attempt a client-side
+scanner (a different secretlint version, or gitleaks via Docker if that dependency becomes
+acceptable later) — **only if you re-verify it actually detects a real secret before trusting it,**
+the same way the ones above were tested and failed. Not resolved as part of this pass — flagged for
+a deliberate decision rather than silently left unaddressed.
 
 ## Standard hygiene, not paranoia
 
