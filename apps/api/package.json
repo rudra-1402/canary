@@ -7,8 +7,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "mongoose": "^8.9.0",
-    "dotenv": "^16.4.5"
+    "@canary/shared": "^0.0.1",
+    "dotenv": "^16.4.5",
+    "mongoose": "^8.9.0"
   },
   "devDependencies": {
     "vitest": "^2.1.8"

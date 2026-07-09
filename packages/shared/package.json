@@ -3,5 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "index.js"
+  "main": "index.js",
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
 }

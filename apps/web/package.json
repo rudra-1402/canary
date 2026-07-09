@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@canary/shared": "^0.0.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.1.1"
