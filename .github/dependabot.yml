@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 5
+    ignore:
+      # eslint-plugin-react@7.37.5's peer range tops out at eslint ^9.7 — a major-version
+      # bump to 10.x breaks `npm ci` with ERESOLVE (confirmed: PR #14, closed 2026-07-09).
+      # Remove this once eslint-plugin-react's peer range includes eslint ^10.
+      - dependency-name: 'eslint'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: 'pip'
     directory: '/apps/intelligence'
