@@ -85,10 +85,10 @@ above cover everything you'll touch before Slice 1 exists).
 
 This answers "what questions should I ask, and when should I stop overthinking":
 
-- **Stay in your own slice.** The written report (Teammate 2, no code), Slice 6 backend + demo data
-  - slides (Aryan), everything else including **all frontend** (Rudra). If you've been handed a
-    plan file, read `.ai/protocols/plan-execution.md` first — execute it, don't redesign it. Need
-    something outside your area? Ask — don't edit it directly.
+- **Stay in your own slice.** The written report (Teammate 2, no code), Slice 6 backend + demo
+  data + slides (Aryan), everything else including **all frontend** (Rudra). If you've been handed
+  a plan file, read `.ai/protocols/plan-execution.md` first — execute it, don't redesign it. Need
+  something outside your area? Ask — don't edit it directly.
 - **When in doubt about scope, it's probably "v2."** This is a 1-month project; "done and good
   enough" beats "ambitious and broken." If you're about to build something not on the golden path
   and not explicitly asked for, stop and ask first rather than build it speculatively.
