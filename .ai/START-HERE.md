@@ -120,8 +120,8 @@ This answers "what questions should I ask, and when should I stop overthinking":
 - **`.ai/protocols/working-agreement.md`** — the 6 rules that let 3 people build in parallel without
   breaking each other's work. Read before touching anything outside your own slice.
 - **`.ai/protocols/plan-execution.md`** — if you've been handed a plan file someone else designed
-  (this project's current model for Teammate 2/Aryan's assigned work), read this before starting:
-  how to execute a plan task-by-task without redesigning it.
+  (this project's current model for Aryan's assigned work), read this before starting: how to
+  execute a plan task-by-task without redesigning it.
 - **`.ai/protocols/security.md`** — the security/consistency guardrails for this repo: branch
   protection, secret handling, dependency hygiene, what's automated vs. what's a human's job.
 - **`.ai/protocols/branching-and-review.md`** — the exact branch → commit → PR → merge flow and what

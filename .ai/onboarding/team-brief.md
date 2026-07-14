@@ -7,8 +7,9 @@
 > collusion rings — so you know before you take a job (or hire someone) whether the other side is
 > worth it. Plus income/tax forecasting for freelancers.
 >
-> **~1 month, 1 effective developer on the AI core (Rudra) + 2 teammates on normal web pages — no
-> AI/ML knowledge needed from you.**
+> **~1 month, 1 effective developer building everything including all frontend (Rudra), Teammate 2
+> on the written report only, Aryan on one isolated plan-driven backend slice — no AI/ML knowledge
+> needed from either teammate.**
 
 ## Why this is different
 
@@ -37,7 +38,7 @@ always "that's v2."
 
 | Person         | Owns                                                                                                                                                                                                                                                                                        | Tool                |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| **Rudra**      | **100% of frontend** (every screen, not just the golden path) + the entire AI core (data model, auth, Trust Score, anti-gaming, the forecast model) + the intelligence service + writes every backend feature as a full TDD plan for teammates to execute                                   | Claude Code         |
+| **Rudra**      | **100% of frontend** (every screen, not just the golden path) + the entire AI core (data model, auth, Trust Score, anti-gaming, the forecast model) + the intelligence service + writes every backend feature as a full TDD plan for Aryan to execute                                       | Claude Code         |
 | **Teammate 2** | The written project report + diagrams — no code                                                                                                                                                                                                                                             | Kiro or Antigravity |
 | **Aryan**      | Slice 6 (Income/Tax forecast) backend — Payment manual-entry + CSV import, IncomeForecast/TaxReserve read endpoints (not the model itself) — built from a Rudra-written plan, executed task-by-task, not designed independently. Plus demo/synthetic data generation + presentation slides. | Kiro or Antigravity |
 
