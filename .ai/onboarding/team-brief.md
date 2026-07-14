@@ -33,17 +33,18 @@ real-time messaging, not a full invoicing engine, not payment processing. Not po
 screen — only the golden path. If anyone asks "what if we also added X" — the answer is almost
 always "that's v2."
 
-## Who does what (current division — hybrid model)
+## Who does what (current division — plan-driven model, revised 2026-07-10)
 
-| Person         | Owns                                                                                                                                                                   | Tool                |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| **Rudra**      | The golden path + shared core: data model, auth, Trust Score, anti-gaming, the forecast, **the API for their own slice**, the main dashboard, the intelligence service | Claude Code         |
-| **Teammate 2** | Landing/marketing page + the written project report — **including its own endpoints**, not just static pages                                                           | Kiro or Antigravity |
-| **Teammate 3** | Help/About screens + demo/synthetic data generation + presentation slides — **including its own endpoints**                                                            | Kiro or Antigravity |
+| Person         | Owns                                                                                                                                                                                                                                                                                        | Tool                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| **Rudra**      | **100% of frontend** (every screen, not just the golden path) + the entire AI core (data model, auth, Trust Score, anti-gaming, the forecast model) + the intelligence service + writes every backend feature as a full TDD plan for teammates to execute                                   | Claude Code         |
+| **Teammate 2** | The written project report + diagrams — no code                                                                                                                                                                                                                                             | Kiro or Antigravity |
+| **Aryan**      | Slice 6 (Income/Tax forecast) backend — Payment manual-entry + CSV import, IncomeForecast/TaxReserve read endpoints (not the model itself) — built from a Rudra-written plan, executed task-by-task, not designed independently. Plus demo/synthetic data generation + presentation slides. | Kiro or Antigravity |
 
-This is the **hybrid model**: teammates own their slice's frontend _and_ backend (an expansion from
-an earlier "isolated pages only" plan) — on a trial basis. If it gets painful, we fall back to
-isolated frontend-only slices. **Rule stands either way: you only edit files in your own area.**
+This supersedes the earlier "hybrid model" (each teammate owned their slice's frontend and
+backend). Read `.ai/protocols/plan-execution.md` before starting any assigned feature — it explains
+how to work from a plan someone else designed. **Rule stands either way: you only edit files in your
+own area**, and cross-slice changes go through a PR (see `.ai/onboarding/github-guide.md`).
 
 ## Tech stack
 
