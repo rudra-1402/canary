@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { getHealthStatus } from './health.js';
+import jobPostRouter from './jobPost/jobPost.routes.js';
+import { errorMiddleware } from './lib/errorMiddleware.js';
 
 export function createApp() {
   const app = express();
@@ -13,6 +15,10 @@ export function createApp() {
   app.get('/api/health', (req, res) => {
     res.json(getHealthStatus());
   });
+
+  app.use('/api/jobposts', jobPostRouter);
+
+  app.use(errorMiddleware);
 
   return app;
 }
