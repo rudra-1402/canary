@@ -7,6 +7,9 @@ import { AppError } from './errors.js';
 // The 4-arg signature is required for Express to treat this as error middleware.
 // eslint-disable-next-line no-unused-vars
 export function errorMiddleware(err, req, res, next) {
+  // Three intentional response shapes: ZodError -> { error, details };
+  // AppError -> { error, message }; anything else -> { error }. Kept distinct
+  // on purpose — do not collapse them into one shape.
   if (err instanceof ZodError) {
     return res.status(400).json({
       error: 'ValidationError',

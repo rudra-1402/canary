@@ -39,7 +39,7 @@ export async function listJobPosts(query) {
   const { page, pageSize } = query;
   const [docs, total] = await Promise.all([
     JobPost.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       .lean(),

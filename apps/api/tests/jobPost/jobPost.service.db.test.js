@@ -20,11 +20,11 @@ function makeJobPost(overrides = {}) {
   };
 }
 
-describe('listJobPosts', () => {
-  beforeAll(startMemoryDb, 60000);
-  afterAll(stopMemoryDb);
-  afterEach(clearCollections);
+beforeAll(startMemoryDb, 60000);
+afterAll(stopMemoryDb);
+afterEach(clearCollections);
 
+describe('listJobPosts', () => {
   it('returns only open jobs by default with a pagination envelope', async () => {
     await JobPost.create(makeJobPost({ title: 'Open A' }));
     await JobPost.create(makeJobPost({ title: 'Open B' }));
@@ -71,13 +71,34 @@ describe('listJobPosts', () => {
     const result = await listJobPosts({ status: 'open', page: 1, pageSize: 20 });
     expect(result.data.map((j) => j.title)).toEqual(['Mar', 'Feb', 'Jan']);
   });
+
+  it('paginates deterministically when createdAt ties (stable sort by _id)', async () => {
+    const a = await JobPost.create(makeJobPost({ title: 'T1' }));
+    const b = await JobPost.create(makeJobPost({ title: 'T2' }));
+    const c = await JobPost.create(makeJobPost({ title: 'T3' }));
+    const sameTime = new Date('2026-05-01T00:00:00.000Z');
+    for (const doc of [a, b, c]) {
+      await JobPost.updateOne(
+        { _id: doc._id },
+        { $set: { createdAt: sameTime } },
+        { overwriteImmutable: true },
+      );
+    }
+    const ids = [];
+    for (const page of [1, 2, 3]) {
+      const result = await listJobPosts({ status: 'open', page, pageSize: 1 });
+      expect(result.data).toHaveLength(1);
+      ids.push(result.data[0].id);
+    }
+    // With equal createdAt, the { _id: -1 } tiebreaker makes paging deterministic:
+    // pages must arrive in strict _id-descending order (no duplication, no skips).
+    // Without the tiebreaker this order is unspecified in real MongoDB.
+    const expectedIdDesc = [a._id.toString(), b._id.toString(), c._id.toString()].sort().reverse();
+    expect(ids).toEqual(expectedIdDesc);
+  });
 });
 
 describe('getJobPostById', () => {
-  beforeAll(startMemoryDb, 60000);
-  afterAll(stopMemoryDb);
-  afterEach(clearCollections);
-
   it('returns the contract shape for an existing job, without _id/__v', async () => {
     const created = await JobPost.create(makeJobPost({ title: 'Findable' }));
     const job = await getJobPostById(created._id.toString());
