@@ -1,5 +1,6 @@
 import JobPost from '../models/JobPost.js';
-import { JobPostListResponseSchema } from '@canary/shared';
+import { NotFoundError } from '../lib/errors.js';
+import { JobPostSchema, JobPostListResponseSchema } from '@canary/shared';
 
 // Business logic for JobPost reads. Controllers stay thin; this owns querying,
 // projection, and response validation. buildJobPostFilter operates on an
@@ -48,4 +49,10 @@ export async function listJobPosts(query) {
     data: docs.map(toJobPostContract),
     pagination: { page, pageSize, total },
   });
+}
+
+export async function getJobPostById(id) {
+  const doc = await JobPost.findById(id).lean();
+  if (!doc) throw new NotFoundError('JobPost', id);
+  return JobPostSchema.parse(toJobPostContract(doc));
 }

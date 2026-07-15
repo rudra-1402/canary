@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import JobPost from '../../src/models/JobPost.js';
-import { listJobPosts } from '../../src/jobPost/jobPost.service.js';
+import { listJobPosts, getJobPostById } from '../../src/jobPost/jobPost.service.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from '../helpers/memoryDb.js';
 
 function makeJobPost(overrides = {}) {
@@ -70,5 +70,25 @@ describe('listJobPosts', () => {
 
     const result = await listJobPosts({ status: 'open', page: 1, pageSize: 20 });
     expect(result.data.map((j) => j.title)).toEqual(['Mar', 'Feb', 'Jan']);
+  });
+});
+
+describe('getJobPostById', () => {
+  beforeAll(startMemoryDb, 60000);
+  afterAll(stopMemoryDb);
+  afterEach(clearCollections);
+
+  it('returns the contract shape for an existing job, without _id/__v', async () => {
+    const created = await JobPost.create(makeJobPost({ title: 'Findable' }));
+    const job = await getJobPostById(created._id.toString());
+    expect(job.id).toBe(created._id.toString());
+    expect(job.title).toBe('Findable');
+    expect(job).not.toHaveProperty('_id');
+    expect(job).not.toHaveProperty('__v');
+  });
+
+  it('throws NotFoundError for a well-formed but absent id', async () => {
+    const absentId = new mongoose.Types.ObjectId().toString();
+    await expect(getJobPostById(absentId)).rejects.toThrow(`JobPost ${absentId} not found`);
   });
 });
