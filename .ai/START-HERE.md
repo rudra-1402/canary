@@ -85,8 +85,10 @@ above cover everything you'll touch before Slice 1 exists).
 
 This answers "what questions should I ask, and when should I stop overthinking":
 
-- **Stay in your own slice.** Landing (Teammate 2), Help/About + demo data (Teammate 3), everything
-  else (Rudra). Need something in someone else's area? Ask — don't edit it directly.
+- **Stay in your own slice.** The written report (Teammate 2, no code), Slice 6 backend + demo
+  data + slides (Aryan), everything else including **all frontend** (Rudra). If you've been handed
+  a plan file, read `.ai/protocols/plan-execution.md` first — execute it, don't redesign it. Need
+  something outside your area? Ask — don't edit it directly.
 - **When in doubt about scope, it's probably "v2."** This is a 1-month project; "done and good
   enough" beats "ambitious and broken." If you're about to build something not on the golden path
   and not explicitly asked for, stop and ask first rather than build it speculatively.
@@ -117,6 +119,9 @@ This answers "what questions should I ask, and when should I stop overthinking":
   (Vitest + React Testing Library), for anyone who hasn't done red-green-refactor before.
 - **`.ai/protocols/working-agreement.md`** — the 6 rules that let 3 people build in parallel without
   breaking each other's work. Read before touching anything outside your own slice.
+- **`.ai/protocols/plan-execution.md`** — if you've been handed a plan file someone else designed
+  (this project's current model for Aryan's assigned work), read this before starting: how to
+  execute a plan task-by-task without redesigning it.
 - **`.ai/protocols/security.md`** — the security/consistency guardrails for this repo: branch
   protection, secret handling, dependency hygiene, what's automated vs. what's a human's job.
 - **`.ai/protocols/branching-and-review.md`** — the exact branch → commit → PR → merge flow and what
