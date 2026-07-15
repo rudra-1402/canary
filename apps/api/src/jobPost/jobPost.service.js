@@ -1,3 +1,6 @@
+import JobPost from '../models/JobPost.js';
+import { JobPostListResponseSchema } from '@canary/shared';
+
 // Business logic for JobPost reads. Controllers stay thin; this owns querying,
 // projection, and response validation. buildJobPostFilter operates on an
 // already-parsed query (status always present via the contract default).
@@ -28,4 +31,21 @@ export function toJobPostContract(doc) {
     status: doc.status,
     createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
   };
+}
+
+export async function listJobPosts(query) {
+  const filter = buildJobPostFilter(query);
+  const { page, pageSize } = query;
+  const [docs, total] = await Promise.all([
+    JobPost.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean(),
+    JobPost.countDocuments(filter),
+  ]);
+  return JobPostListResponseSchema.parse({
+    data: docs.map(toJobPostContract),
+    pagination: { page, pageSize, total },
+  });
 }
