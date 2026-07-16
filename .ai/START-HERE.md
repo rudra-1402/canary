@@ -48,7 +48,7 @@ above cover everything you'll touch before Slice 1 exists).
 - **Language: plain JavaScript, not TypeScript.** Deliberate — not in the team's syllabus, and
   contract discipline (below) delivers the anti-breakage guarantee TS would otherwise give.
 - **Contracts, not implementations.** Code depends on agreed _shapes_, never on how something works
-  internally. Example: all code calls `getCurrentUser(request) → { id, email }` — nobody touches
+  internally. Example: all code calls `getCurrentUser(request) → { identityId, email, activeProfile: { id, role } | null }` — nobody touches
   auth internals directly. Shared API shapes live in `packages/shared/contracts/` as Zod schemas,
   imported by both `apps/web` and `apps/api` — see `.ai/contracts/overview.md`.
 - **Structure:** `apps/{web,api,intelligence}` + `packages/{shared,config}`, npm workspaces (web/api

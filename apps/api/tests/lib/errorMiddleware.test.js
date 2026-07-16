@@ -31,6 +31,17 @@ describe('errorMiddleware', () => {
     expect(res.json.mock.calls[0][0]).toMatchObject({ error: 'NotFoundError' });
   });
 
+  it('maps a non-AppError carrying a 4xx statusCode (e.g. csrf http-error) to that status', () => {
+    const res = mockRes();
+    const httpErr = Object.assign(new Error('invalid csrf token'), {
+      statusCode: 403,
+      name: 'ForbiddenError',
+    });
+    errorMiddleware(httpErr, {}, res, () => {});
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json.mock.calls[0][0].error).toBe('ForbiddenError');
+  });
+
   it('maps an unknown error to 500 InternalServerError', () => {
     const res = mockRes();
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
