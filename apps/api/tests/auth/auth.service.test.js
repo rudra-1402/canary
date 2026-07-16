@@ -47,12 +47,17 @@ describe('findOrLinkGoogleIdentity', () => {
     expect(id.emailVerified).toBe(true);
   });
 
-  it('links google to an existing local identity with the same email', async () => {
+  it('links google to an existing UNVERIFIED local identity and drops its unproven password (pre-hijack defense)', async () => {
+    // Simulates an attacker pre-registering the victim's email locally (never verified),
+    // then the real owner signing in with Google. The unproven local password must not
+    // survive the link, or the attacker keeps access.
     await registerLocal('person@gmail.com', 'longenough1');
     const id = await findOrLinkGoogleIdentity(google);
     expect(id.authProviderId).toBe('google-sub-1');
     expect(id.emailVerified).toBe(true);
-    expect(id.passwordHash).toBeTruthy();
+    expect(id.passwordHash).toBeFalsy();
     expect(await Identity.countDocuments({ email: 'person@gmail.com' })).toBe(1);
+    // the pre-registration password no longer authenticates the account
+    expect(await verifyLocalCredentials('person@gmail.com', 'longenough1')).toBeNull();
   });
 });

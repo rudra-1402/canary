@@ -4,22 +4,22 @@ import MongoStore from 'connect-mongo';
 // Sessions stored server-side in Mongo (connect-mongo) on the existing mongoose
 // connection. Cookies are httpOnly + sameSite; secure in production.
 export function buildSessionMiddleware(mongooseConnection) {
+  const secret = process.env.SESSION_SECRET;
+  // Never sign prod session cookies with a public constant — that makes sessions forgeable.
+  if (process.env.NODE_ENV === 'production' && !secret) {
+    throw new Error('SESSION_SECRET must be set in production');
+  }
   return session({
-    secret: process.env.SESSION_SECRET || 'dev-only-insecure-secret',
+    secret: secret || 'dev-only-insecure-secret',
     resave: false,
     saveUninitialized: false,
-    // autoRemove: 'disabled' avoids connect-mongo's default behaviour of firing an
-    // unawaited collection.createIndex() call from the constructor (autoRemove:
-    // 'native'). That async call races connection teardown in short-lived contexts
-    // (e.g. this module's own smoke test) and throws an unhandled
-    // MongoExpiredSessionError once the connection closes first. Expired sessions are
-    // still correctly rejected on read: MongoStore#get() filters
-    // `expires: { $gt: now }` regardless of this setting, so disabling native TTL
-    // indexing only defers physical row cleanup in Mongo, not session-expiry
-    // correctness.
     store: MongoStore.create({
       client: mongooseConnection.getClient(),
-      autoRemove: 'disabled',
+      // 'interval' purges expired session rows in the long-lived server. In tests we use
+      // 'disabled' to avoid a lingering purge timer (open handle) and connect-mongo's
+      // native-TTL createIndex race on the short-lived test connection. Expiry itself is
+      // always enforced on read (MongoStore#get filters `expires: { $gt: now }`).
+      autoRemove: process.env.NODE_ENV === 'test' ? 'disabled' : 'interval',
     }),
     cookie: {
       httpOnly: true,

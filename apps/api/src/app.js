@@ -14,7 +14,11 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: process.env.CLIENT_URL || true, credentials: true }));
+  // Credentialed CORS must not reflect an arbitrary origin. In production require an
+  // explicit CLIENT_URL allowlist; only fall back to permissive in local dev.
+  const corsOrigin =
+    process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' ? false : true);
+  app.use(cors({ origin: corsOrigin, credentials: true }));
   app.use(express.json());
 
   app.use(buildSessionMiddleware(mongoose.connection));

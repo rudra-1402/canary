@@ -41,6 +41,7 @@ export function configurePassport() {
         async (accessToken, refreshToken, profile, done) => {
           try {
             const email = profile.emails?.[0]?.value;
+            if (!email) return done(null, false, { message: 'Google account has no email' });
             const identity = await findOrLinkGoogleIdentity({ sub: profile.id, email });
             return done(null, identity);
           } catch (err) {
