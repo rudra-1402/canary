@@ -13,3 +13,15 @@ export class NotFoundError extends AppError {
     super(`${resource} ${id} not found`, 404);
   }
 }
+
+export class UnauthorizedError extends AppError {
+  constructor(message = 'Not authenticated') {
+    super(message, 401);
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message = 'Not allowed') {
+    super(message, 403);
+  }
+}
