@@ -10,8 +10,8 @@ const projectLengthEnum = z.enum([
 ]);
 const statusEnum = z.enum(['draft', 'open', 'closed']);
 
-// GET /api/jobposts query params. Query values arrive as strings, so coerce
-// where typed. Defaults keep browse scoped to open work and paginated.
+// GET /api/jobposts query params. Values arrive as strings, so coerce where typed; defaults
+// scope browse to open work and paginate.
 export const JobPostListQuerySchema = z.object({
   category: z.string().optional(),
   jobType: jobTypeEnum.optional(),
@@ -26,9 +26,8 @@ export const JobPostIdParamSchema = z.object({
   id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character hex ObjectId'),
 });
 
-// Public projection of a JobPost. The service maps the Mongoose doc to this
-// shape; the raw doc (_id, __v) never leaks. createdAt is nullable because
-// raw pymongo-seeded rows can bypass Mongoose timestamps.
+// Public projection — the service maps the Mongoose doc to this; _id/__v never leak.
+// createdAt is nullable: raw pymongo-seeded rows can bypass Mongoose timestamps.
 export const JobPostSchema = z.object({
   id: z.string(),
   clientProfileId: z.string(),
