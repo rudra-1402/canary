@@ -7,9 +7,8 @@ export function requireAuth(req, res, next) {
   next();
 }
 
-// Gate: require the active profile to be a given role. Phase 1 has no Profiles yet,
-// so this always 403s until Phase 3 wires activeProfile — exported now so route
-// authors have the seam. Kept minimal (YAGNI) until Profiles exist.
+// Gate on the active profile's role. Phase 1 has no Profiles, so this always 403s until
+// Phase 3 wires activeProfile — exported now so route authors have the seam.
 export function requireRole(role) {
   return (req, res, next) => {
     const user = getCurrentUser(req);

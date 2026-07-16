@@ -15,10 +15,8 @@ export function buildSessionMiddleware(mongooseConnection) {
     saveUninitialized: false,
     store: MongoStore.create({
       client: mongooseConnection.getClient(),
-      // 'interval' purges expired session rows in the long-lived server. In tests we use
-      // 'disabled' to avoid a lingering purge timer (open handle) and connect-mongo's
-      // native-TTL createIndex race on the short-lived test connection. Expiry itself is
-      // always enforced on read (MongoStore#get filters `expires: { $gt: now }`).
+      // 'interval' purges expired rows in the long-lived server; 'disabled' in tests avoids a
+      // lingering purge timer and connect-mongo's TTL-index race on the short-lived connection.
       autoRemove: process.env.NODE_ENV === 'test' ? 'disabled' : 'interval',
     }),
     cookie: {

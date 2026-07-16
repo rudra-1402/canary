@@ -14,8 +14,7 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
-  // Credentialed CORS must not reflect an arbitrary origin. In production require an
-  // explicit CLIENT_URL allowlist; only fall back to permissive in local dev.
+  // Credentialed CORS: require an explicit CLIENT_URL in prod, permissive only in dev.
   const corsOrigin =
     process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' ? false : true);
   app.use(cors({ origin: corsOrigin, credentials: true }));
