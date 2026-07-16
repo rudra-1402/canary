@@ -19,6 +19,14 @@ export function errorMiddleware(err, req, res, next) {
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({ error: err.name, message: err.message });
   }
+  // Third-party middleware (e.g. csrf-sync) throws http-errors: a numeric statusCode
+  // but not an AppError. Surface client (4xx) errors with their status; anything else
+  // falls through to a generic 500 so internal details never leak.
+  if (typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 500) {
+    return res
+      .status(err.statusCode)
+      .json({ error: err.name || 'ClientError', message: err.message });
+  }
   console.error(err);
   return res.status(500).json({ error: 'InternalServerError' });
 }

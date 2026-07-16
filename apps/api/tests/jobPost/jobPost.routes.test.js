@@ -22,8 +22,11 @@ function makeJobPost(overrides = {}) {
 }
 
 describe('GET /api/jobposts', () => {
-  const app = createApp();
-  beforeAll(startMemoryDb, 60000);
+  let app;
+  beforeAll(async () => {
+    await startMemoryDb();
+    app = createApp();
+  }, 60000);
   afterAll(stopMemoryDb);
   afterEach(clearCollections);
 
