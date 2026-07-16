@@ -19,3 +19,18 @@ export async function verifyLocalCredentials(email, password) {
   const ok = await verifyPassword(password, identity.passwordHash);
   return ok ? identity : null;
 }
+
+// Resolve a Google profile to an Identity, keyed by email. New email -> create a
+// verified identity. Existing email -> link the Google sub and mark verified. Never
+// duplicates. `googleProfile` = { sub, email }.
+export async function findOrLinkGoogleIdentity({ sub, email }) {
+  const normalized = email.toLowerCase().trim();
+  const existing = await Identity.findOne({ email: normalized });
+  if (existing) {
+    existing.authProviderId = sub;
+    existing.emailVerified = true;
+    await existing.save();
+    return existing;
+  }
+  return Identity.create({ email: normalized, authProviderId: sub, emailVerified: true });
+}
