@@ -35,3 +35,9 @@ export async function findOrLinkGoogleIdentity({ sub, email }) {
   }
   return Identity.create({ email: normalized, authProviderId: sub, emailVerified: true });
 }
+
+// Mark an identity's email verified. Returns true if a row was updated.
+export async function markEmailVerified(identityId) {
+  const res = await Identity.updateOne({ _id: identityId }, { $set: { emailVerified: true } });
+  return res.modifiedCount === 1;
+}

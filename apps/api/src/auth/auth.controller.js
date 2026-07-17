@@ -1,9 +1,9 @@
 import passport from 'passport';
 import { RegisterRequestSchema, LoginRequestSchema } from '@canary/shared';
-import { registerLocal } from './auth.service.js';
+import { registerLocal, markEmailVerified } from './auth.service.js';
 import { getCurrentUser } from './getCurrentUser.js';
-import { UnauthorizedError } from '../lib/errors.js';
-import { issueToken } from '../lib/token.js';
+import { UnauthorizedError, BadRequestError } from '../lib/errors.js';
+import { issueToken, consumeToken } from '../lib/token.js';
 import { sendVerificationEmail } from '../lib/email.js';
 
 // eslint-disable-next-line no-unused-vars
@@ -41,4 +41,11 @@ export function me(req, res, next) {
   const user = getCurrentUser(req);
   if (!user) return next(new UnauthorizedError());
   res.json(user);
+}
+
+export async function verifyEmail(req, res, next) {
+  const identityId = await consumeToken(req.query.token, 'email-verification');
+  if (!identityId) return next(new BadRequestError('Invalid or expired token'));
+  await markEmailVerified(identityId);
+  res.redirect(`${process.env.CLIENT_URL || '/'}?verified=1`);
 }

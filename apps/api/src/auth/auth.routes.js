@@ -12,6 +12,7 @@ router.post('/register', authRateLimiter, csrfSynchronisedProtection, authContro
 router.post('/login', authRateLimiter, csrfSynchronisedProtection, authController.login);
 router.post('/logout', csrfSynchronisedProtection, authController.logout);
 router.get('/me', authController.me);
+router.get('/verify-email', authController.verifyEmail);
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get(

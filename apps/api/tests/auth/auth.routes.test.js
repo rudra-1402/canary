@@ -84,4 +84,17 @@ describe('auth routes', () => {
       .send({ email: 'v@user.com', password: 'longenough1' });
     expect(sendVerificationEmail).toHaveBeenCalledWith('v@user.com', expect.any(String));
   });
+
+  it('verify-email consumes the token and flips emailVerified', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'ver@user.com', password: 'longenough1' });
+    const raw = sendVerificationEmail.mock.calls.at(-1)[1]; // the emailed token
+    const res = await agent.get(`/api/auth/verify-email?token=${raw}`);
+    expect([200, 302]).toContain(res.status);
+    const me = await agent.get('/api/auth/me');
+    expect(me.body.emailVerified).toBe(true);
+  });
 });
