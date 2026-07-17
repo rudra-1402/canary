@@ -13,6 +13,12 @@ router.post('/login', authRateLimiter, csrfSynchronisedProtection, authControlle
 router.post('/logout', csrfSynchronisedProtection, authController.logout);
 router.get('/me', authController.me);
 router.get('/verify-email', authController.verifyEmail);
+router.post(
+  '/resend-verification',
+  authRateLimiter,
+  csrfSynchronisedProtection,
+  authController.resendVerification,
+);
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get(

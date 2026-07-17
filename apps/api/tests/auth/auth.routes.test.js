@@ -97,4 +97,25 @@ describe('auth routes', () => {
     const me = await agent.get('/api/auth/me');
     expect(me.body.emailVerified).toBe(true);
   });
+
+  it('resend-verification returns generic 200 for both known and unknown emails', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 're@user.com', password: 'longenough1' });
+    sendVerificationEmail.mockClear();
+    const known = await agent
+      .post('/api/auth/resend-verification')
+      .set('x-csrf-token', token)
+      .send({ email: 're@user.com' });
+    expect(known.status).toBe(200);
+    expect(sendVerificationEmail).toHaveBeenCalledTimes(1);
+    const unknown = await agent
+      .post('/api/auth/resend-verification')
+      .set('x-csrf-token', token)
+      .send({ email: 'nobody@user.com' });
+    expect(unknown.status).toBe(200);
+    expect(sendVerificationEmail).toHaveBeenCalledTimes(1); // still 1 — no send for unknown
+  });
 });
