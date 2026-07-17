@@ -27,7 +27,11 @@ describe('auth routes', () => {
     expect(reg.status).toBe(201);
     const me = await agent.get('/api/auth/me');
     expect(me.status).toBe(200);
-    expect(me.body).toMatchObject({ email: 'new@user.com', activeProfile: null });
+    expect(me.body).toMatchObject({
+      email: 'new@user.com',
+      emailVerified: false,
+      activeProfile: null,
+    });
   });
 
   it('rejects a mutation with no CSRF token', async () => {
