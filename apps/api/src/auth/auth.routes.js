@@ -19,6 +19,12 @@ router.post(
   csrfSynchronisedProtection,
   authController.resendVerification,
 );
+router.post(
+  '/forgot-password',
+  authRateLimiter,
+  csrfSynchronisedProtection,
+  authController.forgotPassword,
+);
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get(

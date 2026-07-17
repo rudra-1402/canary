@@ -3,12 +3,13 @@ import {
   RegisterRequestSchema,
   LoginRequestSchema,
   ResendVerificationRequestSchema,
+  ForgotPasswordRequestSchema,
 } from '@canary/shared';
 import { registerLocal, markEmailVerified } from './auth.service.js';
 import { getCurrentUser } from './getCurrentUser.js';
 import { UnauthorizedError, BadRequestError } from '../lib/errors.js';
 import { issueToken, consumeToken } from '../lib/token.js';
-import { sendVerificationEmail } from '../lib/email.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/email.js';
 import Identity from '../models/Identity.js';
 
 // eslint-disable-next-line no-unused-vars
@@ -65,6 +66,16 @@ export async function resendVerification(req, res) {
   if (identity && !identity.emailVerified) {
     const raw = await issueToken(identity._id, 'email-verification');
     await sendVerificationEmail(identity.email, raw);
+  }
+  res.json({ ok: true }); // generic — no enumeration
+}
+
+export async function forgotPassword(req, res) {
+  const { email } = ForgotPasswordRequestSchema.parse(req.body);
+  const identity = await Identity.findOne({ email: email.toLowerCase().trim() });
+  if (identity && identity.passwordHash) {
+    const raw = await issueToken(identity._id, 'password-reset');
+    await sendPasswordResetEmail(identity.email, raw);
   }
   res.json({ ok: true }); // generic — no enumeration
 }

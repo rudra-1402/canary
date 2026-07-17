@@ -7,7 +7,6 @@ vi.mock('../../src/lib/email.js', () => ({
   sendVerificationEmail: vi.fn().mockResolvedValue(undefined),
   sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
 }));
-// eslint-disable-next-line no-unused-vars
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../src/lib/email.js';
 
 let app;
@@ -117,5 +116,26 @@ describe('auth routes', () => {
       .send({ email: 'nobody@user.com' });
     expect(unknown.status).toBe(200);
     expect(sendVerificationEmail).toHaveBeenCalledTimes(1); // still 1 — no send for unknown
+  });
+
+  it('forgot-password sends a reset email only for a known local account, always 200', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'fp@user.com', password: 'longenough1' });
+    const known = await agent
+      .post('/api/auth/forgot-password')
+      .set('x-csrf-token', token)
+      .send({ email: 'fp@user.com' });
+    expect(known.status).toBe(200);
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith('fp@user.com', expect.any(String));
+    sendPasswordResetEmail.mockClear();
+    const unknown = await agent
+      .post('/api/auth/forgot-password')
+      .set('x-csrf-token', token)
+      .send({ email: 'ghost@user.com' });
+    expect(unknown.status).toBe(200);
+    expect(sendPasswordResetEmail).not.toHaveBeenCalled();
   });
 });
