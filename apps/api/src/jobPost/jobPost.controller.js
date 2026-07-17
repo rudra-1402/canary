@@ -1,9 +1,8 @@
 import { JobPostListQuerySchema, JobPostIdParamSchema } from '@canary/shared';
 import * as jobPostService from './jobPost.service.js';
 
-// Thin HTTP adapters. Parse the request against the contract, delegate to the
-// service, send the result. No try/catch — Zod throws and service errors are
-// forwarded to the error middleware by Express 5's native async handling.
+// Thin HTTP adapters: parse the request against the contract, call the service, respond.
+// No try/catch — Express 5 forwards Zod/service errors to the error middleware.
 export async function list(req, res) {
   const query = JobPostListQuerySchema.parse(req.query);
   const result = await jobPostService.listJobPosts(query);

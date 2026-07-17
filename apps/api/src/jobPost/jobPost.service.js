@@ -2,9 +2,7 @@ import JobPost from '../models/JobPost.js';
 import { NotFoundError } from '../lib/errors.js';
 import { JobPostSchema, JobPostListResponseSchema } from '@canary/shared';
 
-// Business logic for JobPost reads. Controllers stay thin; this owns querying,
-// projection, and response validation. buildJobPostFilter operates on an
-// already-parsed query (status always present via the contract default).
+// Build the Mongo filter from an already-parsed query (status always present via the default).
 export function buildJobPostFilter(query) {
   const filter = { status: query.status };
   if (query.category) filter.category = query.category;
@@ -13,8 +11,8 @@ export function buildJobPostFilter(query) {
   return filter;
 }
 
-// Maps a lean Mongoose JobPost doc to the public contract shape. _id/__v never
-// leak; createdAt becomes an ISO string, or null when absent (seeded-data guard).
+// Map a lean Mongoose doc to the public shape; _id/__v never leak. createdAt is null when
+// absent (seeded-data guard).
 export function toJobPostContract(doc) {
   return {
     id: doc._id.toString(),
