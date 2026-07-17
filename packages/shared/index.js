@@ -12,3 +12,4 @@ export {
   ResendVerificationRequestSchema,
   ResetPasswordRequestSchema,
 } from './contracts/auth.js';
+export { CreateProfileRequestSchema, SwitchProfileRequestSchema } from './contracts/auth.js';
