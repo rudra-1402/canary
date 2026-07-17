@@ -20,12 +20,12 @@ export async function issueToken(identityId, type) {
   return raw;
 }
 
-// Redeem a raw token of a type. Returns identityId if valid (unused, unexpired) and marks it
-// used; null otherwise.
+// Redeem a raw token of a type. Atomically claims an unused, unexpired token (marks it used) so
+// concurrent redemptions can't both succeed. Returns identityId, or null.
 export async function consumeToken(raw, type) {
-  const doc = await VerificationToken.findOne({ tokenHash: hashToken(raw), type });
-  if (!doc || doc.usedAt || doc.expiresAt < new Date()) return null;
-  doc.usedAt = new Date();
-  await doc.save();
-  return doc.identityId;
+  const doc = await VerificationToken.findOneAndUpdate(
+    { tokenHash: hashToken(raw), type, usedAt: null, expiresAt: { $gt: new Date() } },
+    { $set: { usedAt: new Date() } },
+  );
+  return doc ? doc.identityId : null;
 }

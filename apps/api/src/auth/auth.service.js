@@ -53,10 +53,12 @@ export async function setPasswordForIdentity(identityId, newPassword) {
 // connect-mongo keeps the passport user id at session.passport.user.
 export async function clearIdentitySessions(identityId) {
   try {
+    // connect-mongo serializes the session to a JSON string, so match the serialized
+    // passport user rather than a nested path (which never matches a string field).
     await mongoose.connection
       .collection('sessions')
-      .deleteMany({ 'session.passport.user': String(identityId) });
+      .deleteMany({ session: { $regex: `"user":"${String(identityId)}"` } });
   } catch {
-    // sessions collection may not exist in some contexts — non-fatal
+    // non-fatal defense-in-depth
   }
 }

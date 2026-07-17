@@ -8,6 +8,8 @@ vi.mock('../../src/lib/email.js', () => ({
   sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
 }));
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../src/lib/email.js';
+import mongoose from 'mongoose';
+import { clearIdentitySessions } from '../../src/auth/auth.service.js';
 
 let app;
 beforeAll(async () => {
@@ -179,5 +181,17 @@ describe('auth routes', () => {
       .set('x-csrf-token', token)
       .send({ email: 'nomail@user.com', password: 'longenough1' });
     expect(res.status).toBe(201);
+  });
+
+  it('clearIdentitySessions deletes the identity stored sessions (reset defense-in-depth)', async () => {
+    const id = new mongoose.Types.ObjectId();
+    const sessions = mongoose.connection.collection('sessions');
+    await sessions.insertOne({
+      _id: 'sid-clear-test',
+      session: JSON.stringify({ cookie: {}, passport: { user: String(id) } }),
+      expires: new Date(Date.now() + 100000),
+    });
+    await clearIdentitySessions(id);
+    expect(await sessions.countDocuments({ _id: 'sid-clear-test' })).toBe(0);
   });
 });
