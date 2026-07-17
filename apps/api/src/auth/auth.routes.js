@@ -25,6 +25,12 @@ router.post(
   csrfSynchronisedProtection,
   authController.forgotPassword,
 );
+router.post(
+  '/reset-password',
+  authRateLimiter,
+  csrfSynchronisedProtection,
+  authController.resetPassword,
+);
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get(

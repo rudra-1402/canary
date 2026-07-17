@@ -4,8 +4,14 @@ import {
   LoginRequestSchema,
   ResendVerificationRequestSchema,
   ForgotPasswordRequestSchema,
+  ResetPasswordRequestSchema,
 } from '@canary/shared';
-import { registerLocal, markEmailVerified } from './auth.service.js';
+import {
+  registerLocal,
+  markEmailVerified,
+  setPasswordForIdentity,
+  clearIdentitySessions,
+} from './auth.service.js';
 import { getCurrentUser } from './getCurrentUser.js';
 import { UnauthorizedError, BadRequestError } from '../lib/errors.js';
 import { issueToken, consumeToken } from '../lib/token.js';
@@ -78,4 +84,13 @@ export async function forgotPassword(req, res) {
     await sendPasswordResetEmail(identity.email, raw);
   }
   res.json({ ok: true }); // generic — no enumeration
+}
+
+export async function resetPassword(req, res, next) {
+  const { token, password } = ResetPasswordRequestSchema.parse(req.body);
+  const identityId = await consumeToken(token, 'password-reset');
+  if (!identityId) return next(new BadRequestError('Invalid or expired token'));
+  await setPasswordForIdentity(identityId, password);
+  await clearIdentitySessions(identityId);
+  res.json({ ok: true });
 }

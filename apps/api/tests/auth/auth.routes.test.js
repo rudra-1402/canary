@@ -138,4 +138,36 @@ describe('auth routes', () => {
     expect(unknown.status).toBe(200);
     expect(sendPasswordResetEmail).not.toHaveBeenCalled();
   });
+
+  it('reset-password sets a new password the user can log in with, old one fails', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'rp@user.com', password: 'oldpassword1' });
+    await agent
+      .post('/api/auth/forgot-password')
+      .set('x-csrf-token', token)
+      .send({ email: 'rp@user.com' });
+    const raw = sendPasswordResetEmail.mock.calls.at(-1)[1];
+    const reset = await agent
+      .post('/api/auth/reset-password')
+      .set('x-csrf-token', token)
+      .send({ token: raw, password: 'brandnew123' });
+    expect(reset.status).toBe(200);
+    // fresh session: old password rejected, new accepted
+    const a2 = request.agent(app);
+    const t2 = (await a2.get('/api/auth/csrf-token')).body.csrfToken;
+    const bad = await a2
+      .post('/api/auth/login')
+      .set('x-csrf-token', t2)
+      .send({ email: 'rp@user.com', password: 'oldpassword1' });
+    expect(bad.status).toBe(401);
+    const t3 = (await a2.get('/api/auth/csrf-token')).body.csrfToken;
+    const good = await a2
+      .post('/api/auth/login')
+      .set('x-csrf-token', t3)
+      .send({ email: 'rp@user.com', password: 'brandnew123' });
+    expect(good.status).toBe(200);
+  });
 });
