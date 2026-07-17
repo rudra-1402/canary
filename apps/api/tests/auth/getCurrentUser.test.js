@@ -5,20 +5,27 @@ describe('getCurrentUser', () => {
   it('returns null when unauthenticated', () => {
     expect(getCurrentUser({ user: undefined })).toBeNull();
   });
-  it('maps req.user including emailVerified (activeProfile null in phase 1)', () => {
+  it('maps req.user including emailVerified and the attached active profile', () => {
     const req = {
       user: {
         _id: { toString: () => 'a'.repeat(24) },
         email: 'a@b.com',
         emailVerified: true,
-        activeProfileId: null,
+        _activeProfile: { _id: { toString: () => 'b'.repeat(24) }, role: 'freelancer' },
       },
     };
     expect(getCurrentUser(req)).toEqual({
       identityId: 'a'.repeat(24),
       email: 'a@b.com',
       emailVerified: true,
-      activeProfile: null,
+      activeProfile: { id: 'b'.repeat(24), role: 'freelancer' },
     });
+  });
+
+  it('activeProfile is null when none is attached', () => {
+    const req = {
+      user: { _id: { toString: () => 'a'.repeat(24) }, email: 'a@b.com', emailVerified: false },
+    };
+    expect(getCurrentUser(req).activeProfile).toBeNull();
   });
 });
