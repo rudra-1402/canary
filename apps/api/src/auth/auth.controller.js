@@ -18,6 +18,16 @@ import { issueToken, consumeToken } from '../lib/token.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/email.js';
 import Identity from '../models/Identity.js';
 
+// Email delivery must not fail or leak from user-facing flows (register still succeeds if mail is
+// down; forgot/resend stay generic 200). Best-effort: log and continue.
+async function bestEffortSend(promise) {
+  try {
+    await promise;
+  } catch (err) {
+    console.error('email send failed:', err.message);
+  }
+}
+
 // eslint-disable-next-line no-unused-vars
 export async function register(req, res, next) {
   const { email, password } = RegisterRequestSchema.parse(req.body);
@@ -26,7 +36,7 @@ export async function register(req, res, next) {
   // registerLocal returned null and we simply do not create a session.
   if (identity) {
     const raw = await issueToken(identity._id, 'email-verification');
-    await sendVerificationEmail(identity.email, raw);
+    await bestEffortSend(sendVerificationEmail(identity.email, raw));
     // keepSessionInfo: passport regenerates the session on login (anti session-fixation);
     // without this the CSRF token issued before register/login is silently invalidated.
     await new Promise((resolve, reject) =>
@@ -71,7 +81,7 @@ export async function resendVerification(req, res) {
   const identity = await Identity.findOne({ email: email.toLowerCase().trim() });
   if (identity && !identity.emailVerified) {
     const raw = await issueToken(identity._id, 'email-verification');
-    await sendVerificationEmail(identity.email, raw);
+    await bestEffortSend(sendVerificationEmail(identity.email, raw));
   }
   res.json({ ok: true }); // generic — no enumeration
 }
@@ -81,7 +91,7 @@ export async function forgotPassword(req, res) {
   const identity = await Identity.findOne({ email: email.toLowerCase().trim() });
   if (identity && identity.passwordHash) {
     const raw = await issueToken(identity._id, 'password-reset');
-    await sendPasswordResetEmail(identity.email, raw);
+    await bestEffortSend(sendPasswordResetEmail(identity.email, raw));
   }
   res.json({ ok: true }); // generic — no enumeration
 }

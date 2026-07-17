@@ -170,4 +170,14 @@ describe('auth routes', () => {
       .send({ email: 'rp@user.com', password: 'brandnew123' });
     expect(good.status).toBe(200);
   });
+
+  it('register still succeeds (201) when the verification email fails to send', async () => {
+    const { agent, token } = await agentWithCsrf();
+    sendVerificationEmail.mockRejectedValueOnce(new Error('smtp down'));
+    const res = await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'nomail@user.com', password: 'longenough1' });
+    expect(res.status).toBe(201);
+  });
 });
