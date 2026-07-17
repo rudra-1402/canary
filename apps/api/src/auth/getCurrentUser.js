@@ -6,6 +6,7 @@ export function getCurrentUser(req) {
   return {
     identityId: identity._id.toString(),
     email: identity.email,
+    emailVerified: Boolean(identity.emailVerified),
     activeProfile: null,
   };
 }

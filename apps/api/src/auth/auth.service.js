@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Identity from '../models/Identity.js';
 import { hashPassword, verifyPassword, DUMMY_HASH } from '../lib/password.js';
 
@@ -34,4 +35,30 @@ export async function findOrLinkGoogleIdentity({ sub, email }) {
     return existing;
   }
   return Identity.create({ email: normalized, authProviderId: sub, emailVerified: true });
+}
+
+// Mark an identity's email verified. Returns true if a row was updated.
+export async function markEmailVerified(identityId) {
+  const res = await Identity.updateOne({ _id: identityId }, { $set: { emailVerified: true } });
+  return res.modifiedCount === 1;
+}
+
+// Set a new bcrypt password for an identity.
+export async function setPasswordForIdentity(identityId, newPassword) {
+  const passwordHash = await hashPassword(newPassword);
+  await Identity.updateOne({ _id: identityId }, { $set: { passwordHash } });
+}
+
+// Best-effort: drop this identity's stored sessions (defense-in-depth after a reset).
+// connect-mongo keeps the passport user id at session.passport.user.
+export async function clearIdentitySessions(identityId) {
+  try {
+    // connect-mongo serializes the session to a JSON string, so match the serialized
+    // passport user rather than a nested path (which never matches a string field).
+    await mongoose.connection
+      .collection('sessions')
+      .deleteMany({ session: { $regex: `"user":"${String(identityId)}"` } });
+  } catch {
+    // non-fatal defense-in-depth
+  }
 }

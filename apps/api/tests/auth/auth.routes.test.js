@@ -1,7 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from '../helpers/memoryDb.js';
+
+vi.mock('../../src/lib/email.js', () => ({
+  sendVerificationEmail: vi.fn().mockResolvedValue(undefined),
+  sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
+}));
+import { sendVerificationEmail, sendPasswordResetEmail } from '../../src/lib/email.js';
+import mongoose from 'mongoose';
+import { clearIdentitySessions } from '../../src/auth/auth.service.js';
 
 let app;
 beforeAll(async () => {
@@ -27,7 +35,11 @@ describe('auth routes', () => {
     expect(reg.status).toBe(201);
     const me = await agent.get('/api/auth/me');
     expect(me.status).toBe(200);
-    expect(me.body).toMatchObject({ email: 'new@user.com', activeProfile: null });
+    expect(me.body).toMatchObject({
+      email: 'new@user.com',
+      emailVerified: false,
+      activeProfile: null,
+    });
   });
 
   it('rejects a mutation with no CSRF token', async () => {
@@ -63,5 +75,123 @@ describe('auth routes', () => {
   it('me is 401 when unauthenticated', async () => {
     const res = await request(app).get('/api/auth/me');
     expect(res.status).toBe(401);
+  });
+
+  it('register sends a verification email to the new address', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'v@user.com', password: 'longenough1' });
+    expect(sendVerificationEmail).toHaveBeenCalledWith('v@user.com', expect.any(String));
+  });
+
+  it('verify-email consumes the token and flips emailVerified', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'ver@user.com', password: 'longenough1' });
+    const raw = sendVerificationEmail.mock.calls.at(-1)[1]; // the emailed token
+    const res = await agent.get(`/api/auth/verify-email?token=${raw}`);
+    expect([200, 302]).toContain(res.status);
+    const me = await agent.get('/api/auth/me');
+    expect(me.body.emailVerified).toBe(true);
+  });
+
+  it('resend-verification returns generic 200 for both known and unknown emails', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 're@user.com', password: 'longenough1' });
+    sendVerificationEmail.mockClear();
+    const known = await agent
+      .post('/api/auth/resend-verification')
+      .set('x-csrf-token', token)
+      .send({ email: 're@user.com' });
+    expect(known.status).toBe(200);
+    expect(sendVerificationEmail).toHaveBeenCalledTimes(1);
+    const unknown = await agent
+      .post('/api/auth/resend-verification')
+      .set('x-csrf-token', token)
+      .send({ email: 'nobody@user.com' });
+    expect(unknown.status).toBe(200);
+    expect(sendVerificationEmail).toHaveBeenCalledTimes(1); // still 1 — no send for unknown
+  });
+
+  it('forgot-password sends a reset email only for a known local account, always 200', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'fp@user.com', password: 'longenough1' });
+    const known = await agent
+      .post('/api/auth/forgot-password')
+      .set('x-csrf-token', token)
+      .send({ email: 'fp@user.com' });
+    expect(known.status).toBe(200);
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith('fp@user.com', expect.any(String));
+    sendPasswordResetEmail.mockClear();
+    const unknown = await agent
+      .post('/api/auth/forgot-password')
+      .set('x-csrf-token', token)
+      .send({ email: 'ghost@user.com' });
+    expect(unknown.status).toBe(200);
+    expect(sendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+
+  it('reset-password sets a new password the user can log in with, old one fails', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'rp@user.com', password: 'oldpassword1' });
+    await agent
+      .post('/api/auth/forgot-password')
+      .set('x-csrf-token', token)
+      .send({ email: 'rp@user.com' });
+    const raw = sendPasswordResetEmail.mock.calls.at(-1)[1];
+    const reset = await agent
+      .post('/api/auth/reset-password')
+      .set('x-csrf-token', token)
+      .send({ token: raw, password: 'brandnew123' });
+    expect(reset.status).toBe(200);
+    // fresh session: old password rejected, new accepted
+    const a2 = request.agent(app);
+    const t2 = (await a2.get('/api/auth/csrf-token')).body.csrfToken;
+    const bad = await a2
+      .post('/api/auth/login')
+      .set('x-csrf-token', t2)
+      .send({ email: 'rp@user.com', password: 'oldpassword1' });
+    expect(bad.status).toBe(401);
+    const t3 = (await a2.get('/api/auth/csrf-token')).body.csrfToken;
+    const good = await a2
+      .post('/api/auth/login')
+      .set('x-csrf-token', t3)
+      .send({ email: 'rp@user.com', password: 'brandnew123' });
+    expect(good.status).toBe(200);
+  });
+
+  it('register still succeeds (201) when the verification email fails to send', async () => {
+    const { agent, token } = await agentWithCsrf();
+    sendVerificationEmail.mockRejectedValueOnce(new Error('smtp down'));
+    const res = await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'nomail@user.com', password: 'longenough1' });
+    expect(res.status).toBe(201);
+  });
+
+  it('clearIdentitySessions deletes the identity stored sessions (reset defense-in-depth)', async () => {
+    const id = new mongoose.Types.ObjectId();
+    const sessions = mongoose.connection.collection('sessions');
+    await sessions.insertOne({
+      _id: 'sid-clear-test',
+      session: JSON.stringify({ cookie: {}, passport: { user: String(id) } }),
+      expires: new Date(Date.now() + 100000),
+    });
+    await clearIdentitySessions(id);
+    expect(await sessions.countDocuments({ _id: 'sid-clear-test' })).toBe(0);
   });
 });

@@ -7,3 +7,8 @@ export {
   JobPostListResponseSchema,
 } from './contracts/jobPost.js';
 export { RegisterRequestSchema, LoginRequestSchema, MeResponseSchema } from './contracts/auth.js';
+export {
+  ForgotPasswordRequestSchema,
+  ResendVerificationRequestSchema,
+  ResetPasswordRequestSchema,
+} from './contracts/auth.js';

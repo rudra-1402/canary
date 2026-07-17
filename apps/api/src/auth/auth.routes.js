@@ -12,6 +12,25 @@ router.post('/register', authRateLimiter, csrfSynchronisedProtection, authContro
 router.post('/login', authRateLimiter, csrfSynchronisedProtection, authController.login);
 router.post('/logout', csrfSynchronisedProtection, authController.logout);
 router.get('/me', authController.me);
+router.get('/verify-email', authController.verifyEmail);
+router.post(
+  '/resend-verification',
+  authRateLimiter,
+  csrfSynchronisedProtection,
+  authController.resendVerification,
+);
+router.post(
+  '/forgot-password',
+  authRateLimiter,
+  csrfSynchronisedProtection,
+  authController.forgotPassword,
+);
+router.post(
+  '/reset-password',
+  authRateLimiter,
+  csrfSynchronisedProtection,
+  authController.resetPassword,
+);
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get(

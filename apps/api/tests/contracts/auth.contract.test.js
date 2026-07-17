@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { RegisterRequestSchema, LoginRequestSchema, MeResponseSchema } from '@canary/shared';
+import {
+  RegisterRequestSchema,
+  LoginRequestSchema,
+  ForgotPasswordRequestSchema,
+  ResetPasswordRequestSchema,
+  ResendVerificationRequestSchema,
+  MeResponseSchema,
+} from '@canary/shared';
 
 describe('auth contracts', () => {
   it('register requires a valid email and an 8+ char password', () => {
@@ -14,7 +21,35 @@ describe('auth contracts', () => {
   });
   it('me response allows a null active profile', () => {
     expect(
-      MeResponseSchema.parse({ identityId: 'a'.repeat(24), email: 'a@b.com', activeProfile: null }),
+      MeResponseSchema.parse({
+        identityId: 'a'.repeat(24),
+        email: 'a@b.com',
+        emailVerified: true,
+        activeProfile: null,
+      }),
     ).toBeDefined();
+  });
+});
+
+describe('phase 2 auth contracts', () => {
+  it('forgot/resend require a valid email', () => {
+    expect(() => ForgotPasswordRequestSchema.parse({ email: 'a@b.com' })).not.toThrow();
+    expect(() => ResendVerificationRequestSchema.parse({ email: 'bad' })).toThrow();
+  });
+  it('reset requires a token and an 8+ char password', () => {
+    expect(() =>
+      ResetPasswordRequestSchema.parse({ token: 't', password: 'longenough1' }),
+    ).not.toThrow();
+    expect(() => ResetPasswordRequestSchema.parse({ token: 't', password: 'short' })).toThrow();
+  });
+  it('me response now includes emailVerified', () => {
+    expect(() =>
+      MeResponseSchema.parse({
+        identityId: 'a'.repeat(24),
+        email: 'a@b.com',
+        emailVerified: false,
+        activeProfile: null,
+      }),
+    ).not.toThrow();
   });
 });
