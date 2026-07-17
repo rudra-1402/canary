@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import Identity from '../../src/models/Identity.js';
-import { createProfileForIdentity } from '../../src/auth/profile.service.js';
+import {
+  createProfileForIdentity,
+  switchActiveProfile,
+  listIdentityProfiles,
+} from '../../src/auth/profile.service.js';
+import { ForbiddenError } from '../../src/lib/errors.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from '../helpers/memoryDb.js';
 
 beforeAll(startMemoryDb, 60000);
@@ -42,5 +47,33 @@ describe('createProfileForIdentity', () => {
     await expect(
       createProfileForIdentity(id._id, { role: 'freelancer', displayName: 'Jo2' }),
     ).rejects.toThrow();
+  });
+});
+
+describe('switchActiveProfile', () => {
+  it('switches to a profile the identity owns', async () => {
+    const id = await newIdentity();
+    await createProfileForIdentity(id._id, { role: 'freelancer', displayName: 'Jo' });
+    const c = await createProfileForIdentity(id._id, { role: 'client', displayName: 'Jo Inc' });
+    await switchActiveProfile(id._id, c._id);
+    expect(String((await Identity.findById(id._id)).activeProfileId)).toBe(String(c._id));
+  });
+  it('rejects switching to a profile owned by another identity', async () => {
+    const a = await newIdentity();
+    const b = await newIdentity();
+    const bProfile = await createProfileForIdentity(b._id, {
+      role: 'freelancer',
+      displayName: 'B',
+    });
+    await expect(switchActiveProfile(a._id, bProfile._id)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe('listIdentityProfiles', () => {
+  it('returns all profiles for the identity', async () => {
+    const id = await newIdentity();
+    await createProfileForIdentity(id._id, { role: 'freelancer', displayName: 'Jo' });
+    await createProfileForIdentity(id._id, { role: 'client', displayName: 'Jo Inc' });
+    expect(await listIdentityProfiles(id._id)).toHaveLength(2);
   });
 });
