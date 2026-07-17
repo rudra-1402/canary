@@ -19,3 +19,4 @@ export { default as Payment } from './Payment.js';
 export { default as Notification } from './Notification.js';
 export { default as SavedItem } from './SavedItem.js';
 export { default as SavedSearch } from './SavedSearch.js';
+export { default as VerificationToken } from './VerificationToken.js';
