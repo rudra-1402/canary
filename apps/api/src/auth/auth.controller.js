@@ -3,6 +3,8 @@ import { RegisterRequestSchema, LoginRequestSchema } from '@canary/shared';
 import { registerLocal } from './auth.service.js';
 import { getCurrentUser } from './getCurrentUser.js';
 import { UnauthorizedError } from '../lib/errors.js';
+import { issueToken } from '../lib/token.js';
+import { sendVerificationEmail } from '../lib/email.js';
 
 // eslint-disable-next-line no-unused-vars
 export async function register(req, res, next) {
@@ -11,6 +13,8 @@ export async function register(req, res, next) {
   // Anti-enumeration: same 201 whether or not the email already existed. If it did,
   // registerLocal returned null and we simply do not create a session.
   if (identity) {
+    const raw = await issueToken(identity._id, 'email-verification');
+    await sendVerificationEmail(identity.email, raw);
     await new Promise((resolve, reject) => req.login(identity, (e) => (e ? reject(e) : resolve())));
   }
   res.status(201).json({ ok: true });

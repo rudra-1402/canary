@@ -1,7 +1,14 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from '../helpers/memoryDb.js';
+
+vi.mock('../../src/lib/email.js', () => ({
+  sendVerificationEmail: vi.fn().mockResolvedValue(undefined),
+  sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
+}));
+// eslint-disable-next-line no-unused-vars
+import { sendVerificationEmail, sendPasswordResetEmail } from '../../src/lib/email.js';
 
 let app;
 beforeAll(async () => {
@@ -67,5 +74,14 @@ describe('auth routes', () => {
   it('me is 401 when unauthenticated', async () => {
     const res = await request(app).get('/api/auth/me');
     expect(res.status).toBe(401);
+  });
+
+  it('register sends a verification email to the new address', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'v@user.com', password: 'longenough1' });
+    expect(sendVerificationEmail).toHaveBeenCalledWith('v@user.com', expect.any(String));
   });
 });
