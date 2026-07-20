@@ -67,6 +67,13 @@ jobs:
   secrets:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
+    permissions:
+      # Repo default is read-only; gitleaks-action calls the PR-comment API to post
+      # findings, which needs write (confirmed root cause of "Resource not accessible
+      # by integration" — a permission-scope error, not a missing-token error).
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
       - uses: actions/checkout@v4
         with:
