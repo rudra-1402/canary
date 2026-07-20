@@ -29,9 +29,10 @@ check to pass.
 
 ## CODEOWNERS
 
-Feature folders map to their owner (`apps/web/src/features/landing/**` → Teammate 2,
-`apps/web/src/features/{help,about}/**` → Teammate 3, everything else → Rudra) so GitHub
-automatically suggests the right reviewer on a PR touching those paths.
+Feature folders map to their owner: Aryan's Slice 6 backend files (once that plan exists — path
+TBD, see the plan when it's written) → Aryan, everything else including all of `apps/web` → Rudra.
+Teammate 2 owns no folder (report lives outside the codebase). GitHub automatically suggests the
+right reviewer on a PR touching those paths.
 
 ## If CI is red
 

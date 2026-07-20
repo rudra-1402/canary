@@ -8,13 +8,13 @@ main  ────●────────●─────────●�
            \        \                 ↑
  rudra/core ●──●──●   \   (PR merged)  │
                        \               │
- teammate2/landing      ●──●──●────────┘   (branch → commit → push → PR → merge)
+ aryan/slice-6          ●──●──●────────┘   (branch → commit → push → PR → merge)
 ```
 
 ## 1. Clone (once, per laptop)
 
 ```bash
-git clone https://github.com/<org-or-user>/canary.git
+git clone https://github.com/rudra-1402/canary.git
 cd canary
 ```
 
@@ -22,7 +22,7 @@ cd canary
 
 ```bash
 git checkout main && git pull
-git checkout -b yourname/what-it-is   # e.g. teammate2/landing-hero
+git checkout -b yourname/what-it-is   # e.g. aryan/csv-import
 ```
 
 ## 3. Status & add
