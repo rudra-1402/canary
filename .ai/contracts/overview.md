@@ -31,6 +31,13 @@ point. Read those three files together to see the full pattern before writing yo
    you're building, then implement against the schema.
 4. If both a request _and_ response shape exist, that's two schemas, not one — don't conflate them.
 
+## The auth seam
+
+`getCurrentUser(request)` returns `{ identityId, email, activeProfile: { id, role } | null }` — the
+single door to the current identity and its active role-scoped Profile. Downstream code depends on
+this shape, never on Passport/session internals, so swapping the auth provider or session strategy
+touches only the seam (F3, ADR-0014).
+
 ## Node ↔ Python
 
 Python can't import a Zod schema directly. For any contract that crosses into
