@@ -1,12 +1,13 @@
-// The one auth door — downstream calls this, never Passport/session internals, so swapping
-// provider or session strategy touches only here. activeProfile stays null until Phase 3.
+// The one auth door. deserializeUser attaches the resolved active Profile as _activeProfile,
+// so this stays sync.
 export function getCurrentUser(req) {
   const identity = req.user;
   if (!identity) return null;
+  const p = identity._activeProfile;
   return {
     identityId: identity._id.toString(),
     email: identity.email,
     emailVerified: Boolean(identity.emailVerified),
-    activeProfile: null,
+    activeProfile: p ? { id: p._id.toString(), role: p.role } : null,
   };
 }

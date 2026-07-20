@@ -3,6 +3,7 @@ import passport from 'passport';
 import { csrfSynchronisedProtection, generateToken } from '../config/csrf.js';
 import { authRateLimiter } from '../config/rateLimit.js';
 import * as authController from './auth.controller.js';
+import { requireAuth } from './guards.js';
 
 const router = Router();
 
@@ -30,6 +31,15 @@ router.post(
   authRateLimiter,
   csrfSynchronisedProtection,
   authController.resetPassword,
+);
+
+router.get('/profiles', requireAuth, authController.listProfiles);
+router.post('/profiles', csrfSynchronisedProtection, requireAuth, authController.createProfile);
+router.post(
+  '/switch-profile',
+  csrfSynchronisedProtection,
+  requireAuth,
+  authController.switchProfile,
 );
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
