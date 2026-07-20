@@ -20,7 +20,7 @@ rejects anything that doesn't match. You can use whatever AI IDE you like.
 
 Reads `CLAUDE.md` (thin) + `AGENTS.md` (thin) — both point to `.ai/START-HERE.md`.
 
-### Kiro (Teammate 2 / 3)
+### Kiro (Aryan)
 
 1. Clone the repo, open the folder in Kiro.
 2. Kiro auto-reads root `AGENTS.md` (always included) → inherits `.ai/START-HERE.md`'s rules.
@@ -29,7 +29,9 @@ Reads `CLAUDE.md` (thin) + `AGENTS.md` (thin) — both point to `.ai/START-HERE.
 5. Confirm it worked: ask Kiro "what are the project conventions?" — it should mention Freelancer/
    Client/Engagement/TrustScore and "stay in your own slice."
 
-### Google Antigravity (Teammate 2 / 3)
+Teammate 2 doesn't need this section — the written report has no code, so no AI IDE setup applies.
+
+### Google Antigravity (Aryan, if using Antigravity instead of Kiro)
 
 1. Clone + open the repo.
 2. Antigravity reads root `AGENTS.md` as cross-tool foundation rules automatically.
@@ -52,10 +54,10 @@ Reads `CLAUDE.md` (thin) + `AGENTS.md` (thin) — both point to `.ai/START-HERE.
 5. Copy env templates: `cp apps/api/.env.example apps/api/.env` (and `apps/intelligence/.env.example`
    → `.env` if you touch Python). Never commit the real `.env` files.
 
-**Teammate 2 (landing + report):** that's it — you never need Python or a database. You build
-`apps/web` against mock data per the working agreement; you don't need a live API running.
+**Teammate 2 (written report):** none of the above applies — the report is written outside this
+codebase, no repo checkout or environment setup needed.
 
-**Teammate 3 (Help/About + demo data + slides):** you additionally need Python 3.13 (pinned in
+**Aryan (Slice 6 backend + demo data + slides):** you additionally need Python 3.13 (pinned in
 `apps/intelligence/.python-version`) for the demo-data scripts:
 
 ```bash
@@ -80,7 +82,7 @@ everything it needs is already decided.
 
 - [ ] Read `.ai/onboarding/team-brief.md` → this file → `.ai/onboarding/github-guide.md` →
       `.ai/protocols/working-agreement.md`.
-- [ ] Install Node 22 LTS (+ Python 3.13 if you're Teammate 3).
+- [ ] Install Node 22 LTS (+ Python 3.13 if you're Aryan, for demo-data scripts).
 - [ ] Install your AI IDE (Kiro or Antigravity).
 - [ ] `git clone` the repo; open it in your IDE.
 - [ ] Confirm your IDE picked up the conventions (ask it "what are this project's conventions?").
