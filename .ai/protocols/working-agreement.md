@@ -4,13 +4,24 @@ Born from a real past failure on this project: someone changed a foundation (aut
 broke the whole backend, because everything was glued to that foundation's internals. These 6 rules
 prevent that from happening again.
 
-## Rule 1 — Divide by feature, not by layer
+## Rule 1 — Divide by feature, not by layer (deliberate exception below)
 
 Each person owns a complete vertical slice (its frontend + backend + data), not "all frontend" or
 "all backend." A layer split means everyone waits on everyone; a feature split means each slice is
-self-contained with clear ownership. Current slices: **Rudra** = golden path + shared core (Trust
-Score, forecast, data model, main dashboard). **Teammate 2** = landing + report (own endpoints too,
-under the hybrid model). **Teammate 3** = Help/About + demo data + slides (own endpoints too).
+self-contained with clear ownership.
+
+**Since 2026-07-10, this project runs a deliberate exception to this rule** — Rudra owns _all_
+frontend across every slice, and teammates execute Rudra-authored plans rather than designing their
+own backend. The failure mode this rule guards against (everyone blocked waiting on everyone)
+doesn't apply here: Rudra never waits on a teammate to build his own frontend, and a teammate never
+waits on Rudra mid-task because plans are handed over complete, before the teammate needs them — not
+doled out incrementally. If that stops being true (plans start arriving late, or Rudra becomes a
+bottleneck), revisit this exception.
+
+Current slices: **Rudra** = golden path + shared core (Trust Score, forecast, data model, main
+dashboard) + **all frontend, every slice**. **Teammate 2** = the written report, no code. **Aryan**
+(Teammate 3) = Slice 6 backend (Payment/CSV import, IncomeForecast/TaxReserve endpoints —
+plan-driven, per `.ai/protocols/plan-execution.md`) + demo data + slides.
 
 ## Rule 2 — Depend on contracts, not implementations
 
