@@ -5,6 +5,8 @@ import {
   ResendVerificationRequestSchema,
   ForgotPasswordRequestSchema,
   ResetPasswordRequestSchema,
+  CreateProfileRequestSchema,
+  SwitchProfileRequestSchema,
 } from '@canary/shared';
 import {
   registerLocal,
@@ -12,6 +14,11 @@ import {
   setPasswordForIdentity,
   clearIdentitySessions,
 } from './auth.service.js';
+import {
+  createProfileForIdentity,
+  switchActiveProfile,
+  listIdentityProfiles,
+} from './profile.service.js';
 import { getCurrentUser } from './getCurrentUser.js';
 import { UnauthorizedError, BadRequestError } from '../lib/errors.js';
 import { issueToken, consumeToken } from '../lib/token.js';
@@ -103,4 +110,26 @@ export async function resetPassword(req, res, next) {
   await setPasswordForIdentity(identityId, password);
   await clearIdentitySessions(identityId);
   res.json({ ok: true });
+}
+
+export async function createProfile(req, res) {
+  const body = CreateProfileRequestSchema.parse(req.body);
+  const { identityId } = getCurrentUser(req);
+  const profile = await createProfileForIdentity(identityId, body);
+  res.status(201).json({ id: profile._id.toString(), role: profile.role });
+}
+
+export async function switchProfile(req, res) {
+  const { profileId } = SwitchProfileRequestSchema.parse(req.body);
+  const { identityId } = getCurrentUser(req);
+  await switchActiveProfile(identityId, profileId);
+  res.json({ ok: true });
+}
+
+export async function listProfiles(req, res) {
+  const { identityId } = getCurrentUser(req);
+  const profiles = await listIdentityProfiles(identityId);
+  res.json(
+    profiles.map((p) => ({ id: p._id.toString(), role: p.role, displayName: p.displayName })),
+  );
 }

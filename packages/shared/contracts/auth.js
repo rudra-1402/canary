@@ -28,3 +28,12 @@ export const MeResponseSchema = z.object({
   emailVerified: z.boolean(),
   activeProfile: ActiveProfileSchema.nullable(),
 });
+
+export const CreateProfileRequestSchema = z.object({
+  role: z.enum(['freelancer', 'client']),
+  displayName: z.string().min(1).max(120),
+});
+
+export const SwitchProfileRequestSchema = z.object({
+  profileId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character hex ObjectId'),
+});

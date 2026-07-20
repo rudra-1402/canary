@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import Identity from '../models/Identity.js';
+import Profile from '../models/Profile.js';
 import { verifyLocalCredentials, findOrLinkGoogleIdentity } from '../auth/auth.service.js';
 
 // Uniform session identity: store only the identityId, reload the Identity per request.
@@ -9,7 +10,11 @@ export function configurePassport() {
   passport.serializeUser((identity, done) => done(null, identity._id.toString()));
   passport.deserializeUser(async (id, done) => {
     try {
-      done(null, await Identity.findById(id));
+      const identity = await Identity.findById(id);
+      if (identity?.activeProfileId) {
+        identity._activeProfile = await Profile.findById(identity.activeProfileId);
+      }
+      done(null, identity);
     } catch (err) {
       done(err);
     }

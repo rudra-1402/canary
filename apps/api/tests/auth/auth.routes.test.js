@@ -194,4 +194,49 @@ describe('auth routes', () => {
     await clearIdentitySessions(id);
     expect(await sessions.countDocuments({ _id: 'sid-clear-test' })).toBe(0);
   });
+
+  it('create a profile then me shows it active; create the other role; switch; list', async () => {
+    const { agent, token } = await agentWithCsrf();
+    await agent
+      .post('/api/auth/register')
+      .set('x-csrf-token', token)
+      .send({ email: 'p3@user.com', password: 'longenough1' });
+    const create = await agent
+      .post('/api/auth/profiles')
+      .set('x-csrf-token', token)
+      .send({ role: 'freelancer', displayName: 'Jo' });
+    expect(create.status).toBe(201);
+    expect((await agent.get('/api/auth/me')).body.activeProfile).toMatchObject({
+      role: 'freelancer',
+    });
+    const c = await agent
+      .post('/api/auth/profiles')
+      .set('x-csrf-token', token)
+      .send({ role: 'client', displayName: 'Jo Inc' });
+    expect(c.status).toBe(201);
+    expect((await agent.get('/api/auth/me')).body.activeProfile.role).toBe('freelancer'); // unchanged until switch
+    await agent
+      .post('/api/auth/switch-profile')
+      .set('x-csrf-token', token)
+      .send({ profileId: c.body.id });
+    expect((await agent.get('/api/auth/me')).body.activeProfile.role).toBe('client');
+    const list = await agent.get('/api/auth/profiles');
+    expect(list.body).toHaveLength(2);
+  });
+
+  it('profile mutations need csrf and auth', async () => {
+    expect(
+      (await request(app).post('/api/auth/profiles').send({ role: 'freelancer', displayName: 'x' }))
+        .status,
+    ).toBe(403); // no csrf
+    const { agent, token } = await agentWithCsrf();
+    expect(
+      (
+        await agent
+          .post('/api/auth/profiles')
+          .set('x-csrf-token', token)
+          .send({ role: 'freelancer', displayName: 'x' })
+      ).status,
+    ).toBe(401); // not logged in
+  });
 });
