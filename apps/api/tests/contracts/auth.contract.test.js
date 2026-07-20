@@ -6,6 +6,8 @@ import {
   ResetPasswordRequestSchema,
   ResendVerificationRequestSchema,
   MeResponseSchema,
+  CreateProfileRequestSchema,
+  SwitchProfileRequestSchema,
 } from '@canary/shared';
 
 describe('auth contracts', () => {
@@ -51,5 +53,19 @@ describe('phase 2 auth contracts', () => {
         activeProfile: null,
       }),
     ).not.toThrow();
+  });
+});
+
+describe('phase 3 profile contracts', () => {
+  it('create-profile requires a role and displayName', () => {
+    expect(() =>
+      CreateProfileRequestSchema.parse({ role: 'freelancer', displayName: 'Jo' }),
+    ).not.toThrow();
+    expect(() => CreateProfileRequestSchema.parse({ role: 'nope', displayName: 'Jo' })).toThrow();
+    expect(() => CreateProfileRequestSchema.parse({ role: 'client' })).toThrow();
+  });
+  it('switch-profile requires a 24-hex profileId', () => {
+    expect(() => SwitchProfileRequestSchema.parse({ profileId: 'a'.repeat(24) })).not.toThrow();
+    expect(() => SwitchProfileRequestSchema.parse({ profileId: 'bad' })).toThrow();
   });
 });
