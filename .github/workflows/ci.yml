@@ -63,3 +63,15 @@ jobs:
       - run: black --check .
       - run: pytest -q
       - run: pip-audit || true
+
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so PR/push commit scans see every diff
+      - uses: gitleaks/gitleaks-action@v2
+        # Runs the gitleaks Go binary on the runner — no npm/local install, so the
+        # Windows-binary friction that blocked a client-side scanner doesn't apply.
+        # GITLEAKS_LICENSE is only required for GitHub orgs, not personal repos.
