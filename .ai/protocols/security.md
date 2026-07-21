@@ -14,6 +14,7 @@ What's automated (you don't have to remember it) vs. what's a human's job.
 - **Dependabot** opens PRs for outdated/vulnerable npm and pip dependencies automatically —
   confirmed working (opened 8 real update PRs the moment the repo was created).
 - **`npm audit` / `pip-audit`** run as a CI step, surfacing known-vulnerable dependencies.
+- **Secret scanning** — a `gitleaks` CI job fails the build if a credential is committed (see below).
 - **Branch protection on `main`** — direct pushes are rejected; everything goes through a reviewable
   PR that must pass CI first.
 
@@ -31,33 +32,31 @@ What's automated (you don't have to remember it) vs. what's a human's job.
   tagging Rudra) rather than trying to quietly fix it yourself — a leaked key needs to be rotated,
   not just deleted from the file.
 
-## ⚠️ Known gap: no automated secret scanning at all, right now
+## Automated secret scanning — gitleaks in CI (closed 2026-07-20)
 
-Neither a local nor a server-side secret scanner is currently active on this repo — this is a real
-gap, not an oversight to gloss over:
+A `secrets` job in `.github/workflows/ci.yml` runs **`gitleaks/gitleaks-action@v2`** on every push
+and PR. It scans the commit diffs for leaked credentials (AWS keys, private keys, GitHub PATs, etc.)
+and fails the check on a hit — and because it's a server-side CI gate, `--no-verify` can't bypass it.
 
-- **`gitleaks`** — no reliable npm distribution (would mean every teammate manually installing a Go
-  binary on Windows). Never installed.
-- **`secretlint`** (npm-native alternative) — installed, configured, and **verified broken**: it
-  silently failed to detect an AWS example key, an RSA private key, and a GitHub PAT in direct
-  testing, with no error (exit 0, empty results). Removed rather than shipped — a security tool
-  that silently catches nothing is worse than no tool, because it creates false confidence.
-- **GitHub server-side secret scanning + push protection** — attempted via the API, confirmed
-  unavailable: `"Secret scanning is not available for this repository"`. This is a **private** repo,
-  and GitHub only offers secret scanning for free on **public** repos; private-repo secret scanning
-  needs GitHub Advanced Security, which isn't included on this account's current plan.
+Why this works where earlier attempts didn't:
 
-**What actually backstops this right now:** `.gitignore` correctly excludes every real `.env` file
-(verified — only `.env.example` files are tracked), and no real API key exists in this repo yet
-(Rudra holds all keys locally, per the working agreement). That's discipline, not automation.
+- **`gitleaks` as a CI action, not a local tool.** The earlier objection ("no reliable npm
+  distribution, every teammate installs a Go binary on Windows") was about a _client-side_ hook. The
+  action runs the gitleaks Go binary on GitHub's Ubuntu runner — no npm, no local install, nothing
+  for a teammate to set up. `GITLEAKS_LICENSE` is only required for GitHub _orgs_, so it's free here.
+- **`secretlint`** was tried as an npm-native scanner and **verified broken** (silently detected
+  nothing against a real AWS key / RSA key / GitHub PAT, exit 0) — removed, since a scanner that
+  catches nothing is worse than none. gitleaks does not have this problem.
+- **GitHub's own secret scanning** stays unavailable (private repo needs GitHub Advanced Security,
+  not on this plan) — the gitleaks CI job is what stands in for it.
 
-**Real options if this needs to close**, in rough order of cost: (1) make the repo public once it's
-demo-ready — free secret scanning included, but exposes the code early; (2) a paid GitHub plan or
-GitHub Advanced Security add-on for private-repo secret scanning; (3) re-attempt a client-side
-scanner (a different secretlint version, or gitleaks via Docker if that dependency becomes
-acceptable later) — **only if you re-verify it actually detects a real secret before trusting it,**
-the same way the ones above were tested and failed. Not resolved as part of this pass — flagged for
-a deliberate decision rather than silently left unaddressed.
+Still discipline, not automation: `.gitignore` excludes every real `.env` (only `.env.example` is
+tracked) and Rudra holds all live keys locally. gitleaks is the automated backstop under that.
+
+Deliberately **not** added (scope): a client-side pre-commit secret hook (server-side gate is
+sufficient for this project's risk profile and avoids the Windows-binary friction), and a custom
+`.gitleaks.toml` allowlist (default rules don't flag placeholder `.env.example` values; add one only
+if a real false positive appears, never to silence a real finding).
 
 ## Standard hygiene, not paranoia
 
