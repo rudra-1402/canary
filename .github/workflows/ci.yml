@@ -23,7 +23,7 @@ jobs:
       MONGODB_URI: mongodb://127.0.0.1:27017/canary_ci
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
@@ -63,3 +63,26 @@ jobs:
       - run: black --check .
       - run: pytest -q
       - run: pip-audit || true
+
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      # Repo default is read-only; gitleaks-action calls the PR-comment API to post
+      # findings, which needs write (confirmed root cause of "Resource not accessible
+      # by integration" — a permission-scope error, not a missing-token error).
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so PR/push commit scans see every diff
+      - uses: gitleaks/gitleaks-action@v2
+        # Runs the gitleaks Go binary on the runner — no npm/local install, so the
+        # Windows-binary friction that blocked a client-side scanner doesn't apply.
+        # GITLEAKS_LICENSE is only required for GitHub orgs, not personal repos.
+        # GITHUB_TOKEN must be passed explicitly for pull_request events (action's
+        # own breaking-change notice — it no longer inherits GITHUB_TOKEN implicitly).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
