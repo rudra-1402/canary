@@ -30,7 +30,7 @@ had no `MONGODB_URI` and declined to guess rather than fabricate a connection st
 files touched). Ran the live steps myself instead (dotenv loads `.env` automatically, no secret
 ever typed): reseed produced exact expected counts (500/521/2629/358/287/449/4 rings), spot-check
 confirmed `review has createdAt: True`, id-map has 500 entries all resolving to real profiles.
-Ran `pytest -q` myself: 40 passed. Committed 1b5e... (see `git log`). Zero fix rounds needed.
+Ran `pytest -q` myself: 40 passed. Committed a7fbe66. Zero fix rounds needed.
 **Pattern going forward:** any task step touching live Mongo (Tasks 7, 11, 12, 13, 14) — Codex
 builds the code, Claude runs the credential-touching command.
 
@@ -41,7 +41,7 @@ the not-yet-tested fields (ewma/xgb params) needed by later tasks. TDD RED confi
 (`ModuleNotFoundError`), then GREEN.
 
 **Claude's verdict:** ✅ Read all 3 new files — verbatim match to spec, nothing extra. Ran
-`pytest -q` myself: 42 passed (40 baseline + 2 new). Committed. Zero fix rounds.
+`pytest -q` myself: 42 passed (40 baseline + 2 new). Committed 367e36a. Zero fix rounds.
 
 ### Round 4 — Task 4: static feature aggregates
 
@@ -53,7 +53,7 @@ match a wrong assertion — reported the inconsistency instead of guessing. Corr
 
 **Claude's verdict:** confirmed Codex's math, fixed the one assertion line + comment (test bug,
 not implementation bug), resumed same thread. Re-verified diff (single-line test change) + ran
-`pytest -q` myself: 45 passed (42+3). Committed. 1 fix round (spec bug, not Codex's fault).
+`pytest -q` myself: 45 passed (42+3). Committed a402704. 1 fix round (spec bug, not Codex's fault).
 Also: hit a new classifier gate here — `codex exec resume` needs
 `--dangerously-bypass-approvals-and-sandbox`, not `--yolo` (resume doesn't take `--yolo`). User
 approved + persisted as `Bash(codex exec resume *)` in `.claude/settings.local.json`.
@@ -64,7 +64,7 @@ approved + persisted as `Bash(codex exec resume *)` in `.claude/settings.local.j
 TDD RED confirmed (3 pass, 4 KeyError), then GREEN (7 passed).
 
 **Claude's verdict:** ✅ Full diff read — purely additive, nothing touched outside the 2 named
-files. Ran `pytest -q` myself: 49 passed (45+4). Committed. Zero fix rounds.
+files. Ran `pytest -q` myself: 49 passed (45+4). Committed c21109e. Zero fix rounds.
 
 ### Round 6 — Task 6: labels.py (Outcome-derived training label)
 
@@ -75,11 +75,11 @@ force a match — correct call again (implementation is the source of truth, not
 precise test).
 
 **Claude's verdict:** confirmed the float-precision issue, fixed via `pytest.approx(1.0)` in the
-test only (labels.py untouched). Re-verified: `pytest -q` myself → 53 passed (49+4). Committed.
-1 fix round (spec bug, not Codex's). **3 of 6 tasks so far have hit a real bug in the frozen plan
-itself** (Tasks 4, 6, plus the numpy/shap conflict in Task 1) — the plan was self-reviewed but
-never actually executed before now, so this is exactly the kind of drift a real TDD run surfaces
-that a paper review can't.
+test only (labels.py untouched). Re-verified: `pytest -q` myself → 53 passed (49+4). Committed
+fdb587a. 1 fix round (spec bug, not Codex's). **3 of 6 tasks so far have hit a real bug in the
+frozen plan itself** (Tasks 4, 6, plus the numpy/shap conflict in Task 1) — the plan was
+self-reviewed but never actually executed before now, so this is exactly the kind of drift a real
+TDD run surfaces that a paper review can't.
 
 ### Round 7 — Task 7: fetch.py (bulk dataset loader)
 
@@ -88,7 +88,7 @@ no credentials needed — Codex's own sandbox blocks `.env` but this fixture nev
 No spec issues this round.
 
 **Claude's verdict:** ✅ Read both files, exact match. Ran `pytest -q` myself: 55 passed (53+2).
-Committed. Zero fix rounds.
+Committed 317747a. Zero fix rounds.
 
 ### Round 8 — Task 8: model.py (per-role XGBoost)
 
@@ -98,10 +98,10 @@ contiguous class IDs and rejected the [0,2] gap. `model.py` itself was correct t
 
 **Claude's verdict:** confirmed the diagnosis, had Codex add a third synthetic-`med` fixture
 generator (test-only change). Re-verified: reliable→99/high, unreliable→1/low (good separation),
-`pytest -q` myself → 58 passed (55+3). Committed. 1 fix round. **Flagged proactively:** the
-`_trained_model()`/`_trained_model_and_explainer()` helpers in the original plan's Tasks 9/10/13
-specs have the identical 2-class-only pattern — will pre-fix those prompts before dispatch instead
-of hitting the same bug 3 more times.
+`pytest -q` myself → 58 passed (55+3). Committed 6f13380. 1 fix round. **Flagged proactively:**
+the `_trained_model()`/`_trained_model_and_explainer()` helpers in the original plan's Tasks
+9/10/13 specs have the identical 2-class-only pattern — will pre-fix those prompts before
+dispatch instead of hitting the same bug 3 more times.
 
 **Post-commit catch:** repo's husky pre-commit hook (ruff) blocked the first commit attempt —
 `noise = lambda: ...` in the test fixture violates E731 (no lambda assignment, use def). Same
@@ -118,8 +118,8 @@ ruff's B905 wants explicit `zip(..., strict=)`. Codex correctly refused to silen
 
 **Claude's verdict:** confirmed `FEATURE_COLUMNS`/`contributions` are always equal-length by
 construction, added `strict=True` directly (correctness-free lint fix, no round-trip needed).
-Ruff clean, `pytest -q` myself → 60 passed (58+2). Committed. Zero Codex fix rounds (1 direct
-Claude fix).
+Ruff clean, `pytest -q` myself → 60 passed (58+2). Committed 1160c7b. Zero Codex fix rounds
+(1 direct Claude fix).
 
 ### Round 10 — Task 10: backfill.py (no-lookahead monthly replay)
 
@@ -129,8 +129,8 @@ my own prompt carried forward the plan's "6 passed" expectation, but the spec's 
 5 functions — Codex correctly reported the real count instead of chasing a phantom 6th test.
 
 **Claude's verdict:** ✅ Ruff clean, read full file (matches spec). Ran `pytest -q` myself: 65
-passed (60+5). Committed. Zero fix rounds. **The single most safety-critical assertion in this
-whole slice (no-lookahead leakage) passed clean on the first pass.**
+passed (60+5). Committed 206c4d6. Zero fix rounds. **The single most safety-critical assertion in
+this whole slice (no-lookahead leakage) passed clean on the first pass.**
 
 ### Round 11 — Task 11: persistence.py (Mongo writes)
 
@@ -138,7 +138,36 @@ whole slice (no-lookahead leakage) passed clean on the first pass.**
 typo in my own PROOF command path, self-corrected sensibly.
 
 **Claude's verdict:** ✅ Ruff clean, exact match. `pytest -q` myself → 66 passed (65+1).
-Committed. Zero fix rounds.
+Committed f5757d4. Zero fix rounds.
+
+### Round 12 — Task 12: run.py (CLI orchestrator) + a real production bug
+
+**Codex build:** `run.py` exact spec match (byte-for-byte, as instructed — no test file for this
+task, it's pure wiring). One ruff import-sort nit (I001), fixed directly with `ruff --fix`.
+
+**Claude's verdict — live run surfaced a REAL bug, not a spec/fixture issue:** ran
+`python -m trust_score.run` against real seeded `canary_dev` (500 real profiles) myself — crashed:
+`IndexError: index 2 is out of bounds for axis 0 with size 2` in `score_profile`. Root cause: the
+real `freelancer` role's data happened to have zero non-cold-start profiles in the `"high"`
+bucket, so XGBoost auto-detected only 2 classes and `predict_proba` returned a width-2 array,
+but `score_profile`/`explain_profile` unconditionally index position 2 (`"high"`). This is a
+genuine robustness gap in `model.py` (Task 8) that ALL of Task 8/9/10's synthetic unit tests
+missed, because their fixtures always deliberately include all 3 classes — only real data volume
+exposed it. **This is exactly why live-data verification matters even when every unit test is
+green.**
+
+Sent back to Codex (resumed Task 8's thread): forced `objective="multi:softprob"` + `num_class=3`
+explicitly in `train_model` instead of letting XGBoost auto-infer class count from observed
+labels. Codex added a genuine regression test (`test_model_handles_training_data_missing_one_class`)
+that reproduced the exact crash RED, then passed GREEN after the fix. Verified: `pytest -q` myself
+→ 67 passed. Reran the live orchestrator — succeeded: freelancer 296 profiles/5624 snapshots,
+client 204 profiles/3876 snapshots (296+204=500, ×19 boundaries each = 9500, checks out exactly).
+**Caught my own operational mistake too:** the first (crashed) run had partially written 57+
+leftover documents into `trustscores`/`risksignals` before hitting the bug, and `run.py` has no
+`--wipe` (unlike `generator.run`) — wiped both collections and reran clean, confirmed exactly 9500
+trustscores / correct shape. Committed the model.py fix (3638ae0) and run.py (b4f054c) separately.
+1 Codex fix round + 1 Claude-side data-hygiene cleanup, both for a bug neither of us could have
+caught without actually running against real volume.
 
 ### Round 13 — Task 13: evaluate.py (held-out ground-truth harness) — the big one
 
@@ -199,9 +228,7 @@ changes to the locked generator.
 
 **Hypothesis confirmed — small-N was the dominant driver.** The model does learn the intended
 signal; it just needed real volume. Python unit suite unaffected (70 passed, uses a separate
-test DB/fixtures, not `canary_dev`). **Side effect to reconcile:** the "500 profiles" baseline
-cited throughout `PROJECT-STATE.md`/`tracking.md` is now stale — `canary_dev` holds 5000 profiles
-going forward. Updating those docs in the final wrap-up.
+test DB/fixtures, not `canary_dev`). Committed e00cd9b.
 
 ### Round 14 — Task 14: Node seed conformance check
 
@@ -225,15 +252,50 @@ decision — did it directly). Re-verified: seedConformance 2/2 (23.8s), full su
 - Python (`apps/intelligence`): 70 passed.
 - Node (`apps/api`): 44 files, 131 tests passed.
 - Node (`apps/web`): 2 files, 3 tests passed.
-- Working tree clean (only this log file untracked).
-- Final evaluation report (reproducible, stable across reruns):
+- Working tree clean.
+- Evaluation report at this point (500→5000 profile seed):
   - FREELANCER: test size 54, rank correlation 0.441, bad-actor recall 4/4 (100%), determinism
     PASS, SHAP sanity 4/4.
   - CLIENT: test size 78, rank correlation 0.561, bad-actor recall 6/7 (86%), determinism PASS,
     SHAP sanity 5/5.
 - 16 commits landed on `rudra/slice-1-trust-score-engine` (14 plan tasks + 2 extra fix commits for
   the model.py class-handling bug, discovered via live-data verification, not caught by any
-  synthetic unit test until deliberately reproduced).
+  synthetic unit test until deliberately reproduced). Log committed c512618.
+
+### Round 16 — Rudra requested a second, bigger reseed to test the accuracy ceiling
+
+Reasoning given to Rudra before running: 500→5000 fixed severe small-N noise AND populated a
+previously-empty `"high"` bucket (0 examples at 500, 8-10 at 5000, still thin) — going bigger
+again could plausibly help further via (a) thickening the still-thin `high` bucket, (b) tighter
+variance on the correlation estimate. Recommended 4x (20000) over another 10x — diminishing
+returns expected, not a repeat of the first dramatic flip.
+
+**Reseeded `--num-profiles 20000`** (zero generator code changes, same as before): 11148 concluded
+engagements, 812 trainable freelancers (was 213), 1164 trainable clients (was 311). Reran
+`trust_score.run` (229,843 + 150,157 = 379,843 TrustScore snapshots written) and
+`trust_score.evaluate`:
+
+- Test set size jumped 54→203 (freelancer), 78→291 (client) — 4x more statistically reliable.
+- **Rank correlation actually dropped**: freelancer 0.441→0.353, client 0.561→0.337.
+- Bad-actor recall dropped too: freelancer 100%→78% (23 planted, 18 caught), client 86%→82%
+  (22 planted, 18 caught).
+- SHAP sanity 5/5 both roles, determinism PASS both roles — unchanged.
+
+**Read: this is NOT a regression — it's the earlier 5000-profile numbers turning out to be a
+lucky small-sample draw (classic regression-to-the-mean).** Model code is byte-identical between
+both runs (zero changes) — only data volume changed. The 4x-bigger, far-more-representative test
+set reveals a more honest, moderate correlation (~0.34-0.35) rather than the earlier optimistic
+0.44-0.56. Confirms the diminishing-returns prediction made before running: 5000→20000 made the
+estimate _more accurate_, not _higher_ — the signature of having already hit the real signal
+ceiling (likely capped by the shared worse-party outcome-attribution noise flagged in Round 13,
+which more data doesn't fix). **Recommended against a third reseed** — further N would tighten
+the estimate further around the same ~0.35, not push it meaningfully higher.
+
+**Final baseline, replaces the 5000-profile numbers from Round 13/15 as the reference:**
+`canary_dev` holds **20000 profiles**, 812 trainable freelancers / 1164 trainable clients.
+Correlation 0.35/0.34, bad-actor recall 78%/82%, both still clearly positive/functional — clears
+the design spec's evaluation bar with a more statistically honest number than the first draw.
+Python suite reconfirmed unaffected: 70 passed (no code touched this round).
 
 ## Summary
 
@@ -241,40 +303,19 @@ decision — did it directly). Re-verified: seedConformance 2/2 (23.8s), full su
 run, never trusted a pasted report) before landing. 4 real bugs surfaced during execution, none
 pre-existing in this plan's own logic once shipped — 3 were plan/fixture bugs (numpy/shap version
 ceiling, a stale completion_rate assertion, a float-precision equality check) and 1 was a genuine
-model.py robustness gap only real data volume exposed (non-contiguous XGBoost classes). One
-non-bug but demo-critical finding: the live Trust Score evaluation was initially degenerate
-(-0.91 freelancer correlation) purely from Slice 0's synthetic data volume being too thin against
-the 3-engagement cold-start threshold (91% of profiles filtered out) — root-caused via
-`systematic-debugging`, confirmed empirically by reseeding 10x larger (500→5000 profiles, zero
-generator code changes), which flipped both roles to solid positive correlation with strong
-bad-actor recall. Surfaced to Rudra before acting given it affected the core USP's demo-readiness,
-not a mechanical detail.
+model.py robustness gap only real data volume exposed (non-contiguous XGBoost classes, fixed
+properly with the Booster/DMatrix API in Round 13 after an incomplete first attempt in Round 12).
 
-### Round 12 — Task 12: run.py (CLI orchestrator) + a real production bug
+Two non-bug, demo-critical findings, both surfaced to Rudra before acting rather than silently
+handled:
 
-**Codex build:** `run.py` exact spec match (byte-for-byte, as instructed — no test file for this
-task, it's pure wiring). One ruff import-sort nit (I001), fixed directly with `ruff --fix`.
+1. Live evaluation was initially degenerate (-0.91 freelancer correlation) purely from Slice 0's
+   synthetic data volume being too thin against the cold-start gate — root-caused via
+   `systematic-debugging`, fixed by reseeding 10x (500→5000), zero generator code changes.
+2. Rudra asked to push further to test the accuracy ceiling — reseeded again 4x (5000→20000),
+   which revealed the first reseed's numbers were an optimistic small-sample draw; the true,
+   more statistically honest correlation is ~0.35 for both roles, still clearly positive with
+   solid bad-actor recall (78-82%). Confirmed diminishing returns — recommended stopping here.
 
-**Claude's verdict — live run surfaced a REAL bug, not a spec/fixture issue:** ran
-`python -m trust_score.run` against real seeded `canary_dev` (500 real profiles) myself — crashed:
-`IndexError: index 2 is out of bounds for axis 0 with size 2` in `score_profile`. Root cause: the
-real `freelancer` role's data happened to have zero non-cold-start profiles in the `"high"`
-bucket, so XGBoost auto-detected only 2 classes and `predict_proba` returned a width-2 array,
-but `score_profile`/`explain_profile` unconditionally index position 2 (`"high"`). This is a
-genuine robustness gap in `model.py` (Task 8) that ALL of Task 8/9/10's synthetic unit tests
-missed, because their fixtures always deliberately include all 3 classes — only real data volume
-exposed it. **This is exactly why live-data verification matters even when every unit test is
-green.**
-
-Sent back to Codex (resumed Task 8's thread): forced `objective="multi:softprob"` + `num_class=3`
-explicitly in `train_model` instead of letting XGBoost auto-infer class count from observed
-labels. Codex added a genuine regression test (`test_model_handles_training_data_missing_one_class`)
-that reproduced the exact crash RED, then passed GREEN after the fix. Verified: `pytest -q` myself
-→ 67 passed. Reran the live orchestrator — succeeded: freelancer 296 profiles/5624 snapshots,
-client 204 profiles/3876 snapshots (296+204=500, ×19 boundaries each = 9500, checks out exactly).
-**Caught my own operational mistake too:** the first (crashed) run had partially written 57+
-leftover documents into `trustscores`/`risksignals` before hitting the bug, and `run.py` has no
-`--wipe` (unlike `generator.run`) — wiped both collections and reran clean, confirmed exactly 9500
-trustscores / correct shape. Committed the model.py fix (3638ae0) and run.py (b4f054c) separately.
-1 Codex fix round + 1 Claude-side data-hygiene cleanup, both for a bug neither of us could have
-caught without actually running against real volume.
+Final state: `canary_dev` holds 20000 profiles. 16 commits on `rudra/slice-1-trust-score-engine`,
+not yet PR'd/merged into `main`.
