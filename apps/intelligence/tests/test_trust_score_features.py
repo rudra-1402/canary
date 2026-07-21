@@ -59,3 +59,43 @@ def test_no_lookahead_excludes_outcomes_and_reviews_after_as_of():
     assert features["engagement_count"] == 1
     assert features["review_count"] == 1
     assert features["avg_review_rating"] == 5.0
+
+
+def test_recency_weighted_on_time_rate_favors_recent_behavior():
+    config = TrustScoreConfig()
+    # Old late payments, recent on-time -- recency weighting should push the
+    # weighted rate above the plain (unweighted) on_time_rate of 0.5.
+    outcomes = [
+        _outcome(days_ago=500, days_late=10),
+        _outcome(days_ago=400, days_late=10),
+        _outcome(days_ago=5, days_late=0),
+        _outcome(days_ago=2, days_late=0),
+    ]
+    features = compute_features(outcomes, [], NOW, config)
+    assert features["on_time_rate"] == 0.5
+    assert features["recency_weighted_on_time_rate"] > 0.5
+
+
+def test_trend_slope_positive_when_recent_half_better_than_older_half():
+    config = TrustScoreConfig()
+    outcomes = [
+        _outcome(days_ago=400, days_late=10),
+        _outcome(days_ago=300, days_late=10),
+        _outcome(days_ago=20, days_late=0),
+        _outcome(days_ago=10, days_late=0),
+    ]
+    features = compute_features(outcomes, [], NOW, config)
+    assert features["trend_slope"] > 0
+
+
+def test_trend_slope_is_zero_with_fewer_than_two_non_ghosted_outcomes():
+    config = TrustScoreConfig()
+    features = compute_features([_outcome(days_ago=10)], [], NOW, config)
+    assert features["trend_slope"] == 0.0
+
+
+def test_no_history_has_neutral_temporal_defaults():
+    config = TrustScoreConfig()
+    features = compute_features([], [], NOW, config)
+    assert features["recency_weighted_on_time_rate"] == 0.5
+    assert features["trend_slope"] == 0.0

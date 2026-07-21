@@ -6,6 +6,8 @@ FEATURE_NAMES = [
     "scope_creep_rate",
     "completion_rate",
     "avg_review_rating",
+    "recency_weighted_on_time_rate",
+    "trend_slope",
 ]
 
 
@@ -20,6 +22,8 @@ def _neutral_defaults() -> dict:
         "completion_rate": 0.5,
         "avg_review_rating": 3.0,
         "review_count": 0,
+        "recency_weighted_on_time_rate": 0.5,
+        "trend_slope": 0.0,
     }
 
 
@@ -48,6 +52,32 @@ def _static_aggregates(outcomes: list[dict], reviews: list[dict]) -> dict:
     }
 
 
+def _recency_weighted_on_time_rate(sorted_non_ghosted: list[dict], as_of, halflife_months: float) -> float:
+    if not sorted_non_ghosted:
+        return 0.5
+    weighted_sum = 0.0
+    weight_total = 0.0
+    for outcome in sorted_non_ghosted:
+        age_months = (as_of - outcome["recordedAt"]).days / 30
+        weight = 0.5 ** (age_months / halflife_months)
+        on_time = 1.0 if (outcome["daysLate"] or 0) <= 0 else 0.0
+        weighted_sum += weight * on_time
+        weight_total += weight
+    return weighted_sum / weight_total if weight_total else 0.5
+
+
+def _trend_slope(sorted_non_ghosted: list[dict]) -> float:
+    if len(sorted_non_ghosted) < 2:
+        return 0.0
+    mid = len(sorted_non_ghosted) // 2
+    older, recent = sorted_non_ghosted[:mid], sorted_non_ghosted[mid:]
+
+    def on_time_rate(group):
+        return sum(1.0 for o in group if (o["daysLate"] or 0) <= 0) / len(group)
+
+    return on_time_rate(recent) - on_time_rate(older)
+
+
 def compute_features(outcomes: list[dict], reviews: list[dict], as_of, config) -> dict:
     """Structured feature vector for one Profile, using only Outcome/Review rows
     at or before as_of -- the single place backfill's no-lookahead requirement
@@ -55,4 +85,11 @@ def compute_features(outcomes: list[dict], reviews: list[dict], as_of, config) -
     "current" score (as_of=now) and every historical snapshot."""
     outcomes_as_of = sorted((o for o in outcomes if o["recordedAt"] <= as_of), key=lambda o: o["recordedAt"])
     reviews_as_of = [r for r in reviews if r["createdAt"] <= as_of]
-    return _static_aggregates(outcomes_as_of, reviews_as_of)
+    non_ghosted = [o for o in outcomes_as_of if not o["ghosted"]]
+
+    features = _static_aggregates(outcomes_as_of, reviews_as_of)
+    features["recency_weighted_on_time_rate"] = _recency_weighted_on_time_rate(
+        non_ghosted, as_of, config.ewma_halflife_months
+    )
+    features["trend_slope"] = _trend_slope(non_ghosted)
+    return features
