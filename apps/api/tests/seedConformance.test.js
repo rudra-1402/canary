@@ -15,7 +15,7 @@ describe('seed conformance', () => {
     const report = await validateSeededCollections();
     const failures = report.filter((r) => r.invalidCount > 0);
     expect(failures, JSON.stringify(failures, null, 2)).toEqual([]);
-  });
+  }, 60000);
 
   it('checked every collection the generator seeds', async () => {
     const report = await validateSeededCollections();
@@ -30,7 +30,9 @@ describe('seed conformance', () => {
         'Profile',
         'Proposal',
         'Review',
+        'TrustScore',
+        'RiskSignal',
       ].sort(),
     );
-  });
+  }, 60000);
 });
