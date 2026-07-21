@@ -90,3 +90,20 @@ def test_is_cold_start_below_threshold():
     assert is_cold_start({"engagement_count": 0}, config) is True
     assert is_cold_start({"engagement_count": 2}, config) is True
     assert is_cold_start({"engagement_count": 3}, config) is False
+
+
+def test_model_handles_training_data_missing_one_class():
+    config = TrustScoreConfig()
+    rng = random.Random(3)
+    features, labels = [], []
+    for _ in range(20):
+        features.append(_synthetic_features(rng, reliable=False))
+        labels.append("low")
+        features.append(_synthetic_med_features(rng))
+        labels.append("med")
+    # Deliberately zero "high" examples -- this is the exact real-data
+    # condition that crashed score_profile before num_class=3 was forced.
+    model = train_model(features, labels, config)
+    result = score_profile(model, _synthetic_features(rng, reliable=False))
+    assert 0 <= result["score"] <= 100
+    assert result["level"] in ("low", "med", "high")

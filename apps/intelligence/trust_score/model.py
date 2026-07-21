@@ -27,7 +27,10 @@ def is_cold_start(features: dict, config) -> bool:
 def train_model(feature_dicts: list[dict], labels: list[str], config) -> xgb.XGBClassifier:
     """Decision 4: XGBoost, chosen over Random Forest/LightGBM/CatBoost/AutoML
     (see design spec). labels are the Outcome-derived bucket from labels.py --
-    never trueArchetype (Decision 3's hard rule)."""
+    never trueArchetype (Decision 3's hard rule). num_class is forced to 3
+    explicitly (not auto-inferred from observed labels) so a role whose
+    current data happens to have zero profiles in one bucket still produces
+    a valid 3-wide probability vector at inference, instead of crashing."""
     X = features_to_dataframe(feature_dicts)
     y = [LABEL_TO_INT[label] for label in labels]
     model = xgb.XGBClassifier(
@@ -36,6 +39,8 @@ def train_model(feature_dicts: list[dict], labels: list[str], config) -> xgb.XGB
         learning_rate=config.xgb_learning_rate,
         random_state=config.seed,
         eval_metric="mlogloss",
+        objective="multi:softprob",
+        num_class=3,
     )
     model.fit(X, y)
     return model
