@@ -3,6 +3,6 @@ Faker==33.1.0
 networkx==3.4.2
 numpy==2.5.1
 pytest==9.1.1
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 ruff==0.15.21
 black==26.5.1
