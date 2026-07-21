@@ -107,3 +107,22 @@ def test_model_handles_training_data_missing_one_class():
     result = score_profile(model, _synthetic_features(rng, reliable=False))
     assert 0 <= result["score"] <= 100
     assert result["level"] in ("low", "med", "high")
+
+
+def test_model_handles_non_contiguous_classes():
+    """Reproduces the real bug: training data with only "low"(0) and "high"(2)
+    present, skipping "med"(1) entirely -- XGBClassifier's sklearn wrapper
+    rejects this as non-contiguous even with num_class=3 forced; the
+    Booster/DMatrix API must not."""
+    config = TrustScoreConfig()
+    rng = random.Random(5)
+    features, labels = [], []
+    for _ in range(20):
+        features.append(_synthetic_features(rng, reliable=True))
+        labels.append("high")
+        features.append(_synthetic_features(rng, reliable=False))
+        labels.append("low")
+    model = train_model(features, labels, config)
+    result = score_profile(model, _synthetic_features(rng, reliable=True))
+    assert 0 <= result["score"] <= 100
+    assert result["level"] in ("low", "med", "high")
