@@ -14,7 +14,7 @@
     "connect-mongo": "^6.0.0",
     "cors": "^2.8.6",
     "csrf-sync": "^4.2.1",
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "express-session": "^1.19.0",
@@ -28,6 +28,6 @@
   "devDependencies": {
     "mongodb-memory-server": "^11.2.0",
     "supertest": "^7.2.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.10"
   }
 }
