@@ -1,5 +1,5 @@
 pymongo==4.17.0
-Faker==33.1.0
+Faker==40.35.0
 networkx==3.4.2
 numpy==2.5.1
 pytest==9.1.1
