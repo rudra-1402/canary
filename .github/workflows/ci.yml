@@ -78,7 +78,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history so PR/push commit scans see every diff
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         # Runs the gitleaks Go binary on the runner — no npm/local install, so the
         # Windows-binary friction that blocked a client-side scanner doesn't apply.
         # GITLEAKS_LICENSE is only required for GitHub orgs, not personal repos.
