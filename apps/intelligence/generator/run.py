@@ -7,6 +7,7 @@ from generator.collusion_rings import build_collusion_rings
 from generator.config import GeneratorConfig
 from generator.db import get_database
 from generator.engagements import generate_engagements
+from generator.id_map import write_id_map
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
 from generator.manifest import build_manifest
@@ -102,12 +103,14 @@ def _resolve_ids(db, identities, profiles, jobposts, proposals, engagements, out
         db.outcomes.insert_one(doc)
 
     for r in reviews:
+        source_engagement = engagements_by_local_id[r["engagementLocalId"]]
         doc = {
             "engagementId": engagement_local_to_real[r["engagementLocalId"]],
             "authorProfileId": profile_local_to_real[r["authorProfileLocalId"]],
             "subjectProfileId": profile_local_to_real[r["subjectProfileLocalId"]],
             "rating": r["rating"],
             "text": r["text"],
+            "createdAt": source_engagement["createdAt"],
         }
         db.reviews.insert_one(doc)
 
@@ -131,6 +134,7 @@ def main():
     parser.add_argument("--num-profiles", type=int, default=500)
     parser.add_argument("--wipe", action="store_true", help="Drop existing seeded collections first")
     parser.add_argument("--manifest-out", default="ground-truth-manifest.json")
+    parser.add_argument("--id-map-out", default="profile-id-map.json")
     args = parser.parse_args()
 
     config = GeneratorConfig(seed=args.seed, num_profiles=args.num_profiles)
@@ -185,14 +189,18 @@ def main():
         )
         sys.exit(1)
 
-    _resolve_ids(db, identities, profiles, jobposts, proposals, engagements, outcomes, reviews, payments)
+    profile_local_to_real, _, _ = _resolve_ids(
+        db, identities, profiles, jobposts, proposals, engagements, outcomes, reviews, payments
+    )
 
     with open(args.manifest_out, "w") as f:
         json.dump(manifest, f, indent=2, default=str)
+    write_id_map(args.id_map_out, profile_local_to_real)
 
     print(f"Seeded at {datetime.utcnow().isoformat()}Z")
     print(json.dumps(report["counts"], indent=2))
     print(f"Ground-truth manifest written to {args.manifest_out}")
+    print(f"Profile id-map written to {args.id_map_out}")
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ apps/intelligence/.env
 
 # Generator output (regeneratable, not source)
 ground-truth-manifest.json
+profile-id-map.json
 
 # Editor / OS
 .vscode/

@@ -8,6 +8,8 @@ import {
   Outcome,
   Review,
   Payment,
+  TrustScore,
+  RiskSignal,
 } from '../src/models/index.js';
 
 const MODELS_TO_CHECK = {
@@ -19,6 +21,8 @@ const MODELS_TO_CHECK = {
   Outcome,
   Review,
   Payment,
+  TrustScore,
+  RiskSignal,
 };
 
 export async function validateSeededCollections() {
