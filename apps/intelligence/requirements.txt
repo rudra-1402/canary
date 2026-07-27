@@ -4,5 +4,5 @@ networkx==3.4.2
 numpy==2.5.1
 pytest==9.1.1
 python-dotenv==1.2.2
-ruff==0.15.21
+ruff==0.15.22
 black==26.5.1
