@@ -26,7 +26,7 @@ plan-driven, per `.ai/protocols/plan-execution.md`) + demo data + slides.
 ## Rule 2 — Depend on contracts, not implementations
 
 Code depends on a stable _interface_ — a promise about shape — never on how something works inside.
-The anti-breakage rule: all code calls `getCurrentUser(request) → { id, email }`; nobody touches
+The anti-breakage rule: all code calls `getCurrentUser(request) → { identityId, email, emailVerified, activeProfile: { id, role } | null }`; nobody touches
 auth internals directly. Swapping auth later means changing the guts of one function, not every call
 site. Same idea for APIs: agree the shape (`POST /api/risk-score → { score, level, reasons[] }`) as
 a Zod schema in `packages/shared/contracts/`, and the model's internals can change freely as long as

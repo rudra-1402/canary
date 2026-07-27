@@ -6,7 +6,7 @@ const notificationSchema = new Schema(
     recipientProfileId: { type: Schema.Types.ObjectId, ref: 'Profile', required: true },
     type: {
       type: String,
-      enum: ['proposal', 'message', 'review', 'outcome-due', 'low-risk-match'],
+      enum: ['proposal', 'review', 'outcome-due', 'low-risk-match'],
       required: true,
     },
     targetRef: { type: Schema.Types.Mixed, required: true },
