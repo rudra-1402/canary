@@ -319,3 +319,275 @@ handled:
 
 Final state: `canary_dev` holds 20000 profiles. 16 commits on `rudra/slice-1-trust-score-engine`,
 not yet PR'd/merged into `main`.
+
+---
+
+# Order 3 (Trust Score read API) — Codex plan-review log
+
+Started 2026-07-29. MAX_ROUNDS=5. Reviewer: Codex (`gpt-5.6-terra`, reasoning effort `high`),
+**read-only every round**. Plan under review: `PLAN.md`. Builder/arbiter: Claude.
+
+Roles are reversed from the Slice 1 section above. Slice 1's post-mortem found **3 of its 4
+execution bugs originated in the frozen plan** — one directly from a verbatim `XGBClassifier`
+snippet the plan supplied. So this time the adversarial pass runs on the _plan, before any code_,
+rather than on the diff afterwards.
+
+## Act 1 — Plan review
+
+### Round 1 — Codex critique
+
+`VERDICT: REVISE`. Thirteen findings, verbatim:
+
+1. Route paths, batch query encoding, response envelopes and duplicate-ID behaviour are undefined — separate implementers could produce incompatible APIs. _Fix: add complete request/response examples and exact endpoint definitions._
+2. Responses vary by viewer (`self` gets signals, `member` does not) yet the plan promotes cacheability with no cache policy — shared/browser caching could leak self-only signals. _Fix: `Cache-Control: private, no-store` on both endpoints._
+3. "Latest by `generatedAt`" is nondeterministic when a rerun writes duplicate timestamps: `TrustScore` has no uniqueness constraint and persistence only inserts. _Fix: enforce `{profileId, generatedAt}` uniqueness/upsert, or sort with a defined secondary field._
+4. The read can return a stale snapshot while computing cold-start eligibility from current history — mixing two different as-of states. _Fix: require the snapshot to be current through the newest relevant Outcome, else return an explicit stale state._
+5. "Correct outcome counts" is underspecified and easy to implement wrong by counting Outcome rows without proving the Engagement is concluded and belongs to the Profile. _Fix: specify one aggregate joining concluded Engagements._
+6. `requireAuth` permits any newly registered, unverified Identity with no Profile to enumerate all TrustScores — "member" is not actually enforced. _Fix: require a verified Identity with an owned Profile._
+7. Per-Identity limiting is trivially bypassed by registering more Identities, and limit/window/key-generator/reset semantics are omitted so 429 cannot be tested reliably. _Fix: named limiter with explicit limits and identity keying._
+8. Middleware order matters — identity keying requires Passport deserialization before limiting. _Fix: prescribe `requireAuth` before the identity-keyed limiter._
+9. Signal-strength bands have no thresholds, normalization, or zero-value rule; "monotonic" alone permits unstable labels across retrained models. _Fix: versioned thresholds or per-snapshot normalized semantics._
+10. Even without raw SHAP, self-only direction+strength still reveals score-optimization levers in an anti-gaming system. _Fix: fact-based explanations, or explicitly accept and document the tradeoff._
+11. Batch "no N+1" does not ensure correct association: signals must be fetched only for selected snapshot IDs and with `parentType: 'TrustScore'`. _Fix: two-query batch algorithm, test that other-parent signals never appear._
+12. Task 8 is not reproducible — "hand-patch" specifies no credentials, CSRF/session flow, cleanup or assertions. _Fix: deterministic disposable live-fixture script._
+13. The API hides snapshot freshness, so consumers cannot distinguish a current score from one generated before a reseed or model revision. _Fix: include validated `generatedAt` and preferably a scorer/model version._
+
+### Claude's response — Round 1
+
+**Accepted (10):** 1, 2, 3, 4, 5, 8, 9, 11, 12, and 6-in-principle.
+
+Three are materially serious and none were on my radar:
+
+- **#2 is a real security hole.** Two viewers, same URL, different payloads, and I had argued _for_
+  GET partly on cacheability grounds (decision 9). A shared cache serving a `self` response to a
+  `member` leaks exactly the signals D12 exists to withhold. Directly contradicted my own reasoning.
+- **#3 lands on a known defect.** `run.py` is not idempotent (`insert_one`, no upsert, no wipe) and
+  is already tracked. If it is ever re-run without a wipe, duplicate rows share `generatedAt` and
+  "latest" becomes arbitrary — the read would be silently nondeterministic. The plan's own context
+  section documented the non-idempotency and I still failed to connect it to the read path.
+- **#11 is a correctness bug I would have shipped.** `RiskSignal.parentType` is an enum of
+  `TrustScore | RiskAssessment`; a naive `parentId $in [...]` batch query would mix parent types the
+  moment RiskAssessments exist. Nothing today would catch it — `riskassessments` is empty, so the
+  test would pass and rot.
+
+**#4** is the subtlest: cold-start eligibility is computed from _current_ engagement counts while the
+snapshot returned may be up to a month old, so one response can mix two as-of states. Accepted;
+resolved by deriving both from the snapshot and surfacing staleness explicitly.
+
+**Accepted in principle, scoped (#6):** requiring a verified Identity with an owned Profile is
+right. ⚠️ But `emailVerified` is `false` on all 20 000 seeded identities, so enforcing verification
+today locks every seeded user out — the plan must require _an owned Profile_ now and gate on
+`emailVerified` only once `TS-C` sets it. Recorded so the ordering is not discovered at demo time.
+
+**Rejected / narrowed, with reasons:**
+
+- **#7's registration-abuse controls** — correct that per-identity limiting is bypassable by mass
+  registration, but signup abuse control is a different subsystem and not Order 3's job. The limiter
+  is specified concretely (limit/window/key/reset) so 429 is testable; the mass-registration vector
+  is recorded as a tracked follow-up rather than absorbed silently.
+- **#13's model/scorer version** — agreed in principle, but nothing on the Python side records a
+  model version today, so this cannot be served without an intelligence-layer change. `generatedAt`
+  was already in the response and now carries an explicit freshness contract. Model version recorded
+  as a follow-up for the retraining segments, which are the ones that make it meaningful.
+- **#10** — accepted as a _documented tradeoff_, not a redesign. Self-gaming toward "improve your
+  on-time rate" is the behaviour the product wants; the danger is cross-party lever discovery, which
+  D12 already closes. Notably Codex independently proposed fact-based explanations — the same option
+  already flagged as open against the D1/D12 contradiction, which strengthens the case for it.
+
+### Round 2 — Codex critique
+
+`VERDICT: REVISE`. Eight findings, most of them consequences of the Round 1 fixes:
+
+1. Cold-start after `TS-A` is contradictory: a below-threshold profile will have **no snapshot**, so there is no `generatedAt` for the stipulated as-of count. _Fix: define no-snapshot behaviour explicitly._
+2. A profile can reach three Outcomes **after** the scorer last ran — neither `scored` nor legitimately `insufficient-history`, and no response variant represents it. _Fix: add a `pending-score` status._
+3. "Strength as share of total snapshot contribution" **cannot be calculated** — persistence stores only SHAP's top three signals, not all feature contributions. _Fix: define strength relative to stored signals, or persist a snapshot-level total._
+4. The live fixture is impossible as written: a newly created Profile cannot "point at" an existing scoreable Profile, and a new Profile has no snapshot. _Fix: complete disposable scored fixture, or reassign-and-restore._
+5. The prescribed "two queries" cannot produce all required states and misses Profiles with no snapshots. _Fix: specify the exact query plan including snapshotless and unknown profiles._
+6. `RiskSignal.source` permits `brief-analysis`, but the projection treats every signal as comparable SHAP data. _Fix: filter to `source: 'structured-data'` or define per-source semantics._
+7. `snapshotIsCurrent: false` still returns normal `scored` status, relying on every consumer to notice a boolean before using stale trust data. _Fix: make stale a distinct status._
+8. The 50-ID cap is applied only after de-duplication, so arbitrarily many repeated tokens pass until URL limits intervene. _Fix: cap raw token count too._
+
+### Claude's response — Round 2
+
+**All eight accepted.** Round 2 was more valuable than Round 1, because six of the eight are defects
+_introduced by my Round 1 fixes_ — which is precisely what a persistent adversarial session is for.
+A fresh reviewer each round would have re-litigated Round 1 instead of auditing its consequences.
+
+The three that matter most:
+
+- **#3 makes my Round 1 fix unimplementable.** I defined strength as a signal's share of the
+  snapshot's total absolute contribution. `explain.py` sets `TOP_K_SIGNALS = 3` and persists only
+  those three — the denominator does not exist in the database. I specified a computation over data
+  that isn't stored, and no test written from that spec would have compiled against reality.
+  Strength is now defined relative to the stored signals only.
+- **#7 caught me contradicting my own principle.** Decision 1 rejects nullable fields precisely
+  because they rely on consumers checking before rendering — then I introduced `snapshotIsCurrent`
+  as a boolean doing exactly that. Stale is now its own status; the type system refuses to let a
+  stale score render as current.
+- **#2 is a genuinely missing state**, not a refinement. A profile that crosses the threshold
+  between scorer runs is scoreable but unscored. It is neither of the two states I had, and it will
+  occur constantly in a live system where the scorer runs monthly.
+
+**#1** resolved by making the as-of rule conditional: counts are as-of the snapshot when one exists,
+as-of now when none does — the only coherent reading once `TS-A` stops writing snapshots for
+cold-start profiles.
+
+**#4** resolved by exploiting D10 rather than mutating seeded data: a `member` may read _any_
+profile, so verifying the `scored` branch needs only **one** loginable identity plus any scoreable
+profile — no ownership, no reassignment. Only `self`-on-a-scored-profile needs ownership, and that
+single case uses an explicit reassign-and-restore, or defers to post-`TS-C`.
+
+**#5** accepted with a correction to my own framing: "two queries" was wrong, since snapshotless and
+unknown profiles need the profile/outcome aggregate as well. The plan now specifies the actual query
+plan and asserts a **bounded** count rather than the number two.
+
+**#6** is forward-looking and cheap: Slice 3's brief analyzer will produce `source: 'brief-analysis'`
+signals, and today's empty state means an unfiltered projection would pass every test and break
+later — the same rot pattern as #11 in Round 1.
+
+### Round 3 — Codex critique
+
+`VERDICT: REVISE`. Six findings:
+
+1. The four-state machine has no precedence rule for the known fabricated cold-start snapshots — a below-threshold Profile with a stored row can still be classified `scored`/`stale`. _Fix: define and test precedence, threshold first._
+2. The exact middleware chain omits the "Identity owns ≥1 Profile" gate that decision 8 requires. _Fix: named participant guard with precise placement._
+3. Cross-party reads ignore `Profile.discoverable`, letting any participant enumerate scores for private/onboarding-incomplete Profiles. _Fix: non-self reads only for discoverable Profiles._
+4. Task 8 still leaves the self-read verification undecided ("either reassign-and-restore or defer") — an implementation choice the plan's own rules say must be fixed. _Fix: choose one._
+5. The batch query plan has no consistency boundary; a concurrent scorer wipe/reseed can select a snapshot whose signals are gone. _Fix: consistent read, or detect missing signals and fail closed._
+6. `stale.outcomesSince` has no type or counting rule. _Fix: define it and boundary-test._
+
+### Claude's response — Round 3
+
+**All six accepted.** Two would have shipped as real bugs:
+
+- **#1 is the best finding of the whole review.** My four-state machine keyed on "does a snapshot
+  exist" — and ~18 000 profiles currently hold _fabricated_ snapshots from the very defect `TS-A`
+  exists to fix. Every one of them would have been served as `scored`. The plan documented that
+  defect in its own context section and I still built a state machine that walks straight into it.
+  Precedence is now explicit — threshold is evaluated **before** snapshot existence — and the
+  precedence itself is tested, using today's live majority case as the fixture.
+- **#3 is a straightforward privacy hole I missed.** `Profile.discoverable` exists on every document
+  and I never consulted it. Any participant could enumerate scores for profiles that opted out or
+  never finished onboarding. Non-self reads now respect it, returning **404 rather than 403** so the
+  endpoint does not confirm the existence of a profile it will not disclose.
+
+**#4 is fair and slightly embarrassing:** I wrote "state which, do not leave it implicit" and then
+left it implicit. Decided — `self`-on-scored live verification defers to post-`TS-C`; mutating real
+seeded data for one assertion, three days before that mutation becomes unnecessary, is not worth it.
+The `self` projection remains fully covered by unit and db tests; only its live-HTTP confirmation
+moves, and it is recorded rather than dropped.
+
+**#5** is a genuine race: `TS-A` wipes `trustscores` + `risksignals` before re-running, so a read
+during a reseed can select a snapshot whose signals are already deleted. Transactions need a replica
+set and this is standalone, so the rule is **fail closed** — a `self` response with silently missing
+signals is indistinguishable from a legitimate one.
+
+**#6** resolved with the boundary that matters: outcomes timestamped exactly equal to `generatedAt`
+count as **covered**, not **since**. The opposite reading would mark every snapshot stale the instant
+it was written.
+
+### Rounds 4 and 5 — Codex critique
+
+**Round 4** (`VERDICT: REVISE`, 3 findings):
+
+1. State evaluation cannot work from the specified aggregate — it needs both current and at-snapshot counts, but Task 5 windows at the snapshot. A profile with 2 outcomes at snapshot and 3 now must be `pending-score`. _Fix: return both counts plus `outcomesSince`, define predicates from both._
+2. The scoring threshold has no cross-runtime source of truth — Python owns it, Node must independently decide every state transition. _Fix: shared versioned config artifact._
+3. The identity-keyed limiter is still unspecified despite being security-critical — no max, window, store, or reset. _Fix: name the exact configuration._
+
+**Round 5** (`VERDICT: REVISE`, 3 findings — **MAX_ROUNDS cap reached**):
+
+1. Task 5 _still_ specifies one windowed count, contradicting the Decision 14 fix. _Fix: aggregate returns all three with explicit predicates per state._
+2. The weighted batch limit cannot work in the stated middleware order — the limiter runs before Zod parsing/dedup, and stock `express-rate-limit` increments one hit per request. _Fix: parse before limiting with a custom weighted store, or charge flat._
+3. The cross-runtime JSON artifact is a decision with no task, and it changes `packages/shared` and Python config while the plan claims to touch neither. _Fix: dedicated task with approval, or drop._
+
+### Claude's response — Rounds 4–5
+
+**All six accepted.** Round 5's #1 is the one worth dwelling on: I fixed Decision 14 in round 4 and
+**left Task 5 contradicting it** — so an implementer following the tasks would have reintroduced the
+exact bug the decision was written to remove. Fixing a decision without propagating to the task that
+implements it is a plan defect of its own, and it is precisely how a "reviewed" plan ships a known
+bug.
+
+**Round 5 #2** killed a fix I had been pleased with. Weighted batch cost is unimplementable in the
+prescribed chain — the limiter runs before parsing, so the id count doesn't exist yet, and stock
+middleware increments one per request. Replaced with **two flat limiters** (120/5min single,
+20/5min batch), which needs no custom store and bounds enumeration at ~1 000 profiles per 5 minutes
+instead of ~6 000. Simpler _and_ stricter.
+
+**Round 5 #3 — descoped rather than fixed.** Codex was right that I had added a decision with no
+task, and right that it violates the plan's own scope claim. But the fix it proposes touches
+`packages/shared` (frozen by `working-agreement.md`) and `config.py` (being edited concurrently by
+`TS-A`/`TS-B`). Changing that file from two directions in one week is how merge defects are made.
+The threshold stays duplicated, Node reads it from one module rather than several, and **`X-A` gains
+an assertion that the API value matches the Python config value** so drift fails in CI. Recorded as
+a follow-up for whichever segment next owns `config.py`.
+
+---
+
+## Outcome: MAX_ROUNDS reached without APPROVED — reported as such
+
+Verdicts: `REVISE ×5`. Findings per round: **13 → 8 → 6 → 3 → 3**. Clear convergence, but the loop
+hit its cap rather than converging to approval, and that is reported honestly rather than dressed up.
+
+**Nothing is an unresolved disagreement.** All 33 findings were accepted, or narrowed/descoped with a
+reason logged. There is no point where Claude and Codex still hold opposing positions.
+
+**The real caveat: round 5's three fixes were never reviewed.** They are the newest and least-tested
+part of the plan, and two of them (the two-limiter scheme, the descoped threshold artifact) are
+material design changes made after the last critique. A sixth round would most likely find something
+in them — the finding rate is still 3 per round, not 0.
+
+### Rounds 6–7 — cap extended by Rudra
+
+Rudra authorised extending past `MAX_ROUNDS=5`, specifically to review the three unreviewed round-5
+fixes. Round 6 was pointed at them explicitly.
+
+**Round 6** (`VERDICT: REVISE`, 2 findings):
+
+1. The threshold drift guard is not executable — "`X-A` gains an assertion" names no file and no mechanism, and `X-A` is a segment ID in a different repo, not a test target. _Fix: name the Node module and add a runnable conformance task._
+2. The two limiters do not bound enumeration at ~1 000 — one identity can spend 20 batch requests (1 000 ids) **plus** 120 single reads in the same window. _Fix: document the real 1 120 bound or add an aggregate limiter._
+
+**Round 7** — `VERDICT: APPROVED`:
+
+> "No remaining material implementation flaw found. The revised limiter, drift guard, and state
+> aggregate are internally consistent."
+
+### Claude's response — Round 6
+
+Both accepted; both were mine to get wrong.
+
+- **#1 was a vacuous guard**, which is the specific failure this project keeps hitting. I wrote a
+  drift assertion that named no file and no mechanism — the plan-level equivalent of
+  `seedConformance` passing with `checked: 0`. Now **Task 0**, with named files, a stated mechanism
+  (the JS test text-parses `config.py` for `min_engagements_for_scoring: int = <n>`), and — the part
+  that matters — **the test fails if the regex matches nothing**, so the guard cannot itself become
+  vacuous.
+- **#2 was an arithmetic error.** I claimed ~1 000; it is (20 × 50) + 120 = **1 120**, because the
+  limiters are independent. Corrected in place rather than papered over. No aggregate limiter added:
+  the difference is immaterial to the threat model, and an aggregate limiter reintroduces exactly the
+  custom-store complexity the flat scheme was adopted to remove.
+
+---
+
+## Outcome: APPROVED at round 7
+
+Findings per round: **13 → 8 → 6 → 3 → 3 → 2 → 0.** Thirty-five total, all accepted or narrowed with
+a logged reason; **zero unresolved disagreements**.
+
+**Extending past the cap was worth it.** Rounds 6–7 cost ~10 minutes and caught a vacuous guard plus
+a wrong number — both in the fixes that had never been reviewed, exactly where the risk was
+predicted to be.
+
+**What the loop bought, concretely** — three defects that would have shipped:
+
+1. **State precedence.** The state machine keyed on "does a snapshot exist"; ~18 000 profiles hold
+   fabricated snapshots from the `TS-A` defect and would every one have been served as `scored` —
+   in a plan whose own context section documents that defect.
+2. **Shared-cache leak.** Viewer-dependent payloads on a cacheable GET, no cache policy.
+3. **`Profile.discoverable` ignored**, letting any participant enumerate opted-out profiles.
+
+Plus two missing states, a strength normalisation specified over data that is not persisted, and a
+`parentType` filter whose absence would pass every test today and rot until RiskAssessments exist.
+
+**Next:** `codex-build` — roles flip, Codex implements, Claude reads every diff and runs every test
+before each commit. Build rounds append below.
