@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import passport from 'passport';
 import { getHealthStatus } from './health.js';
 import jobPostRouter from './jobPost/jobPost.routes.js';
+import trustScoreRouter from './trustScore/trustScore.routes.js';
 import authRouter from './auth/auth.routes.js';
 import { buildSessionMiddleware } from './config/session.js';
 import { configurePassport } from './config/passport.js';
@@ -27,6 +28,7 @@ export function createApp() {
 
   app.get('/api/health', (req, res) => res.json(getHealthStatus()));
   app.use('/api/jobposts', jobPostRouter);
+  app.use('/api/trust-scores', trustScoreRouter);
   app.use('/api/auth', authRouter);
 
   app.use(errorMiddleware);

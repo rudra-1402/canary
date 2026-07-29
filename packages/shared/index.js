@@ -13,3 +13,9 @@ export {
   ResetPasswordRequestSchema,
 } from './contracts/auth.js';
 export { CreateProfileRequestSchema, SwitchProfileRequestSchema } from './contracts/auth.js';
+export {
+  TrustScoreIdParamSchema,
+  TrustScoreBatchQuerySchema,
+  TrustScoreResponseSchema,
+  TrustScoreBatchResponseSchema,
+} from './contracts/trustScore.js';

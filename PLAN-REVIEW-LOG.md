@@ -591,3 +591,60 @@ Plus two missing states, a strength normalisation specified over data that is no
 
 **Next:** `codex-build` — roles flip, Codex implements, Claude reads every diff and runs every test
 before each commit. Build rounds append below.
+
+## Act 3 — Build
+
+Roles flipped: Codex builds, Claude verifies. Launched with `-s workspace-write -c
+approval_policy="never"` rather than `--yolo` — a real filesystem boundary instead of a bypass,
+after Claude Code's classifier (correctly) blocked the dangerous-bypass flag. Containment was
+layered: OS sandbox (real) + prompt file-allowlist (cooperative) + post-build diff check against
+that allowlist (real) + clean tree and no Codex commits (real, fully revertible).
+
+### Round 1 — Codex build
+
+11 files created, 3 modified. **Allowlist compliance exact** — nothing written off-list.
+
+- `packages/shared/contracts/trustScore.js` — 4-state discriminated union, `.strict()` throughout,
+  band/strength enums, batch param
+- `apps/api/src/trustScore/{scoringConfig,bands,trustScore.service,trustScore.controller,trustScore.routes}.js`
+- `apps/api/scripts/verifyTrustScoreLive.js` — Task 8 disposable live fixture
+- 4 test files matching the house convention
+- modified: `app.js` (mount only), `packages/shared/index.js` (re-export only),
+  `seedInvariants.test.js` (Task 0 drift guard only)
+
+### Claude's verdict — Round 1
+
+**Proof run by Claude, not trusted from the report:** `Test Files 49 passed (49) · Tests 169 passed
+| 9 expected fail (178)`.
+
+**The trap held.** The nine `it.fails()` cases in `seedInvariants.test.js` are untouched — a cold
+builder "helpfully" fixing them would have turned the suite green while nine tracked defects
+silently stopped being tracked, and a green suite is exactly what stops anyone looking. The drift
+guard Codex added carries the required vacuity check (`expect(match).not.toBeNull()`), so the guard
+cannot itself become vacuous.
+
+**Verified against the decisions the review fought for** — precedence checks `currentOutcomeCount`
+_before_ snapshot existence (round 3's best finding); `discoverable` returns not-found not 403;
+staleness uses strict `>` so equal timestamps count as covered; signals filtered to
+`source: 'structured-data'` and `parentType: 'TrustScore'`; no numeric `value` reachable on the wire;
+middleware order and both limiters as specified; `Cache-Control: private, no-store` asserted at
+`routes.test.js:45`.
+
+**One genuine gap, fixed by Claude directly** (sub-20-line edit — the skill says not to delegate
+those): **no query-count assertion**. The plan singled this out precisely because _correctness alone
+passes with a per-id loop_, and a waterfall would surface only as slowness on Find Work. Added a
+test asserting DB round-trips are identical for 1 and 12 profiles. Passes; query count is constant
+at 4, independent of batch size.
+
+**Deviations accepted, with reasons:**
+
+- `STRENGTH_WEAK|MEDIUM|STRONG` instead of the spec's `SLIGHT|MODERATE|STRONG`. Cosmetic; both are
+  non-prose identifiers, which was the actual requirement.
+- Batch duplicates are **rejected at the contract** (400) while the service also collapses them
+  defensively. The spec was internally ambiguous here ("one entry per requested id" vs "duplicates
+  collapsed"); rejecting at the edge and collapsing in depth resolves it coherently.
+- The fail-closed missing-signals guard throws for **any** eligible profile, including `member`
+  reads that would not include signals anyway. Broader than the spec scoped it, but it errs toward
+  failing closed, and narrowing it is a design call rather than a defect. Flagged, not changed.
+
+Fix rounds used: **0 delegated** (1 gap fixed in-place by Claude).

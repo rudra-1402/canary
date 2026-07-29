@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import mongoose from 'mongoose';
 import { connectDB, disconnectDB } from '../src/db/connection.js';
+import { MIN_ENGAGEMENTS_FOR_SCORING } from '../src/trustScore/scoringConfig.js';
 
 // App-layer invariants over seeded data — the contract between the Python generator and this app.
 // seedConformance.test.js checks documents against their Mongoose schemas; that cannot catch a
@@ -11,10 +12,6 @@ import { connectDB, disconnectDB } from '../src/db/connection.js';
 // currently broken — a red suite gets ignored, and that is how these went unnoticed.
 
 const TIMEOUT = 120000;
-
-// Duplicated from apps/intelligence/trust_score/config.py. No shared constant exists across the
-// language boundary; if that value moves, this silently drifts.
-const MIN_ENGAGEMENTS_FOR_SCORING = 3;
 
 const db = () => mongoose.connection.db;
 
@@ -54,6 +51,13 @@ async function distinctStatuses(collection) {
 }
 
 describe('seed invariants (Python generator → Node app contract)', () => {
+  it('scoring threshold stays aligned with the Python pipeline', async () => {
+    const configUrl = new URL('../../intelligence/trust_score/config.py', import.meta.url);
+    const configText = await (await import('node:fs/promises')).readFile(configUrl, 'utf8');
+    const match = configText.match(/min_engagements_for_scoring:\s*int\s*=\s*(\d+)/);
+    expect(match, 'min_engagements_for_scoring declaration was not found').not.toBeNull();
+    expect(Number(match[1])).toBe(MIN_ENGAGEMENTS_FOR_SCORING);
+  });
   beforeAll(async () => {
     await connectDB(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/canary_dev');
   });
