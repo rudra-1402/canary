@@ -34,6 +34,44 @@ jobs:
       - run: npm test --workspace=apps/web
       - run: npm audit --audit-level=high || true
 
+  seed:
+    name: Seed invariants — generator → app contract (seeded Mongo)
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok' --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27017/canary_ci_seed
+      # Unlocks the suites that assert against seeded data. The `js` job leaves this unset, so they
+      # skip there rather than passing vacuously against its empty Mongo. CANARY_TRUST_SCORE_SEEDED
+      # stays unset here too: this job runs the generator, not the trust_score pipeline, which
+      # trains a model and needs a scoreable population a 500-profile seed does not provide.
+      CANARY_SEED_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: 'apps/intelligence/.python-version'
+      - run: npm ci
+      - run: pip install -r requirements.txt
+        working-directory: apps/intelligence
+      # 500 profiles is Slice 0's verified default — enough fan-out that every collection the
+      # conformance check walks is non-empty, small enough to seed inside a CI job.
+      - run: python -m generator.run --seed 42 --num-profiles 500 --wipe
+        working-directory: apps/intelligence
+      - run: npm test --workspace=apps/api -- seedInvariants seedConformance
+
   python:
     name: Python — lint, format, test (apps/intelligence)
     runs-on: ubuntu-latest

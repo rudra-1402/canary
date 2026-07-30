@@ -1,0 +1,1 @@
+export const MIN_ENGAGEMENTS_FOR_SCORING = 3;
