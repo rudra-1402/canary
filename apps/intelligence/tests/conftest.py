@@ -14,10 +14,15 @@ import pytest
 # calls delete_many({}) wiped 484 500 real snapshots. The default was dead code.
 _EXPLICIT_URI = os.environ.get("MONGODB_URI")
 
+from dotenv import dotenv_values  # noqa: E402
+
 from generator.db import close_client, get_client  # noqa: E402
 
 DEFAULT_TEST_URI = "mongodb://127.0.0.1:27017/canary_test"
-DOTENV_URI = os.environ.get("MONGODB_URI")
+# Read the FILE, not os.environ -- by now load_dotenv() has merged the two, so os.environ
+# cannot tell an explicitly-provided URI from .env's. CI has no .env, so this is None there
+# and the guard stays inert.
+DOTENV_URI = dotenv_values(Path(__file__).resolve().parent.parent / ".env").get("MONGODB_URI")
 
 
 @pytest.fixture
