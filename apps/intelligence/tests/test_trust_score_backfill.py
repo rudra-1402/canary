@@ -77,21 +77,18 @@ def test_month_boundary_dates_spans_full_timeline_ending_at_now():
     assert boundaries[-1] == NOW
 
 
-def test_score_and_explain_returns_cold_start_snapshot_below_threshold():
+def test_score_and_explain_states_insufficient_history_below_threshold():
+    """Absence must not be expressed as a score-shaped value: the keys are gone,
+    not None. A 50 on the same 0-100 scale a real score uses is what kept this
+    defect invisible for a week."""
     config = TrustScoreConfig(min_engagements_for_scoring=3)
     model, explainer = _trained_model_and_explainer()
     features = {"engagement_count": 1, **_synthetic_features(random.Random(1), True)}
     snapshot = score_and_explain(model, explainer, features, config)
-    assert snapshot["level"] == "med"
-    assert snapshot["score"] == 50
-    assert snapshot["riskSignals"] == [
-        {
-            "name": "insufficient-history",
-            "value": 0.0,
-            "direction": "unfavorable",
-            "source": "structured-data",
-        }
-    ]
+    assert snapshot["status"] == "insufficient-history"
+    assert "score" not in snapshot
+    assert "level" not in snapshot
+    assert snapshot["riskSignals"] == []
 
 
 def test_score_and_explain_uses_model_above_threshold():
@@ -99,7 +96,9 @@ def test_score_and_explain_uses_model_above_threshold():
     model, explainer = _trained_model_and_explainer()
     features = {"engagement_count": 10, **_synthetic_features(random.Random(1), True)}
     snapshot = score_and_explain(model, explainer, features, config)
+    assert snapshot["status"] == "scored"
     assert snapshot["level"] in ("low", "med", "high")
+    assert 0 <= snapshot["score"] <= 100
     assert len(snapshot["riskSignals"]) >= 1
     assert snapshot["riskSignals"][0]["name"] != "insufficient-history"
 
@@ -142,5 +141,13 @@ def test_backfill_profile_produces_one_snapshot_per_month_boundary():
     outcomes = [_outcome(datetime(2026, 1, 1))]
     snapshots = backfill_profile(outcomes, [], model, explainer, config, 18, now=NOW)
     assert len(snapshots) == 19
+    # Boundaries before the single outcome are legitimately cold-start, so the shape
+    # assertion is per-status: every snapshot states one, and only scored ones carry a number.
     for snapshot in snapshots:
-        assert "generatedAt" in snapshot and "score" in snapshot and "level" in snapshot
+        assert "generatedAt" in snapshot
+        assert snapshot["status"] in ("scored", "insufficient-history")
+        if snapshot["status"] == "scored":
+            assert "score" in snapshot and "level" in snapshot
+        else:
+            assert "score" not in snapshot and "level" not in snapshot
+    assert {s["status"] for s in snapshots} == {"scored", "insufficient-history"}
