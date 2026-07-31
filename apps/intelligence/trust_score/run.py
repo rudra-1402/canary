@@ -1,4 +1,5 @@
 import argparse
+import sys
 from datetime import datetime
 
 from generator.db import close_client, get_client
@@ -12,6 +13,26 @@ from trust_score.model import is_cold_start, train_model
 from trust_score.persistence import persist_trust_score
 
 ROLES = ["freelancer", "client"]
+
+
+def prepare_output_collections(db, wipe: bool):
+    """persist_trust_score inserts unconditionally -- no upsert, no key -- so a second
+    run duplicates every snapshot rather than replacing it. Refusing is the guard a
+    plan step cannot be: TS-B and TS-D both re-run this pipeline.
+
+    Deletes only TrustScore-parented risksignals; the collection is shared with
+    RiskAssessment (S5-C).
+    """
+    existing = db.trustscores.count_documents({})
+    if existing and not wipe:
+        sys.exit(
+            f"Refusing to run: trustscores already holds {existing} documents and this "
+            "pipeline is not idempotent -- a second run would duplicate every snapshot. "
+            "Re-run with --wipe to clear trustscores and their risksignals first."
+        )
+    if wipe:
+        db.trustscores.delete_many({})
+        db.risksignals.delete_many({"parentType": "TrustScore"})
 
 
 def _train_and_score_role(db, role: str, config: TrustScoreConfig, now: datetime, dataset: dict) -> dict:
@@ -53,11 +74,18 @@ def _train_and_score_role(db, role: str, config: TrustScoreConfig, now: datetime
 def main():
     parser = argparse.ArgumentParser(description="Compute and backfill Canary Trust Scores")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--wipe",
+        action="store_true",
+        help="Clear trustscores and their risksignals first (required if either is non-empty)",
+    )
     args = parser.parse_args()
 
     config = TrustScoreConfig(seed=args.seed)
     client = get_client()
     db = client.get_default_database()
+    # Before load_dataset, so a refusal costs no work.
+    prepare_output_collections(db, wipe=args.wipe)
     now = datetime.utcnow()
 
     print("Loading dataset...")

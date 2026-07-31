@@ -35,7 +35,17 @@ async function concludedOutcome(p, recordedAt) {
   });
 }
 async function snapshot(p, generatedAt, score = 50) {
-  return TrustScore.create({ profileId: p._id, score, level: 'low', generatedAt });
+  return TrustScore.create({
+    profileId: p._id,
+    status: 'scored',
+    score,
+    level: 'low',
+    generatedAt,
+  });
+}
+// A cold-start snapshot as TS-A now writes them: states its status, carries no score.
+async function unscoredSnapshot(p, generatedAt) {
+  return TrustScore.create({ profileId: p._id, status: 'insufficient-history', generatedAt });
 }
 async function signal(s) {
   return RiskSignal.create({
@@ -59,6 +69,19 @@ describe('TrustScore database reads', () => {
     await signal(s);
     await concludedOutcome(p, new Date('2026-01-02'));
     expect((await getTrustScore(String(p._id), p.identityId)).status).toBe('insufficient-history');
+  });
+
+  it('reports pending when enough outcomes landed after the last unscored snapshot', async () => {
+    // The whole path end to end: cold-start snapshot on disk, three outcomes recorded
+    // since, recount qualifies. Before this, bandForScore(undefined) threw a RangeError.
+    const p = await profile();
+    await unscoredSnapshot(p, new Date('2026-01-01'));
+    for (const day of ['2026-02-01', '2026-02-02', '2026-02-03']) {
+      await concludedOutcome(p, new Date(day));
+    }
+    const result = await getTrustScore(String(p._id), p.identityId);
+    expect(result.status).toBe('pending-score');
+    expect(result).not.toHaveProperty('score');
   });
 
   it('distinguishes pending, stale, and scored using the three counts', async () => {

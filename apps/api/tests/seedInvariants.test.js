@@ -276,25 +276,42 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
         TIMEOUT,
       );
 
-      // Fixed by TS-A's wipe. 5 500 stale ids accumulated across reseeds while profiles were replaced;
-      // they corrupt any population statistic by ~21%.
-      it.fails(
-        'every TrustScore references an existing Profile (TS-A)',
+      // Fixed by TS-A's wipe: 5 500 stale ids had accumulated across reseeds while profiles
+      // were replaced, corrupting any population statistic by ~21%.
+      it(
+        'every TrustScore references an existing Profile',
         async () => {
           expect(await countOrphans('trustscores', 'profileId', 'profiles')).toBe(0);
         },
         TIMEOUT,
       );
 
-      // Fixed by TS-A. run.py:26 gates TRAINING on is_cold_start but run.py:37 scores every profile,
-      // so ~18 000 profiles carry a model prediction built from _neutral_defaults() placeholders.
-      it.fails(
-        'no profile below the scoring threshold has a TrustScore (TS-A)',
+      // Absence-by-omission was D1's rejected alternative; asserting every row states a
+      // status stops it creeping back in as a "fix" for the assertion below.
+      it(
+        'every TrustScore states a status',
+        async () => {
+          const total = await db().collection('trustscores').countDocuments();
+          const stated = await db()
+            .collection('trustscores')
+            .countDocuments({ status: { $in: ['scored', 'insufficient-history'] } });
+          expect(stated, `${stated}/${total} snapshots state a status`).toBe(total);
+        },
+        TIMEOUT,
+      );
+
+      // REWRITTEN by TS-A, not merely promoted. The original asserted that a sub-threshold
+      // profile has no TrustScore at all — false by design now, since those profiles keep
+      // rows that say "insufficient-history" instead of fabricating 50/med. Promoting it as
+      // written would have swapped a green-while-broken test for a red-while-correct one.
+      it(
+        'no profile below the scoring threshold has a SCORED TrustScore',
         async () => {
           const scoredButUnscoreable = await db()
             .collection('trustscores')
             .aggregate(
               [
+                { $match: { status: 'scored' } },
                 { $group: { _id: '$profileId' } },
                 {
                   $lookup: {

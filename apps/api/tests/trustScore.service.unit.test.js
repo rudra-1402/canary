@@ -20,7 +20,7 @@ describe('TrustScore pure helpers', () => {
     const response = projectTrustScore({
       profile,
       identityId: profile.identityId,
-      snapshot: { score: 80, level: 'low', generatedAt: new Date() },
+      snapshot: { status: 'scored', score: 80, level: 'low', generatedAt: new Date() },
       counts: { currentOutcomeCount: 3, snapshotOutcomeCount: 3, outcomesSince: 0 },
       signals: [],
     });
@@ -52,7 +52,7 @@ describe('TrustScore pure helpers', () => {
     expect(viewerRelation(profile, null)).toBe('anonymous');
     const base = {
       profile,
-      snapshot: { score: 50, generatedAt: new Date('2026-01-01') },
+      snapshot: { status: 'scored', score: 50, generatedAt: new Date('2026-01-01') },
       counts: { currentOutcomeCount: 3, snapshotOutcomeCount: 3, outcomesSince: 0 },
       signals: [{ name: 'x', value: 1, direction: 'favorable', source: 'structured-data' }],
     };
@@ -60,5 +60,43 @@ describe('TrustScore pure helpers', () => {
     expect(
       projectTrustScore({ ...base, identityId: new mongoose.Types.ObjectId() }),
     ).not.toHaveProperty('signals');
+  });
+
+  // Reachable whenever outcomes are recorded AFTER the last batch run: the live recount
+  // clears the threshold while the stored snapshot is still the cold-start one. Before
+  // TS-A every snapshot carried a number, so this combination could not occur.
+  it('treats an unscored snapshot as pending, even when the live outcome recount qualifies', () => {
+    const profile = {
+      _id: new mongoose.Types.ObjectId(),
+      identityId: new mongoose.Types.ObjectId(),
+    };
+    const result = projectTrustScore({
+      profile,
+      identityId: profile.identityId,
+      snapshot: { status: 'insufficient-history', generatedAt: new Date('2026-01-01') },
+      counts: { currentOutcomeCount: 5, snapshotOutcomeCount: 5, outcomesSince: 0 },
+      signals: [],
+    });
+    expect(result).toEqual({
+      status: 'pending-score',
+      profileId: String(profile._id),
+      outcomeCount: 5,
+    });
+  });
+
+  it('still scores normally when the snapshot itself is scored', () => {
+    const profile = {
+      _id: new mongoose.Types.ObjectId(),
+      identityId: new mongoose.Types.ObjectId(),
+    };
+    const result = projectTrustScore({
+      profile,
+      identityId: profile.identityId,
+      snapshot: { status: 'scored', score: 80, level: 'high', generatedAt: new Date('2026-01-01') },
+      counts: { currentOutcomeCount: 5, snapshotOutcomeCount: 5, outcomesSince: 0 },
+      signals: [],
+    });
+    expect(result.status).toBe('scored');
+    expect(result.band).toBe('BAND_HIGH');
   });
 });

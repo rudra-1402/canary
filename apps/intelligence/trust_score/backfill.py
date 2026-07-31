@@ -4,17 +4,18 @@ from trust_score.explain import explain_profile
 from trust_score.features import compute_features
 from trust_score.model import is_cold_start, score_profile
 
+STATUS_SCORED = "scored"
+STATUS_INSUFFICIENT_HISTORY = "insufficient-history"
+
+# No score, no level, no risk signal -- deliberately on all three counts. A number
+# here would sit on the same 0-100 scale a real score uses and be indistinguishable
+# from one; the previous value was a hardcoded 50/"med", which is how ~90% of
+# profiles came to carry a confident score that nothing had computed. The signal is
+# dropped too: it recorded direction "unfavorable", asserting that having no track
+# record is bad -- a claim the data does not support.
 COLD_START_SNAPSHOT = {
-    "score": 50,
-    "level": "med",
-    "riskSignals": [
-        {
-            "name": "insufficient-history",
-            "value": 0.0,
-            "direction": "unfavorable",
-            "source": "structured-data",
-        }
-    ],
+    "status": STATUS_INSUFFICIENT_HISTORY,
+    "riskSignals": [],
 }
 
 
@@ -34,6 +35,7 @@ def score_and_explain(model, explainer, features: dict, config) -> dict:
 
     scored = score_profile(model, features)
     return {
+        "status": STATUS_SCORED,
         "score": scored["score"],
         "level": scored["level"],
         "riskSignals": explain_profile(explainer, features),
