@@ -37,7 +37,14 @@ export function projectTrustScore({ profile, snapshot, counts, signals, identity
       outcomesNeeded: MIN_ENGAGEMENTS_FOR_SCORING,
     };
   }
-  if (!snapshot || counts.snapshotOutcomeCount < MIN_ENGAGEMENTS_FOR_SCORING) {
+  // A snapshot that scored nothing has no score to band. Reachable when outcomes land
+  // after the last batch run: the recount above qualifies while the stored snapshot is
+  // still the cold-start one.
+  if (
+    !snapshot ||
+    snapshot.status !== 'scored' ||
+    counts.snapshotOutcomeCount < MIN_ENGAGEMENTS_FOR_SCORING
+  ) {
     return { status: 'pending-score', profileId, outcomeCount: counts.currentOutcomeCount };
   }
   const result = {
