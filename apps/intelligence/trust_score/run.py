@@ -165,7 +165,11 @@ def main(argv=None):
                     f"bad-actor recall={result['bad_actor_recall']}; "
                     f"test={result['test_examples']}"
                 )
-            return results
+            # Only stop here when evaluation was the whole request. Returning
+            # unconditionally made `--persist --evaluate` silently skip persistence:
+            # the flag was accepted, nothing was written, and nothing said so.
+            if not args.persist:
+                return results
 
         models, _ = train_temporal_models(dataset, config)
         snapshots = score_current_profiles(dataset, models, config, datetime.utcnow())
