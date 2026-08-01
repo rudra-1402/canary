@@ -25,3 +25,8 @@ profile-id-map.json
 .idea/
 .DS_Store
 Thumbs.db
+
+# Codex sandbox pytest temp dirs (permission-locked, cannot be removed by the agent)
+.pytest-tmp/
+.pytest-task6/
+apps/intelligence/.pytest-tmp/
