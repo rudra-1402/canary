@@ -156,6 +156,15 @@ def judge_leakage_windows(
     )
 
 
+def judge_temporal_label_leakage(
+    dataset: Mapping[str, Any], config, *, role: str | None = None
+) -> GateResult:
+    """Run Gate 1 against the real A4 temporal-label builder, not fixtures."""
+    from trust_score.labels import build_temporal_examples, leakage_windows
+
+    return judge_leakage_windows(leakage_windows(build_temporal_examples(dataset, config, role)))
+
+
 def _recorded_at(row: Mapping[str, Any]) -> datetime:
     recorded_at = row["recordedAt"]
     if not isinstance(recorded_at, datetime):

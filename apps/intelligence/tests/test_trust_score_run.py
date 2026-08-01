@@ -5,9 +5,7 @@ from bson import ObjectId
 
 from trust_score import run
 from trust_score.run import (
-    ModelExecutionUnavailableError,
     prepare_output_collections,
-    require_feature_preparation_only,
 )
 
 
@@ -130,9 +128,3 @@ def test_feature_preparation_only_mode_emits_one_superset_row_per_profile(monkey
 
     assert [row["features"]["subject_role"] for row in rows] == [0, 1]
     assert len(rows[0]["features"]) == len(rows[1]["features"])
-
-
-def test_training_and_scoring_mode_fails_loudly_until_a4():
-    with pytest.raises(ModelExecutionUnavailableError, match="A4"):
-        require_feature_preparation_only(False)
-    require_feature_preparation_only(True)

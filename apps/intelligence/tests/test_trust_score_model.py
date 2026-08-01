@@ -1,11 +1,8 @@
 from math import isnan
 
-import pytest
-
 from trust_score.features import FEATURE_NAMES
 from trust_score.model import (
     FEATURE_COLUMNS,
-    ModelExecutionUnavailableError,
     features_to_dataframe,
     is_cold_start,
     score_profile,
@@ -60,11 +57,17 @@ def test_features_to_dataframe_accepts_both_roles_in_one_numeric_superset_order(
     assert isnan(df.loc[1, "on_time_rate"])
 
 
-def test_training_and_scoring_fail_loudly_until_a4_defines_labels():
-    with pytest.raises(ModelExecutionUnavailableError, match="A4"):
-        train_model([_freelancer_features()], ["high"], object())
-    with pytest.raises(ModelExecutionUnavailableError, match="A4"):
-        score_profile(object(), _freelancer_features())
+def test_training_and_scoring_use_the_a4_label_contract():
+    config = type(
+        "Config",
+        (),
+        {"xgb_n_estimators": 2, "xgb_max_depth": 2, "xgb_learning_rate": 0.1, "seed": 42},
+    )()
+    model = train_model([_freelancer_features(), _client_features()], ["low", "high"], config)
+    prediction = score_profile(model, _freelancer_features())
+
+    assert 0 <= prediction["score"] <= 100
+    assert prediction["probabilities"]
 
 
 def test_is_cold_start_uses_observed_engagement_count():

@@ -5,7 +5,6 @@ import pytest
 
 from trust_score.backfill import backfill_feature_rows, month_boundary_dates, score_and_explain
 from trust_score.config import TrustScoreConfig
-from trust_score.model import ModelExecutionUnavailableError
 
 NOW = datetime(2026, 7, 1)
 
@@ -113,6 +112,6 @@ def test_backfill_profile_produces_one_snapshot_per_month_boundary():
         assert snapshot["features"]["subject_role"] == 1
 
 
-def test_scoring_backfill_fails_loudly_until_a4():
-    with pytest.raises(ModelExecutionUnavailableError, match="A4"):
+def test_scoring_backfill_requires_a_real_model_and_explainer():
+    with pytest.raises(AttributeError):
         score_and_explain(object(), object(), {}, TrustScoreConfig())

@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 
+from trust_score.explain import explain_profile
 from trust_score.features import compute_features, encode_subject_role
-from trust_score.model import ModelExecutionUnavailableError
+from trust_score.model import score_profile
 
 
 def month_boundary_dates(timeline_months: int, now: datetime | None = None) -> list[datetime]:
@@ -12,9 +13,9 @@ def month_boundary_dates(timeline_months: int, now: datetime | None = None) -> l
 
 
 def score_and_explain(model, explainer, features: dict, config) -> dict:
-    raise ModelExecutionUnavailableError(
-        "Trust Score scoring is unavailable until A4 defines measured label weights and bucket thresholds."
-    )
+    del config
+    prediction = score_profile(model, features)
+    return {**prediction, "riskSignals": explain_profile(explainer, features)}
 
 
 def backfill_feature_rows(
@@ -43,7 +44,4 @@ def backfill_feature_rows(
 
 
 def backfill_profile(*args, **kwargs):
-    raise ModelExecutionUnavailableError(
-        "Trust Score backfill scoring is unavailable until A4 defines measured label weights "
-        "and bucket thresholds."
-    )
+    raise NotImplementedError("backfill_profile requires the persistence schedule owned by its caller.")
