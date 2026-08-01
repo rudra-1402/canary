@@ -12,6 +12,30 @@ describe('Engagement schema', () => {
   });
 
   it('validates an active Engagement with agreedTerms', () => {
+    const dueAt = new Date('2026-08-31T00:00:00.000Z');
+    const doc = new Engagement({
+      freelancerProfileId,
+      clientProfileId,
+      status: 'active',
+      agreedTerms: {
+        scope: 'Build a site',
+        price: 1200,
+        paymentTerms: 'net-30',
+        timeline: '4 weeks',
+        dueAt,
+      },
+    });
+    expect(doc.validateSync()).toBeUndefined();
+    expect(doc.agreedTerms.dueAt).toBeInstanceOf(Date);
+  });
+
+  it('rejects an active Engagement missing agreedTerms', () => {
+    const doc = new Engagement({ freelancerProfileId, clientProfileId, status: 'active' });
+    const err = doc.validateSync();
+    expect(err.errors.agreedTerms).toBeDefined();
+  });
+
+  it('rejects an active Engagement with agreedTerms lacking dueAt', () => {
     const doc = new Engagement({
       freelancerProfileId,
       clientProfileId,
@@ -23,12 +47,59 @@ describe('Engagement schema', () => {
         timeline: '4 weeks',
       },
     });
-    expect(doc.validateSync()).toBeUndefined();
+    const err = doc.validateSync();
+    expect(err.errors['agreedTerms.dueAt']).toBeDefined();
   });
 
-  it('rejects an active Engagement missing agreedTerms', () => {
-    const doc = new Engagement({ freelancerProfileId, clientProfileId, status: 'active' });
+  it('defaults revisionsIncluded to 0 when omitted', () => {
+    const doc = new Engagement({
+      freelancerProfileId,
+      clientProfileId,
+      status: 'active',
+      agreedTerms: {
+        scope: 'Build a site',
+        price: 1200,
+        paymentTerms: 'net-30',
+        timeline: '4 weeks',
+        dueAt: new Date('2026-08-31T00:00:00.000Z'),
+      },
+    });
+    expect(doc.agreedTerms.revisionsIncluded).toBe(0);
+  });
+
+  it('rejects a negative revisionsIncluded value', () => {
+    const doc = new Engagement({
+      freelancerProfileId,
+      clientProfileId,
+      status: 'active',
+      agreedTerms: {
+        scope: 'Build a site',
+        price: 1200,
+        paymentTerms: 'net-30',
+        timeline: '4 weeks',
+        dueAt: new Date('2026-08-31T00:00:00.000Z'),
+        revisionsIncluded: -1,
+      },
+    });
     const err = doc.validateSync();
-    expect(err.errors.agreedTerms).toBeDefined();
+    expect(err.errors['agreedTerms.revisionsIncluded']).toBeDefined();
+  });
+
+  it('rejects a fractional revisionsIncluded value', () => {
+    const doc = new Engagement({
+      freelancerProfileId,
+      clientProfileId,
+      status: 'active',
+      agreedTerms: {
+        scope: 'Build a site',
+        price: 1200,
+        paymentTerms: 'net-30',
+        timeline: '4 weeks',
+        dueAt: new Date('2026-08-31T00:00:00.000Z'),
+        revisionsIncluded: 1.5,
+      },
+    });
+    const err = doc.validateSync();
+    expect(err.errors['agreedTerms.revisionsIncluded']).toBeDefined();
   });
 });

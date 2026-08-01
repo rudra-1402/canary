@@ -24,7 +24,13 @@ async function concludedOutcome(p, recordedAt) {
     freelancerProfileId: p._id,
     clientProfileId: new mongoose.Types.ObjectId(),
     status: 'concluded',
-    agreedTerms: { scope: 'x', price: 1, paymentTerms: 'x', timeline: 'x' },
+    agreedTerms: {
+      scope: 'x',
+      price: 1,
+      paymentTerms: 'x',
+      timeline: 'x',
+      dueAt: new Date('2026-01-01'),
+    },
   });
   return Outcome.create({
     engagementId: engagement._id,

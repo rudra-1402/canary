@@ -19,3 +19,4 @@ export {
   TrustScoreResponseSchema,
   TrustScoreBatchResponseSchema,
 } from './contracts/trustScore.js';
+export { EngagementSchema } from './contracts/engagement.js';

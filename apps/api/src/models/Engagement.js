@@ -7,6 +7,18 @@ const agreedTermsSchema = new Schema(
     price: { type: Number, required: true },
     paymentTerms: { type: String, required: true },
     timeline: { type: String, required: true },
+    dueAt: {
+      type: Date,
+      required: function () {
+        return this.parent().status !== 'prospective';
+      },
+    },
+    revisionsIncluded: {
+      type: Number,
+      min: 0,
+      default: 0,
+      validate: { validator: Number.isInteger, message: 'revisionsIncluded must be an integer' },
+    },
   },
   { _id: false },
 );
