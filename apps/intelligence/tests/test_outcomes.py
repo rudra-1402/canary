@@ -210,24 +210,38 @@ def test_freelancer_ghost_rate_is_independent_of_client_archetype():
     assert max(ghost_rates_by_client_archetype.values()) - min(ghost_rates_by_client_archetype.values()) < 0.2
 
 
-def test_bad_actors_ghost_more_than_reliable_parties():
+def test_ghosting_separates_archetypes_by_the_subjects_own_conduct():
+    """Two defects fixed here at once.
+
+    It grouped by "engagement involves a bad actor on EITHER side", which since
+    the per-party split attributes a bad actor's ghosting to their innocent
+    counterparty's row — the shared-attribution defect this segment abolishes,
+    surviving inside a test. Grouping is now the subject's own archetype.
+
+    And it asserted only `bad > other`, which passes at 0.9 vs 0.1 and at
+    0.0001 vs 0.00001. Sign is not behaviour. The magnitude floor is 0.5, the
+    same floor the plan sets for any feature the model consumes — and
+    ghost_rate is one.
+    """
     config, profiles, engagements = _setup(num_profiles=500)
     outcomes = generate_outcomes(config, profiles, engagements)
     profiles_by_id = {p["_localId"]: p for p in profiles}
-    engagements_by_id = {e["_localId"]: e for e in engagements}
 
-    def is_bad_actor_engagement(o):
-        e = engagements_by_id[o["engagementLocalId"]]
-        f = profiles_by_id[e["freelancerProfileLocalId"]]
-        c = profiles_by_id[e["clientProfileLocalId"]]
-        return f["trueArchetype"] == "bad-actor" or c["trueArchetype"] == "bad-actor"
+    ghosted_by_archetype: dict[str, list[float]] = {}
+    for outcome in outcomes:
+        subject = profiles_by_id[outcome["subjectProfileLocalId"]]
+        ghosted_by_archetype.setdefault(subject["trueArchetype"], []).append(
+            1.0 if outcome["ghosted"] else 0.0
+        )
 
-    bad_actor_outcomes = [o for o in outcomes if is_bad_actor_engagement(o)]
-    other_outcomes = [o for o in outcomes if not is_bad_actor_engagement(o)]
-    assert bad_actor_outcomes, "expected at least one bad-actor engagement in this seed"
-    bad_ghost_rate = sum(o["ghosted"] for o in bad_actor_outcomes) / len(bad_actor_outcomes)
-    other_ghost_rate = sum(o["ghosted"] for o in other_outcomes) / len(other_outcomes)
-    assert bad_ghost_rate > other_ghost_rate
+    assert {"reliable", "bad-actor"} <= set(
+        ghosted_by_archetype
+    ), "expected both reliable and bad-actor subjects in this seed"
+
+    assert _pooled_population_separation(ghosted_by_archetype) >= 0.5
+
+    rates = {a: sum(v) / len(v) for a, v in ghosted_by_archetype.items()}
+    assert rates["bad-actor"] > rates["reliable"]  # direction: sanity check, not coverage
 
 
 def test_drifting_profile_shows_worse_outcomes_later_than_earlier():
