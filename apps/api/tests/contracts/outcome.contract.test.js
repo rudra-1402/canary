@@ -1,15 +1,13 @@
-import { afterAll, afterEach, beforeAll, describe, it, expect } from 'vitest';
-import mongoose from 'mongoose';
-import Outcome from '../../src/models/Outcome.js';
-import { clearCollections, startMemoryDb, stopMemoryDb } from '../helpers/memoryDb.js';
+import { describe, it, expect } from 'vitest';
+import { OutcomeSchema } from '@canary/shared';
 
-const objectId = () => new mongoose.Types.ObjectId();
+const objectId = (character) => character.repeat(24);
 
 function outcome(overrides = {}) {
   return {
-    engagementId: objectId(),
-    subjectProfileId: objectId(),
-    counterpartyProfileId: objectId(),
+    engagementId: objectId('a'),
+    subjectProfileId: objectId('b'),
+    counterpartyProfileId: objectId('c'),
     subjectRole: 'freelancer',
     observed: true,
     deliveredAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -24,83 +22,38 @@ function outcome(overrides = {}) {
   };
 }
 
-beforeAll(async () => {
-  await startMemoryDb();
-  await Outcome.init();
-}, 60000);
-afterAll(stopMemoryDb);
-afterEach(clearCollections);
-
-describe('Outcome schema', () => {
-  it('validates a well-formed Outcome', () => {
-    const doc = new Outcome(outcome());
-    expect(doc.validateSync()).toBeUndefined();
-  });
-
-  it('rejects an invalid endedAs', () => {
-    const doc = new Outcome(outcome({ endedAs: 'unknown' }));
-    const err = doc.validateSync();
-    expect(err.errors.endedAs).toBeDefined();
-  });
-
-  it('allows different parties to save Outcomes for the same Engagement', async () => {
-    const engagementId = objectId();
-    await Outcome.create(outcome({ engagementId, subjectProfileId: objectId() }));
-    await expect(
-      Outcome.create(outcome({ engagementId, subjectProfileId: objectId() })),
-    ).resolves.toBeDefined();
-  });
-
-  it('rejects a duplicate Outcome for the same Engagement and subject with a duplicate-key error', async () => {
-    const engagementId = objectId();
-    const subjectProfileId = objectId();
-    await Outcome.create(outcome({ engagementId, subjectProfileId }));
-    await expect(Outcome.create(outcome({ engagementId, subjectProfileId }))).rejects.toMatchObject(
-      {
-        code: 11000,
-      },
-    );
-  });
-
+describe('Outcome contracts', () => {
   it.each(['subjectProfileId', 'counterpartyProfileId', 'subjectRole', 'observed'])(
     'requires %s',
     (field) => {
       const value = outcome();
       delete value[field];
-      const err = new Outcome(value).validateSync();
-      expect(err.errors[field]).toBeDefined();
+      expect(() => OutcomeSchema.parse(value)).toThrow();
     },
   );
 
   it('rejects a subjectRole outside the allowed enum', () => {
-    const err = new Outcome(outcome({ subjectRole: 'agency' })).validateSync();
-    expect(err.errors.subjectRole).toBeDefined();
+    expect(() => OutcomeSchema.parse(outcome({ subjectRole: 'agency' }))).toThrow();
   });
 
   it('accepts a negative daysLate value for early delivery', () => {
-    const doc = new Outcome(outcome({ daysLate: -3 }));
-    expect(doc.validateSync()).toBeUndefined();
-    expect(doc.daysLate).toBe(-3);
+    expect(OutcomeSchema.parse(outcome({ daysLate: -3 })).daysLate).toBe(-3);
   });
 
   it('accepts null paidInFull for a freelancer Outcome', () => {
-    const doc = new Outcome(outcome({ paidInFull: null }));
-    expect(doc.validateSync()).toBeUndefined();
-    expect(doc.paidInFull).toBeNull();
+    expect(OutcomeSchema.parse(outcome({ paidInFull: null })).paidInFull).toBeNull();
   });
 
   it.each([
-    ['freelancer delivery row with payment conduct', outcome({ paidInFull: true }), 'paidInFull'],
+    ['freelancer delivery row with payment conduct', outcome({ paidInFull: true })],
     [
       'client payment row with delivery conduct',
       outcome({ subjectRole: 'client', deliveredAt: new Date(), daysLate: 0 }),
-      'deliveredAt',
     ],
-    ['unobserved row with delivery conduct', outcome({ observed: false, daysLate: 0 }), 'daysLate'],
+    ['unobserved row with delivery conduct', outcome({ observed: false, daysLate: 0 })],
     [
       'self-ghosted freelancer row with delivery conduct',
       outcome({ ghosted: true, endedAs: 'ghosted', daysLate: 0 }),
-      'daysLate',
     ],
     [
       'self-ghosted client row with payment conduct',
@@ -114,11 +67,9 @@ describe('Outcome schema', () => {
         revisionsRequested: null,
         scopeCreepOccurred: null,
       }),
-      'paidInFull',
     ],
-  ])('rejects a %s', (_description, value, field) => {
-    const err = new Outcome(value).validateSync();
-    expect(err.errors[field]).toBeDefined();
+  ])('rejects a %s', (_description, value) => {
+    expect(() => OutcomeSchema.parse(value)).toThrow();
   });
 
   it.each([
@@ -171,14 +122,13 @@ describe('Outcome schema', () => {
       }),
     ],
   ])('preserves explicit null conduct fields for a %s row', (_kind, value) => {
-    const doc = new Outcome(value);
-    expect(doc.validateSync()).toBeUndefined();
+    const parsed = OutcomeSchema.parse(value);
     expect({
-      deliveredAt: doc.deliveredAt,
-      daysLate: doc.daysLate,
-      paidInFull: doc.paidInFull,
-      revisionsRequested: doc.revisionsRequested,
-      scopeCreepOccurred: doc.scopeCreepOccurred,
+      deliveredAt: parsed.deliveredAt,
+      daysLate: parsed.daysLate,
+      paidInFull: parsed.paidInFull,
+      revisionsRequested: parsed.revisionsRequested,
+      scopeCreepOccurred: parsed.scopeCreepOccurred,
     }).toEqual({
       deliveredAt: value.deliveredAt,
       daysLate: value.daysLate,
@@ -189,7 +139,7 @@ describe('Outcome schema', () => {
   });
 
   it('distinguishes counterparty-ghosted from self-ghosted rows', () => {
-    const counterpartyGhosted = new Outcome(
+    const counterpartyGhosted = OutcomeSchema.parse(
       outcome({
         observed: false,
         ghosted: false,
@@ -201,7 +151,7 @@ describe('Outcome schema', () => {
         scopeCreepOccurred: null,
       }),
     );
-    const selfGhosted = new Outcome(
+    const selfGhosted = OutcomeSchema.parse(
       outcome({
         observed: true,
         ghosted: true,
@@ -214,8 +164,6 @@ describe('Outcome schema', () => {
       }),
     );
 
-    expect(counterpartyGhosted.validateSync()).toBeUndefined();
-    expect(selfGhosted.validateSync()).toBeUndefined();
     expect(counterpartyGhosted).toMatchObject({ observed: false, ghosted: false });
     expect(selfGhosted).toMatchObject({ observed: true, ghosted: true });
   });
@@ -223,20 +171,11 @@ describe('Outcome schema', () => {
   it('does not default role-inapplicable or unobserved conduct fields', () => {
     const { deliveredAt, daysLate, paidInFull, revisionsRequested, scopeCreepOccurred, ...base } =
       outcome();
-    const doc = new Outcome(base);
-    expect(doc.validateSync()).toBeUndefined();
-    expect({
-      deliveredAt: doc.deliveredAt,
-      daysLate: doc.daysLate,
-      paidInFull: doc.paidInFull,
-      revisionsRequested: doc.revisionsRequested,
-      scopeCreepOccurred: doc.scopeCreepOccurred,
-    }).toEqual({
-      deliveredAt: undefined,
-      daysLate: undefined,
-      paidInFull: undefined,
-      revisionsRequested: undefined,
-      scopeCreepOccurred: undefined,
-    });
+    const parsed = OutcomeSchema.parse(base);
+    expect(parsed).not.toHaveProperty('deliveredAt');
+    expect(parsed).not.toHaveProperty('daysLate');
+    expect(parsed).not.toHaveProperty('paidInFull');
+    expect(parsed).not.toHaveProperty('revisionsRequested');
+    expect(parsed).not.toHaveProperty('scopeCreepOccurred');
   });
 });

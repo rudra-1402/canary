@@ -21,3 +21,4 @@ export {
 } from './contracts/trustScore.js';
 export { EngagementSchema } from './contracts/engagement.js';
 export { ProposalSchema } from './contracts/proposal.js';
+export { OutcomeSchema } from './contracts/outcome.js';

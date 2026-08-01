@@ -34,7 +34,11 @@ async function concludedOutcome(p, recordedAt) {
   });
   return Outcome.create({
     engagementId: engagement._id,
-    paidInFull: true,
+    subjectProfileId: p._id,
+    counterpartyProfileId: engagement.clientProfileId,
+    subjectRole: 'freelancer',
+    observed: true,
+    paidInFull: null,
     endedAs: 'completed',
     labelSource: 'synthetic',
     recordedAt,
