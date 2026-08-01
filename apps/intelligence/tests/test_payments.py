@@ -9,7 +9,7 @@ from generator.payments import generate_payments
 from generator.proposals import generate_proposals
 
 
-def test_payments_are_not_generated_until_payment_conduct_is_implemented():
+def test_payments_are_generated_only_for_observed_clients_who_paid_in_full():
     config = GeneratorConfig(seed=42, num_profiles=300)
     _, profiles = generate_identities_and_profiles(config)
     jobposts = generate_jobposts(config, profiles)
@@ -18,7 +18,17 @@ def test_payments_are_not_generated_until_payment_conduct_is_implemented():
     outcomes = generate_outcomes(config, profiles, engagements)
     payments = generate_payments(config, profiles, engagements, outcomes)
 
-    assert payments == []
+    paid_client_outcome_ids = {
+        outcome["engagementLocalId"]
+        for outcome in outcomes
+        if outcome["subjectRole"] == "client"
+        and outcome["observed"]
+        and not outcome["ghosted"]
+        and outcome["paidInFull"]
+    }
+
+    assert paid_client_outcome_ids
+    assert {payment["engagementLocalId"] for payment in payments} == paid_client_outcome_ids
 
 
 def test_payment_generation_uses_the_client_outcome_not_the_last_outcome():

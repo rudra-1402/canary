@@ -12,6 +12,15 @@ class GeneratorConfig:
     proposal_duration_max_days: int = 84
     revisions_included_min: int = 0
     revisions_included_max: int = 5
+    late_miss_probability_floor: float = 0.08
+    late_miss_probability_unreliability_weight: float = 0.75
+    late_days_unreliability_scale: int = 14
+    early_delivery_probability: float = 0.25
+    early_delivery_max_days: int = 3
+    paid_in_full_probability_floor: float = 0.74
+    paid_in_full_reliability_weight: float = 0.25
+    revisions_requested_unreliability_scale: float = 5.0
+    revisions_requested_noise_std: float = 0.75
 
     reliable_rate: float = 0.65
     risky_rate: float = 0.18

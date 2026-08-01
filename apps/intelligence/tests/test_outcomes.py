@@ -35,14 +35,58 @@ _CONDUCT_FIELDS = (
     "scopeCreepOccurred",
 )
 
+_CORE_ARCHETYPES = ("reliable", "risky", "bad-actor")
+
+
+def _pooled_population_separation(values_by_archetype: dict[str, list[float]]) -> float:
+    """Spread of archetype means in pooled population standard deviations."""
+    values = [value for archetype_values in values_by_archetype.values() for value in archetype_values]
+    mean = sum(values) / len(values)
+    population_std = (sum((value - mean) ** 2 for value in values) / len(values)) ** 0.5
+    means = [
+        sum(archetype_values) / len(archetype_values) for archetype_values in values_by_archetype.values()
+    ]
+    return (max(means) - min(means)) / population_std
+
+
+def _eligible_outcomes_by_archetype(
+    outcomes: list[dict],
+    profiles: list[dict],
+    role: str,
+    value,
+) -> dict[str, list[float]]:
+    profiles_by_id = {profile["_localId"]: profile for profile in profiles}
+    values_by_archetype = {archetype: [] for archetype in _CORE_ARCHETYPES}
+    for outcome in outcomes:
+        if outcome["subjectRole"] != role or not outcome["observed"] or outcome["ghosted"]:
+            continue
+        archetype = profiles_by_id[outcome["subjectProfileLocalId"]]["trueArchetype"]
+        if archetype in values_by_archetype:
+            values_by_archetype[archetype].append(float(value(outcome)))
+
+    assert all(values_by_archetype.values()), "expected eligible outcomes for every core archetype"
+    return values_by_archetype
+
+
+def _eligible_conduct_values(outcomes: list[dict], role: str, field: str) -> list:
+    values = [
+        outcome[field]
+        for outcome in outcomes
+        if outcome["subjectRole"] == role and outcome["observed"] and not outcome["ghosted"]
+    ]
+    assert all(value is not None for value in values)
+    return values
+
 
 def _concluded_engagement() -> dict:
+    due_at = datetime.utcnow() - timedelta(days=30)
     return {
         "_localId": "engagement-1",
         "status": "concluded",
         "freelancerProfileLocalId": "freelancer-1",
         "clientProfileLocalId": "client-1",
         "createdAt": datetime.utcnow() - timedelta(days=60),
+        "agreedTerms": {"dueAt": due_at, "revisionsIncluded": 2},
     }
 
 
@@ -92,8 +136,21 @@ def test_outcomes_attribute_ghosting_and_observation_per_party(monkeypatch, free
     assert freelancer_outcome["endedAs"] in expected_endings
     assert client_outcome["endedAs"] == freelancer_outcome["endedAs"]
     for outcome in outcomes:
-        for field in _CONDUCT_FIELDS:
-            assert outcome[field] is None
+        if outcome["ghosted"] or not outcome["observed"]:
+            for field in _CONDUCT_FIELDS:
+                assert outcome[field] is None
+        elif outcome["subjectRole"] == "freelancer":
+            assert outcome["deliveredAt"] is not None
+            assert outcome["daysLate"] is not None
+            assert outcome["paidInFull"] is None
+            assert outcome["revisionsRequested"] is None
+            assert outcome["scopeCreepOccurred"] is None
+        else:
+            assert outcome["deliveredAt"] is None
+            assert outcome["daysLate"] is None
+            assert outcome["paidInFull"] is not None
+            assert outcome["revisionsRequested"] is not None
+            assert outcome["scopeCreepOccurred"] is not None
 
 
 def test_every_concluded_engagement_produces_one_mapped_outcome_per_party():
@@ -181,6 +238,7 @@ def test_drifting_profile_shows_worse_outcomes_later_than_earlier():
         "freelancerProfileLocalId": "f1",
         "clientProfileLocalId": "c1",
         "createdAt": now - timedelta(days=30 * 17),
+        "agreedTerms": {"dueAt": now - timedelta(days=30 * 16), "revisionsIncluded": 2},
     }
     late_engagement = {
         "_localId": "e-late",
@@ -188,6 +246,7 @@ def test_drifting_profile_shows_worse_outcomes_later_than_earlier():
         "freelancerProfileLocalId": "f1",
         "clientProfileLocalId": "c1",
         "createdAt": now - timedelta(days=30 * 1),
+        "agreedTerms": {"dueAt": now - timedelta(days=1), "revisionsIncluded": 2},
     }
 
     early_ghost_count = 0
@@ -199,3 +258,113 @@ def test_drifting_profile_shows_worse_outcomes_later_than_earlier():
         late_ghost_count += generate_outcomes(trial_config, profiles, [late_engagement])[0]["ghosted"]
 
     assert late_ghost_count > early_ghost_count
+
+
+def test_lateness_is_reachable_and_separates_archetypes():
+    config, profiles, engagements = _setup(num_profiles=2000)
+    outcomes = generate_outcomes(config, profiles, engagements)
+    values_by_archetype = _eligible_outcomes_by_archetype(
+        outcomes, profiles, "freelancer", lambda outcome: outcome["daysLate"] <= 0
+    )
+
+    on_time_rates = {
+        archetype: sum(values) / len(values) for archetype, values in values_by_archetype.items()
+    }
+    overall_on_time_rate = sum(
+        days_late <= 0 for days_late in _eligible_conduct_values(outcomes, "freelancer", "daysLate")
+    ) / len(_eligible_conduct_values(outcomes, "freelancer", "daysLate"))
+
+    assert all(rate > 0 for rate in on_time_rates.values())
+    assert 0.55 <= overall_on_time_rate <= 0.90
+    assert _pooled_population_separation(values_by_archetype) >= 0.5
+    assert on_time_rates["reliable"] > on_time_rates["bad-actor"]
+
+
+def test_lateness_can_record_early_delivery():
+    config, profiles, engagements = _setup(num_profiles=2000)
+    outcomes = generate_outcomes(config, profiles, engagements)
+
+    assert any(
+        outcome["daysLate"] < 0
+        for outcome in outcomes
+        if outcome["subjectRole"] == "freelancer" and outcome["observed"] and not outcome["ghosted"]
+    )
+
+
+def test_days_late_is_measured_from_the_agreed_due_at(monkeypatch):
+    profiles = _profiles_for_ghost_cases()
+    engagement = _concluded_engagement()
+    monkeypatch.setattr(outcomes_module, "_party_ghost_probability", lambda *_: 0.0)
+
+    outcomes = generate_outcomes(GeneratorConfig(seed=42), profiles, [engagement])
+    freelancer_outcome = next(outcome for outcome in outcomes if outcome["subjectRole"] == "freelancer")
+
+    assert (
+        freelancer_outcome["daysLate"]
+        == (freelancer_outcome["deliveredAt"] - engagement["agreedTerms"]["dueAt"]).days
+    )
+
+
+def test_paid_in_full_is_client_trait_signal_independent_of_ghosting():
+    config, profiles, engagements = _setup(num_profiles=2000)
+    outcomes = generate_outcomes(config, profiles, engagements)
+    values_by_archetype = _eligible_outcomes_by_archetype(
+        outcomes, profiles, "client", lambda outcome: outcome["paidInFull"]
+    )
+    paid_in_full_rate = sum(_eligible_conduct_values(outcomes, "client", "paidInFull")) / len(
+        _eligible_conduct_values(outcomes, "client", "paidInFull")
+    )
+
+    assert _pooled_population_separation(values_by_archetype) >= 0.5
+    assert _pooled_population_separation(values_by_archetype) >= 0.3
+    assert 0.80 <= paid_in_full_rate <= 0.98
+
+
+def test_scope_creep_is_derived_from_client_revisions(monkeypatch):
+    profiles = _profiles_for_ghost_cases()
+    engagement = _concluded_engagement()
+    monkeypatch.setattr(outcomes_module, "_party_ghost_probability", lambda *_: 0.0)
+    monkeypatch.setattr(outcomes_module, "_revisions_requested_from_traits", lambda *_: 3, raising=False)
+
+    outcomes = generate_outcomes(GeneratorConfig(seed=42), profiles, [engagement])
+    client_outcome = next(outcome for outcome in outcomes if outcome["subjectRole"] == "client")
+
+    assert client_outcome["revisionsRequested"] == 3
+    assert client_outcome["scopeCreepOccurred"] is (
+        client_outcome["revisionsRequested"] > engagement["agreedTerms"]["revisionsIncluded"]
+    )
+
+
+def test_scope_creep_rate_and_client_trait_signal_are_plausible():
+    config, profiles, engagements = _setup(num_profiles=2000)
+    outcomes = generate_outcomes(config, profiles, engagements)
+    values_by_archetype = _eligible_outcomes_by_archetype(
+        outcomes, profiles, "client", lambda outcome: outcome["scopeCreepOccurred"]
+    )
+    scope_creep_rate = sum(_eligible_conduct_values(outcomes, "client", "scopeCreepOccurred")) / len(
+        _eligible_conduct_values(outcomes, "client", "scopeCreepOccurred")
+    )
+
+    assert 0.10 <= scope_creep_rate <= 0.40
+    assert _pooled_population_separation(values_by_archetype) >= 0.3
+
+
+def test_conduct_nullability_matches_role_observation_and_ghosting():
+    config, profiles, engagements = _setup(num_profiles=500)
+    outcomes = generate_outcomes(config, profiles, engagements)
+
+    for outcome in outcomes:
+        if outcome["ghosted"] or not outcome["observed"]:
+            assert all(outcome[field] is None for field in _CONDUCT_FIELDS)
+        elif outcome["subjectRole"] == "freelancer":
+            assert outcome["deliveredAt"] is not None
+            assert outcome["daysLate"] is not None
+            assert outcome["paidInFull"] is None
+            assert outcome["revisionsRequested"] is None
+            assert outcome["scopeCreepOccurred"] is None
+        else:
+            assert outcome["deliveredAt"] is None
+            assert outcome["daysLate"] is None
+            assert outcome["paidInFull"] is not None
+            assert outcome["revisionsRequested"] is not None
+            assert outcome["scopeCreepOccurred"] is not None
