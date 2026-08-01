@@ -9,6 +9,8 @@ const MilestoneSchema = z.object({
   amount: z.number(),
 });
 
+const jobPostStatus = z.enum(['draft', 'open', 'closed']);
+
 export const ProposalSchema = z.object({
   jobPostId: objectId,
   freelancerProfileId: objectId,
@@ -21,3 +23,21 @@ export const ProposalSchema = z.object({
   screeningAnswers: z.array(z.string()).default([]),
   status: status.default('submitted'),
 });
+
+export const MyProposalSchema = z
+  .object({
+    id: objectId,
+    bid: z.number(),
+    payModel,
+    proposedMilestones: z.array(MilestoneSchema),
+    durationEstimate: z.string().optional(),
+    proposedDurationDays: z.number().int().min(1),
+    coverLetter: z.string().max(5000).optional(),
+    screeningAnswers: z.array(z.string()),
+    status,
+    createdAt: z.string().datetime().nullable(),
+    jobPost: z.object({ id: objectId, title: z.string(), status: jobPostStatus }).strict(),
+  })
+  .strict();
+
+export const MyProposalsResponseSchema = z.object({ data: z.array(MyProposalSchema) }).strict();

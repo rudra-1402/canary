@@ -12,6 +12,17 @@ const AgreedTermsSchema = z.object({
   revisionsIncluded: z.number().int().min(0).default(0),
 });
 
+const ResponseAgreedTermsSchema = z
+  .object({
+    scope: z.string(),
+    price: z.number(),
+    paymentTerms: z.string(),
+    timeline: z.string(),
+    dueAt: z.string().datetime().optional(),
+    revisionsIncluded: z.number().int().min(0),
+  })
+  .strict();
+
 export const EngagementSchema = z
   .object({
     freelancerProfileId: objectId,
@@ -37,3 +48,26 @@ export const EngagementSchema = z
       });
     }
   });
+
+export const MyEngagementSchema = z
+  .object({
+    id: objectId,
+    counterpartyProfileId: objectId,
+    jobPostId: objectId.nullable(),
+    proposalId: objectId.nullable(),
+    status,
+    agreedTerms: ResponseAgreedTermsSchema.nullable(),
+    createdAt: z.string().datetime().nullable(),
+  })
+  .superRefine((engagement, ctx) => {
+    if (engagement.status === 'prospective') return;
+    if (!engagement.agreedTerms?.dueAt) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['agreedTerms', 'dueAt'],
+        message: 'agreedTerms with dueAt is required',
+      });
+    }
+  });
+
+export const MyEngagementsResponseSchema = z.object({ data: z.array(MyEngagementSchema) }).strict();

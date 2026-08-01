@@ -7,6 +7,8 @@ import { getHealthStatus } from './health.js';
 import jobPostRouter from './jobPost/jobPost.routes.js';
 import trustScoreRouter from './trustScore/trustScore.routes.js';
 import authRouter from './auth/auth.routes.js';
+import profileRouter from './profile/profile.routes.js';
+import meRouter from './me/me.routes.js';
 import { buildSessionMiddleware } from './config/session.js';
 import { configurePassport } from './config/passport.js';
 import { errorMiddleware } from './lib/errorMiddleware.js';
@@ -29,6 +31,8 @@ export function createApp() {
   app.get('/api/health', (req, res) => res.json(getHealthStatus()));
   app.use('/api/jobposts', jobPostRouter);
   app.use('/api/trust-scores', trustScoreRouter);
+  app.use('/api/profiles', profileRouter);
+  app.use('/api/me', meRouter);
   app.use('/api/auth', authRouter);
 
   app.use(errorMiddleware);

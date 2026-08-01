@@ -13,13 +13,27 @@ export {
   ResetPasswordRequestSchema,
 } from './contracts/auth.js';
 export { CreateProfileRequestSchema, SwitchProfileRequestSchema } from './contracts/auth.js';
+export { ProfileIdParamSchema, PublicProfileSchema } from './contracts/profile.js';
 export {
   TrustScoreIdParamSchema,
   TrustScoreBatchQuerySchema,
   TrustScoreResponseSchema,
   TrustScoreBatchResponseSchema,
 } from './contracts/trustScore.js';
-export { EngagementSchema } from './contracts/engagement.js';
-export { ProposalSchema } from './contracts/proposal.js';
+export {
+  EngagementSchema,
+  MyEngagementSchema,
+  MyEngagementsResponseSchema,
+} from './contracts/engagement.js';
+export {
+  ProposalSchema,
+  MyProposalSchema,
+  MyProposalsResponseSchema,
+} from './contracts/proposal.js';
 export { OutcomeSchema } from './contracts/outcome.js';
-export { ReviewSchema } from './contracts/review.js';
+export {
+  ReviewSchema,
+  ProfileReviewListQuerySchema,
+  PublicReviewSchema,
+  ProfileReviewListResponseSchema,
+} from './contracts/review.js';
