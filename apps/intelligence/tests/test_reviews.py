@@ -31,20 +31,85 @@ def test_reviews_are_at_most_two_per_engagement():
     assert all(c <= 2 for c in counts.values())
 
 
-def test_colluder_reviews_are_glowing_and_flagged_unmatched():
+def test_colluder_reviews_are_five_star_between_real_ring_counterparties():
     config, profiles, engagements, outcomes, rings = _setup()
     reviews = generate_reviews(config, profiles, engagements, outcomes, rings)
     colluder_reviews = [r for r in reviews if r.get("isPlantedCollusion")]
+    engagement_by_id = {engagement["_localId"]: engagement for engagement in engagements}
+    ring_member_ids = {member for ring in rings for member in ring["memberLocalIds"]}
+
     assert len(colluder_reviews) > 0
-    assert all(r["rating"] >= 4 for r in colluder_reviews)
+    for review in colluder_reviews:
+        engagement = engagement_by_id[review["engagementLocalId"]]
+        parties = {
+            engagement["freelancerProfileLocalId"],
+            engagement["clientProfileLocalId"],
+        }
+        assert review["rating"] == 5
+        assert {review["authorProfileLocalId"], review["subjectProfileLocalId"]} == parties
+        assert parties <= ring_member_ids
 
 
-def test_saboteur_reviews_are_unwarranted_one_star():
-    config, profiles, engagements, outcomes, rings = _setup()
+def _subject_conduct_is_good(outcome):
+    if not outcome["observed"] or outcome["ghosted"]:
+        return False
+    if outcome["subjectRole"] == "freelancer":
+        return outcome["daysLate"] is not None and outcome["daysLate"] <= 0
+    return outcome["paidInFull"] is True and outcome["scopeCreepOccurred"] is False
+
+
+def test_saboteur_reviews_target_real_counterparties_and_contradict_observed_good_conduct():
+    config, profiles, engagements, outcomes, rings = _setup(num_profiles=5000)
     reviews = generate_reviews(config, profiles, engagements, outcomes, rings)
-    saboteur_reviews = [r for r in reviews if r.get("isPlantedSabotage")]
-    if saboteur_reviews:
-        assert all(r["rating"] == 1 for r in saboteur_reviews)
+    saboteur_reviews = [review for review in reviews if review["isPlantedSabotage"]]
+    engagement_by_id = {engagement["_localId"]: engagement for engagement in engagements}
+    outcomes_by_engagement_and_subject = {
+        (outcome["engagementLocalId"], outcome["subjectProfileLocalId"]): outcome for outcome in outcomes
+    }
+
+    assert len(saboteur_reviews) >= 30
+    for review in saboteur_reviews:
+        engagement = engagement_by_id[review["engagementLocalId"]]
+        parties = {
+            engagement["freelancerProfileLocalId"],
+            engagement["clientProfileLocalId"],
+        }
+        subject_outcome = outcomes_by_engagement_and_subject[
+            (review["engagementLocalId"], review["subjectProfileLocalId"])
+        ]
+        assert review["subjectProfileLocalId"] in parties
+        assert review["authorProfileLocalId"] == (parties - {review["subjectProfileLocalId"]}).pop()
+        assert review["rating"] <= 3
+        assert subject_outcome["observed"] is True
+        assert _subject_conduct_is_good(subject_outcome)
+
+
+def test_sabotage_population_is_non_vacuous_and_ratings_are_diverse_across_seeds():
+    sabotage_counts = []
+
+    for seed in range(5):
+        config = GeneratorConfig(seed=seed, num_profiles=5000)
+        _, profiles = generate_identities_and_profiles(config)
+        jobposts = generate_jobposts(config, profiles)
+        proposals = generate_proposals(config, profiles, jobposts)
+        engagements = generate_engagements(config, profiles, jobposts, proposals)
+        outcomes = generate_outcomes(config, profiles, engagements)
+        rings = build_collusion_rings(config, profiles)
+        reviews = generate_reviews(config, profiles, engagements, outcomes, rings)
+        saboteur_reviews = [review for review in reviews if review["isPlantedSabotage"]]
+        saboteur_ids = {profile["_localId"] for profile in profiles if profile["trueArchetype"] == "saboteur"}
+        saboteur_party_engagements = [
+            engagement
+            for engagement in engagements
+            if saboteur_ids & {engagement["freelancerProfileLocalId"], engagement["clientProfileLocalId"]}
+        ]
+
+        sabotage_counts.append(len(saboteur_reviews))
+        assert len(saboteur_reviews) >= 30
+        assert len(saboteur_reviews) / len(saboteur_party_engagements) >= 0.015
+        assert len({review["rating"] for review in saboteur_reviews}) >= 3
+
+    assert min(sabotage_counts) >= 30
 
 
 def test_review_ratings_use_the_reviewed_subjects_outcome(monkeypatch):

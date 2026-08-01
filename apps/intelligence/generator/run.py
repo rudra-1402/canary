@@ -86,11 +86,16 @@ def _resolve_ids(db, identities, profiles, jobposts, proposals, engagements, out
     engagements_by_local_id = {e["_localId"]: e for e in engagements}
 
     for o in outcomes:
-        source_engagement = engagements_by_local_id[o["engagementLocalId"]]
         doc = {
             "engagementId": engagement_local_to_real[o["engagementLocalId"]],
+            "subjectProfileId": profile_local_to_real[o["subjectProfileLocalId"]],
+            "counterpartyProfileId": profile_local_to_real[o["counterpartyProfileLocalId"]],
+            "subjectRole": o["subjectRole"],
+            "observed": o["observed"],
+            "deliveredAt": o["deliveredAt"],
             "paidInFull": o["paidInFull"],
             "daysLate": o["daysLate"],
+            "revisionsRequested": o["revisionsRequested"],
             "scopeCreepOccurred": o["scopeCreepOccurred"],
             "ghosted": o["ghosted"],
             "endedAs": o["endedAs"],
@@ -108,6 +113,8 @@ def _resolve_ids(db, identities, profiles, jobposts, proposals, engagements, out
             "subjectProfileId": profile_local_to_real[r["subjectProfileLocalId"]],
             "rating": r["rating"],
             "text": r["text"],
+            "isPlantedCollusion": r["isPlantedCollusion"],
+            "isPlantedSabotage": r["isPlantedSabotage"],
             "createdAt": source_engagement["createdAt"],
         }
         db.reviews.insert_one(doc)

@@ -40,4 +40,4 @@ class GeneratorConfig:
     cold_start_join_rate: float = 0.06
     cold_start_recent_months: int = 2
     colluder_rate: float = 0.02
-    saboteur_rate: float = 0.01
+    saboteur_rate: float = 0.04
