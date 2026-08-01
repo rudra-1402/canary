@@ -7,6 +7,7 @@ FAVORABLE_CLASS_INDEX = LABEL_TO_INT["high"]
 TOP_K_SIGNALS = 3
 
 FEATURE_DISPLAY_NAMES = {
+    "subject_role": "profile-role",
     "paid_in_full_rate": "paid-in-full-rate",
     "on_time_rate": "on-time-rate",
     "avg_days_late": "avg-days-late",
@@ -14,6 +15,7 @@ FEATURE_DISPLAY_NAMES = {
     "scope_creep_rate": "scope-creep-rate",
     "completion_rate": "completion-rate",
     "avg_review_rating": "review-rating",
+    "observed_engagement_count": "observed-engagement-count",
     "recency_weighted_on_time_rate": "recent-on-time-trend",
     "trend_slope": "trust-trend",
 }

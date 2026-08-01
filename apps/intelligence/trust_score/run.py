@@ -3,26 +3,14 @@ import sys
 from datetime import datetime
 
 from generator.db import close_client, get_client
-from trust_score.backfill import backfill_profile
 from trust_score.config import TrustScoreConfig
-from trust_score.explain import build_explainer
 from trust_score.features import compute_features
 from trust_score.fetch import load_dataset
-from trust_score.labels import bucket_label, compute_reliability_index
-from trust_score.model import is_cold_start, train_model
-from trust_score.persistence import persist_trust_score
-
-ROLES = ["freelancer", "client"]
+from trust_score.model import ModelExecutionUnavailableError
 
 
 def prepare_output_collections(db, wipe: bool):
-    """persist_trust_score inserts unconditionally -- no upsert, no key -- so a second
-    run duplicates every snapshot rather than replacing it. Refusing is the guard a
-    plan step cannot be: TS-B and TS-D both re-run this pipeline.
-
-    Deletes only TrustScore-parented risksignals; the collection is shared with
-    RiskAssessment (S5-C).
-    """
+    """Legacy persistence guard retained for the A4 scoring pipeline."""
     existing = db.trustscores.count_documents({})
     if existing and not wipe:
         sys.exit(
@@ -35,75 +23,56 @@ def prepare_output_collections(db, wipe: bool):
         db.risksignals.delete_many({"parentType": "TrustScore"})
 
 
-def _train_and_score_role(db, role: str, config: TrustScoreConfig, now: datetime, dataset: dict) -> dict:
-    role_profiles = [p for p in dataset["profiles"] if p["role"] == role]
-
-    feature_rows, labels = [], []
-    for profile in role_profiles:
-        outcomes = dataset["outcomes_by_profile"].get(profile["_id"], [])
-        reviews = dataset["reviews_by_subject"].get(profile["_id"], [])
-        features = compute_features(outcomes, reviews, now, config)
-        if not is_cold_start(features, config):
-            feature_rows.append(features)
-            labels.append(bucket_label(compute_reliability_index(features)))
-
-    if not feature_rows:
-        print(f"  {role}: no profiles above the cold-start threshold -- skipping training")
-        return {"role": role, "trained_on": 0, "profiles_scored": 0, "snapshots_written": 0}
-
-    model = train_model(feature_rows, labels, config)
-    explainer = build_explainer(model)
-
-    snapshots_written = 0
-    for profile in role_profiles:
-        outcomes = dataset["outcomes_by_profile"].get(profile["_id"], [])
-        reviews = dataset["reviews_by_subject"].get(profile["_id"], [])
-        snapshots = backfill_profile(outcomes, reviews, model, explainer, config, config.timeline_months, now)
-        for snapshot in snapshots:
-            persist_trust_score(db, profile["_id"], snapshot)
-            snapshots_written += 1
-
-    return {
-        "role": role,
-        "trained_on": len(feature_rows),
-        "profiles_scored": len(role_profiles),
-        "snapshots_written": snapshots_written,
-    }
+def require_feature_preparation_only(feature_preparation_only: bool) -> None:
+    if not feature_preparation_only:
+        raise ModelExecutionUnavailableError(
+            "Trust Score training and scoring are unavailable until A4 defines measured label weights "
+            "and bucket thresholds. "
+            "Run with --prepare-features-only."
+        )
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Compute and backfill Canary Trust Scores")
+def prepare_feature_rows(dataset: dict, config, now: datetime) -> list[dict]:
+    """Emit the role-aware superset feature rows without training or scoring."""
+    rows = []
+    for profile in dataset["profiles"]:
+        profile_id = profile["_id"]
+        role = profile["role"]
+        outcomes = dataset["outcomes_by_profile"].get(profile_id, [])
+        reviews = dataset["reviews_by_subject"].get(profile_id, [])
+        rows.append(
+            {
+                "profile_id": profile_id,
+                "features": compute_features(outcomes, reviews, role, now, config),
+            }
+        )
+    return rows
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Prepare Canary Trust Score feature rows")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
-        "--wipe",
+        "--prepare-features-only",
         action="store_true",
-        help="Clear trustscores and their risksignals first (required if either is non-empty)",
+        help="Emit role-aware feature rows only; A4 owns training and scoring.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    require_feature_preparation_only(args.prepare_features_only)
 
     config = TrustScoreConfig(seed=args.seed)
     client = get_client()
-    db = client.get_default_database()
-    # Before load_dataset, so a refusal costs no work.
-    prepare_output_collections(db, wipe=args.wipe)
-    now = datetime.utcnow()
+    try:
+        dataset = load_dataset(client.get_default_database())
+        rows = prepare_feature_rows(dataset, config, datetime.utcnow())
+    finally:
+        close_client(client)
 
-    print("Loading dataset...")
-    dataset = load_dataset(db)
-
-    summary = []
-    for role in ROLES:
-        print(f"Training and scoring role: {role}")
-        summary.append(_train_and_score_role(db, role, config, now, dataset))
-
-    close_client(client)
-
-    for entry in summary:
-        print(
-            f"  {entry['role']}: trained on {entry['trained_on']} profiles, "
-            f"scored {entry['profiles_scored']} profiles, "
-            f"wrote {entry['snapshots_written']} TrustScore snapshots"
-        )
+    print(
+        f"Prepared {len(rows)} role-aware Trust Score feature rows; "
+        "training and scoring remain disabled until A4."
+    )
+    return rows
 
 
 if __name__ == "__main__":

@@ -1,38 +1,33 @@
 import pytest
 
-from trust_score.labels import INT_TO_LABEL, LABEL_TO_INT, bucket_label, compute_reliability_index
+from trust_score.labels import (
+    ROLE_LABEL_TERMS,
+    LabelingUnavailableError,
+    compute_label_terms,
+    compute_reliability_index,
+)
 
 
-def _features(paid_in_full_rate=1.0, on_time_rate=1.0, ghost_rate=0.0, scope_creep_rate=0.0):
-    return {
-        "paid_in_full_rate": paid_in_full_rate,
-        "on_time_rate": on_time_rate,
-        "ghost_rate": ghost_rate,
-        "scope_creep_rate": scope_creep_rate,
-    }
-
-
-def test_perfect_history_scores_index_of_one():
-    assert compute_reliability_index(_features()) == pytest.approx(1.0)
-
-
-def test_worst_history_scores_index_of_zero():
-    index = compute_reliability_index(
-        _features(paid_in_full_rate=0.0, on_time_rate=0.0, ghost_rate=1.0, scope_creep_rate=1.0)
+def test_each_role_label_components_use_only_its_own_fixed_terms():
+    freelancer = compute_label_terms(
+        {"subject_role": 0, "ghost_rate": 0.25, "on_time_rate": 0.8, "scope_creep_rate": 0.0}
     )
-    assert index == 0.0
+    client = compute_label_terms(
+        {
+            "subject_role": 1,
+            "ghost_rate": 0.25,
+            "paid_in_full_rate": 0.7,
+            "scope_creep_rate": 0.4,
+            "on_time_rate": 0.0,
+        }
+    )
+
+    assert tuple(freelancer) == ROLE_LABEL_TERMS["freelancer"]
+    assert freelancer == {"ghost": 0.75, "on_time_delivery": 0.8}
+    assert tuple(client) == ROLE_LABEL_TERMS["client"]
+    assert client == {"ghost": 0.75, "paid_in_full": 0.7, "revision_restraint": 0.6}
 
 
-def test_bucket_label_thresholds():
-    assert bucket_label(0.9) == "high"
-    assert bucket_label(0.75) == "high"
-    assert bucket_label(0.6) == "med"
-    assert bucket_label(0.5) == "med"
-    assert bucket_label(0.3) == "low"
-
-
-def test_label_int_mapping_is_a_bijection():
-    assert set(LABEL_TO_INT.keys()) == {"low", "med", "high"}
-    assert set(LABEL_TO_INT.values()) == {0, 1, 2}
-    for label, i in LABEL_TO_INT.items():
-        assert INT_TO_LABEL[i] == label
+def test_reliability_index_and_buckets_are_unavailable_until_a4():
+    with pytest.raises(LabelingUnavailableError, match="A4"):
+        compute_reliability_index({"subject_role": 0})

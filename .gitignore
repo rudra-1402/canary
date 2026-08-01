@@ -30,3 +30,5 @@ Thumbs.db
 .pytest-tmp/
 .pytest-task6/
 apps/intelligence/.pytest-tmp/
+.test-tmp/
+apps/intelligence/.test-tmp/

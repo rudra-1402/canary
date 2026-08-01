@@ -1,22 +1,7 @@
 from datetime import datetime, timedelta
 
-from trust_score.explain import explain_profile
-from trust_score.features import compute_features
-from trust_score.model import is_cold_start, score_profile
-
-STATUS_SCORED = "scored"
-STATUS_INSUFFICIENT_HISTORY = "insufficient-history"
-
-# No score, no level, no risk signal -- deliberately on all three counts. A number
-# here would sit on the same 0-100 scale a real score uses and be indistinguishable
-# from one; the previous value was a hardcoded 50/"med", which is how ~90% of
-# profiles came to carry a confident score that nothing had computed. The signal is
-# dropped too: it recorded direction "unfavorable", asserting that having no track
-# record is bad -- a claim the data does not support.
-COLD_START_SNAPSHOT = {
-    "status": STATUS_INSUFFICIENT_HISTORY,
-    "riskSignals": [],
-}
+from trust_score.features import compute_features, encode_subject_role
+from trust_score.model import ModelExecutionUnavailableError
 
 
 def month_boundary_dates(timeline_months: int, now: datetime | None = None) -> list[datetime]:
@@ -27,36 +12,38 @@ def month_boundary_dates(timeline_months: int, now: datetime | None = None) -> l
 
 
 def score_and_explain(model, explainer, features: dict, config) -> dict:
-    if is_cold_start(features, config):
-        return {
-            **COLD_START_SNAPSHOT,
-            "riskSignals": list(COLD_START_SNAPSHOT["riskSignals"]),
-        }
-
-    scored = score_profile(model, features)
-    return {
-        "status": STATUS_SCORED,
-        "score": scored["score"],
-        "level": scored["level"],
-        "riskSignals": explain_profile(explainer, features),
-    }
+    raise ModelExecutionUnavailableError(
+        "Trust Score scoring is unavailable until A4 defines measured label weights and bucket thresholds."
+    )
 
 
-def backfill_profile(
+def backfill_feature_rows(
     outcomes: list[dict],
     reviews: list[dict],
-    model,
-    explainer,
+    subject_role: str,
     config,
     timeline_months: int,
     now: datetime | None = None,
 ) -> list[dict]:
-    """Replay scoring at each boundary, letting compute_features enforce as-of filtering."""
+    """Replay role-aware feature preparation at each historical boundary.
+
+    The encoded role appears both on the prepared row and inside its feature
+    vector, so historical and current rows have the same model-facing schema.
+    """
     now = now or datetime.utcnow()
-    snapshots = []
-    for boundary in month_boundary_dates(timeline_months, now):
-        features = compute_features(outcomes, reviews, boundary, config)
-        snapshot = score_and_explain(model, explainer, features, config)
-        snapshot["generatedAt"] = boundary
-        snapshots.append(snapshot)
-    return snapshots
+    encoded_role = encode_subject_role(subject_role)
+    return [
+        {
+            "generatedAt": boundary,
+            "subject_role": encoded_role,
+            "features": compute_features(outcomes, reviews, subject_role, boundary, config),
+        }
+        for boundary in month_boundary_dates(timeline_months, now)
+    ]
+
+
+def backfill_profile(*args, **kwargs):
+    raise ModelExecutionUnavailableError(
+        "Trust Score backfill scoring is unavailable until A4 defines measured label weights "
+        "and bucket thresholds."
+    )

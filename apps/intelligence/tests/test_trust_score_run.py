@@ -3,7 +3,12 @@ from datetime import datetime
 import pytest
 from bson import ObjectId
 
-from trust_score.run import prepare_output_collections
+from trust_score import run
+from trust_score.run import (
+    ModelExecutionUnavailableError,
+    prepare_output_collections,
+    require_feature_preparation_only,
+)
 
 
 def _snapshot_row(profile_id):
@@ -77,3 +82,57 @@ def test_wipe_spares_risk_signals_belonging_to_a_risk_assessment(mongo_db, seede
 def test_empty_output_collections_need_no_wipe_flag(mongo_db):
     mongo_db.trustscores.delete_many({})
     prepare_output_collections(mongo_db, wipe=False)
+
+
+def test_feature_preparation_only_mode_emits_one_superset_row_per_profile(monkeypatch):
+    freelancer_id, client_id = ObjectId(), ObjectId()
+    dataset = {
+        "profiles": [
+            {"_id": freelancer_id, "role": "freelancer"},
+            {"_id": client_id, "role": "client"},
+        ],
+        "outcomes_by_profile": {
+            freelancer_id: [
+                {
+                    "recordedAt": datetime(2026, 6, 1),
+                    "observed": True,
+                    "ghosted": False,
+                    "daysLate": 0,
+                    "paidInFull": None,
+                    "scopeCreepOccurred": None,
+                    "endedAs": "completed",
+                }
+            ],
+            client_id: [
+                {
+                    "recordedAt": datetime(2026, 6, 1),
+                    "observed": True,
+                    "ghosted": False,
+                    "daysLate": None,
+                    "paidInFull": True,
+                    "scopeCreepOccurred": False,
+                    "endedAs": "completed",
+                }
+            ],
+        },
+        "reviews_by_subject": {freelancer_id: [], client_id: []},
+    }
+
+    class _Client:
+        def get_default_database(self):
+            return object()
+
+    monkeypatch.setattr(run, "get_client", _Client)
+    monkeypatch.setattr(run, "close_client", lambda client: None)
+    monkeypatch.setattr(run, "load_dataset", lambda db: dataset)
+
+    rows = run.main(["--prepare-features-only"])
+
+    assert [row["features"]["subject_role"] for row in rows] == [0, 1]
+    assert len(rows[0]["features"]) == len(rows[1]["features"])
+
+
+def test_training_and_scoring_mode_fails_loudly_until_a4():
+    with pytest.raises(ModelExecutionUnavailableError, match="A4"):
+        require_feature_preparation_only(False)
+    require_feature_preparation_only(True)
