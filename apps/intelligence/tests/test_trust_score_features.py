@@ -2,20 +2,30 @@ from datetime import datetime, timedelta
 
 from trust_score.config import TrustScoreConfig
 from trust_score.features import compute_features
+from trust_score.model import is_cold_start
 
 NOW = datetime(2026, 7, 1)
 
 
 def _outcome(
-    days_ago, paid_in_full=True, days_late=0, ghosted=False, scope_creep=False, ended_as="completed"
+    days_ago,
+    paid_in_full=True,
+    days_late=0,
+    ghosted=False,
+    observed=True,
+    scope_creep=False,
+    ended_as="completed",
+    subject_role="freelancer",
 ):
     return {
         "recordedAt": NOW - timedelta(days=days_ago),
         "paidInFull": paid_in_full,
         "daysLate": days_late,
         "ghosted": ghosted,
+        "observed": observed,
         "scopeCreepOccurred": scope_creep,
         "endedAs": ended_as,
+        "subjectRole": subject_role,
     }
 
 
@@ -99,3 +109,109 @@ def test_no_history_has_neutral_temporal_defaults():
     features = compute_features([], [], NOW, config)
     assert features["recency_weighted_on_time_rate"] == 0.5
     assert features["trend_slope"] == 0.0
+
+
+def test_not_observed_outcome_changes_no_conduct_rate():
+    config = TrustScoreConfig()
+    observed_outcomes = [
+        _outcome(days_ago=10, paid_in_full=True, days_late=0, scope_creep=False),
+        _outcome(days_ago=20, paid_in_full=False, days_late=5, scope_creep=True),
+    ]
+    not_observed = _outcome(
+        days_ago=5,
+        paid_in_full=None,
+        days_late=None,
+        ghosted=False,
+        observed=False,
+        scope_creep=None,
+        ended_as="ghosted",
+    )
+
+    before = compute_features(observed_outcomes, [], NOW, config)
+    after = compute_features([*observed_outcomes, not_observed], [], NOW, config)
+
+    for name in [
+        "engagement_count",
+        "paid_in_full_rate",
+        "on_time_rate",
+        "avg_days_late",
+        "ghost_rate",
+        "scope_creep_rate",
+        "completion_rate",
+        "recency_weighted_on_time_rate",
+        "trend_slope",
+    ]:
+        assert after[name] == before[name]
+
+
+def test_not_observed_outcomes_are_insufficient_history():
+    config = TrustScoreConfig()
+    features = compute_features(
+        [
+            _outcome(days_ago=10, observed=False, paid_in_full=None, days_late=None, scope_creep=None),
+            _outcome(days_ago=20, observed=False, paid_in_full=None, days_late=None, scope_creep=None),
+            _outcome(days_ago=30, observed=False, paid_in_full=None, days_late=None, scope_creep=None),
+        ],
+        [],
+        NOW,
+        config,
+    )
+
+    assert features["engagement_count"] == 0
+    assert is_cold_start(features, config) is True
+
+
+def test_null_days_late_is_not_counted_as_on_time():
+    features = compute_features(
+        [_outcome(days_ago=10, days_late=None, paid_in_full=None)], [], NOW, TrustScoreConfig()
+    )
+
+    assert features["on_time_rate"] != 1.0
+
+
+def test_same_engagement_produces_role_aware_feature_vectors():
+    config = TrustScoreConfig()
+    freelancer_features = compute_features(
+        [
+            _outcome(
+                days_ago=10,
+                paid_in_full=None,
+                days_late=4,
+                scope_creep=None,
+                subject_role="freelancer",
+            )
+        ],
+        [],
+        NOW,
+        config,
+    )
+    client_features = compute_features(
+        [
+            _outcome(
+                days_ago=10,
+                paid_in_full=True,
+                days_late=None,
+                scope_creep=False,
+                subject_role="client",
+            )
+        ],
+        [],
+        NOW,
+        config,
+    )
+
+    assert freelancer_features != client_features
+
+
+def test_features_expose_observed_engagement_count():
+    features = compute_features(
+        [
+            _outcome(days_ago=10, observed=True),
+            _outcome(days_ago=20, observed=False, paid_in_full=None, days_late=None, scope_creep=None),
+        ],
+        [],
+        NOW,
+        TrustScoreConfig(),
+    )
+
+    assert features["observed_engagement_count"] == 1

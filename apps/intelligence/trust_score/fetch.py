@@ -7,15 +7,21 @@ def load_dataset(db) -> dict:
     outcomes = list(db.outcomes.find({}))
     reviews = list(db.reviews.find({}))
 
-    engagement_by_id = {e["_id"]: e for e in concluded_engagements}
+    concluded_engagements_by_id = {engagement["_id"]: engagement for engagement in concluded_engagements}
+    profile_ids = {profile["_id"] for profile in profiles}
 
     outcomes_by_profile: dict = {}
     for outcome in outcomes:
-        engagement = engagement_by_id.get(outcome["engagementId"])
+        engagement = concluded_engagements_by_id.get(outcome["engagementId"])
         if engagement is None:
             continue
-        for profile_id in (engagement["freelancerProfileId"], engagement["clientProfileId"]):
-            outcomes_by_profile.setdefault(profile_id, []).append(outcome)
+        subject_profile_id = outcome.get("subjectProfileId")
+        if subject_profile_id not in profile_ids or subject_profile_id not in {
+            engagement["freelancerProfileId"],
+            engagement["clientProfileId"],
+        }:
+            continue
+        outcomes_by_profile.setdefault(subject_profile_id, []).append(outcome)
 
     reviews_by_subject: dict = {}
     for review in reviews:

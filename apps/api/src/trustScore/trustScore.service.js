@@ -70,8 +70,8 @@ async function latestSnapshots(profileIds) {
 }
 
 // One aggregate proves all three facts: the Engagement is concluded, belongs to the Profile,
-// and has an Outcome. Counts are calculated in JS against each selected snapshot timestamp.
-async function outcomeRows(profileIds) {
+// and its Outcome describes that Profile. Counts are calculated in JS against each selected snapshot timestamp.
+export async function outcomeRows(profileIds) {
   const ids = profileIds.map((id) => new mongoose.Types.ObjectId(id));
   const rows = await Engagement.aggregate([
     {
@@ -87,7 +87,9 @@ async function outcomeRows(profileIds) {
     {
       $project: {
         engagementId: '$_id',
+        outcomeId: '$outcome._id',
         recordedAt: '$outcome.recordedAt',
+        subjectProfileId: '$outcome.subjectProfileId',
         profileIds: {
           $filter: {
             input: ['$freelancerProfileId', '$clientProfileId'],
@@ -99,12 +101,20 @@ async function outcomeRows(profileIds) {
     },
     { $unwind: '$profileIds' },
     {
+      $match: { $expr: { $eq: ['$subjectProfileId', '$profileIds'] } },
+    },
+    {
       $group: {
-        _id: { profileId: '$profileIds', engagementId: '$engagementId' },
-        recordedAt: { $first: '$recordedAt' },
+        _id: '$profileIds',
+        outcomes: {
+          $push: {
+            outcomeId: '$outcomeId',
+            subjectProfileId: '$subjectProfileId',
+            recordedAt: '$recordedAt',
+          },
+        },
       },
     },
-    { $group: { _id: '$_id.profileId', outcomes: { $push: { recordedAt: '$recordedAt' } } } },
   ]);
   return new Map(rows.map((row) => [String(row._id), row.outcomes]));
 }

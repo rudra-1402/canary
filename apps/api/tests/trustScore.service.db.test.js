@@ -5,7 +5,11 @@ import Engagement from '../src/models/Engagement.js';
 import Outcome from '../src/models/Outcome.js';
 import TrustScore from '../src/models/TrustScore.js';
 import RiskSignal from '../src/models/RiskSignal.js';
-import { getTrustScore, getTrustScoreBatch } from '../src/trustScore/trustScore.service.js';
+import {
+  getTrustScore,
+  getTrustScoreBatch,
+  outcomeRows,
+} from '../src/trustScore/trustScore.service.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from './helpers/memoryDb.js';
 
 const identity = () => new mongoose.Types.ObjectId();
@@ -73,6 +77,56 @@ afterAll(stopMemoryDb);
 afterEach(clearCollections);
 
 describe('TrustScore database reads', () => {
+  it('serves each party only its own Outcome from a two-row Engagement', async () => {
+    const freelancer = await profile({ role: 'freelancer' });
+    const client = await profile({ role: 'client' });
+    const engagement = await Engagement.create({
+      freelancerProfileId: freelancer._id,
+      clientProfileId: client._id,
+      status: 'concluded',
+      agreedTerms: {
+        scope: 'x',
+        price: 1,
+        paymentTerms: 'x',
+        timeline: 'x',
+        dueAt: new Date('2026-01-01'),
+      },
+    });
+    const freelancerOutcome = await Outcome.create({
+      engagementId: engagement._id,
+      subjectProfileId: freelancer._id,
+      counterpartyProfileId: client._id,
+      subjectRole: 'freelancer',
+      observed: true,
+      paidInFull: null,
+      endedAs: 'completed',
+      labelSource: 'synthetic',
+      recordedAt: new Date('2026-01-02'),
+    });
+    const clientOutcome = await Outcome.create({
+      engagementId: engagement._id,
+      subjectProfileId: client._id,
+      counterpartyProfileId: freelancer._id,
+      subjectRole: 'client',
+      observed: true,
+      paidInFull: true,
+      endedAs: 'completed',
+      labelSource: 'synthetic',
+      recordedAt: new Date('2026-01-03'),
+    });
+
+    const rowsByProfile = await outcomeRows([String(freelancer._id), String(client._id)]);
+    const freelancerRows = rowsByProfile.get(String(freelancer._id));
+    const clientRows = rowsByProfile.get(String(client._id));
+
+    expect(freelancerRows).toHaveLength(1);
+    expect(clientRows).toHaveLength(1);
+    expect(String(freelancerRows[0].outcomeId)).toBe(String(freelancerOutcome._id));
+    expect(String(freelancerRows[0].subjectProfileId)).toBe(String(freelancer._id));
+    expect(String(clientRows[0].outcomeId)).toBe(String(clientOutcome._id));
+    expect(String(clientRows[0].subjectProfileId)).toBe(String(client._id));
+  });
+
   it('enforces threshold precedence over an existing fabricated snapshot', async () => {
     const p = await profile();
     const s = await snapshot(p, new Date('2026-01-01'));

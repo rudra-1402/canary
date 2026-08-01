@@ -49,6 +49,10 @@ def _make_history(rng, profile_id, reliable, n=6):
         outcomes.append(
             {
                 "engagementId": eid,
+                "subjectProfileId": profile_id,
+                "counterpartyProfileId": other_party,
+                "subjectRole": "freelancer",
+                "observed": True,
                 "paidInFull": reliable or rng.random() < 0.2,
                 "daysLate": 0 if reliable else rng.randint(5, 30),
                 "scopeCreepOccurred": not reliable and rng.random() < 0.5,
