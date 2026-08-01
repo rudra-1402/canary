@@ -461,8 +461,13 @@ def main():
     parser.add_argument(
         "--engagement-fanout-multiplier",
         type=float,
-        default=3.0,
-        help="Multiply JobPosts per client to raise seeded Engagement density",
+        default=8.0,
+        help=(
+            "Multiply JobPosts per client to raise seeded Engagement density. "
+            "8.0 measured: at 3.0 only 19.9%% of profiles had enough history for a temporal "
+            "split and the label was degenerate (one value on 54.9%%); at 8.0 it is 68.9%% "
+            "and Gate 4b passes."
+        ),
     )
     parser.add_argument("--wipe", action="store_true", help="Drop existing seeded collections first")
     parser.add_argument("--manifest-out", default="ground-truth-manifest.json")
