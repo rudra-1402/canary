@@ -49,6 +49,10 @@ def generate_engagements(
                 "price": accepted["bid"],
                 "paymentTerms": "net-90" if bad_terms else rng.choice(["net-15", "net-30"]),
                 "timeline": accepted["durationEstimate"],
+                "dueAt": created_at + timedelta(days=accepted["proposedDurationDays"]),
+                "revisionsIncluded": rng.randint(
+                    config.revisions_included_min, config.revisions_included_max
+                ),
             },
         }
         engagements.append(engagement)

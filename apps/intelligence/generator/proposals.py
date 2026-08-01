@@ -21,6 +21,9 @@ def generate_proposals(config: GeneratorConfig, profiles: list[dict], jobposts: 
         for freelancer in applicants:
             base = jobpost["budgetOrRate"]
             bid = round(base * rng.uniform(0.8, 1.15), 2)
+            proposed_duration_days = rng.randint(
+                config.proposal_duration_min_days, config.proposal_duration_max_days
+            )
             # Clamped to "now" — a jobpost from a very-recently-joined client may
             # not have the full 14-day buffer available (see jobposts.py).
             created_at = min(jobpost["createdAt"] + timedelta(days=rng.randint(1, 14)), now)
@@ -31,7 +34,8 @@ def generate_proposals(config: GeneratorConfig, profiles: list[dict], jobposts: 
                     "freelancerProfileLocalId": freelancer["_localId"],
                     "bid": bid,
                     "payModel": rng.choice(["project", "milestone"]),
-                    "durationEstimate": f"{rng.randint(1, 12)} weeks",
+                    "durationEstimate": f"{proposed_duration_days} days",
+                    "proposedDurationDays": proposed_duration_days,
                     "coverLetter": fake.paragraph(nb_sentences=2),
                     "status": "submitted",
                     "createdAt": created_at,

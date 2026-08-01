@@ -8,6 +8,10 @@ class GeneratorConfig:
     num_engagements: int = 2500
     num_reviews: int = 4500
     timeline_months: int = 18
+    proposal_duration_min_days: int = 7
+    proposal_duration_max_days: int = 84
+    revisions_included_min: int = 0
+    revisions_included_max: int = 5
 
     reliable_rate: float = 0.65
     risky_rate: float = 0.18
