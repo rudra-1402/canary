@@ -22,3 +22,4 @@ export {
 export { EngagementSchema } from './contracts/engagement.js';
 export { ProposalSchema } from './contracts/proposal.js';
 export { OutcomeSchema } from './contracts/outcome.js';
+export { ReviewSchema } from './contracts/review.js';
