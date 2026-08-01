@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta
 
+import pytest
+
+from generator import outcomes as outcomes_module
 from generator.config import GeneratorConfig
 from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
@@ -22,6 +25,112 @@ def test_outcomes_only_generated_for_concluded_engagements():
     outcomes = generate_outcomes(config, profiles, engagements)
     concluded_ids = {e["_localId"] for e in engagements if e["status"] == "concluded"}
     assert all(o["engagementLocalId"] in concluded_ids for o in outcomes)
+
+
+_CONDUCT_FIELDS = (
+    "deliveredAt",
+    "daysLate",
+    "paidInFull",
+    "revisionsRequested",
+    "scopeCreepOccurred",
+)
+
+
+def _concluded_engagement() -> dict:
+    return {
+        "_localId": "engagement-1",
+        "status": "concluded",
+        "freelancerProfileLocalId": "freelancer-1",
+        "clientProfileLocalId": "client-1",
+        "createdAt": datetime.utcnow() - timedelta(days=60),
+    }
+
+
+def _profiles_for_ghost_cases() -> list[dict]:
+    traits = {"reliability": 0.8, "responsiveness": 0.8}
+    return [
+        {
+            "_localId": "freelancer-1",
+            "role": "freelancer",
+            "trueArchetype": "reliable",
+            "_traitTrajectory": [traits],
+        },
+        {
+            "_localId": "client-1",
+            "role": "client",
+            "trueArchetype": "reliable",
+            "_traitTrajectory": [traits],
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ("freelancer_ghosts", "client_ghosts"),
+    [(False, False), (False, True), (True, False), (True, True)],
+    ids=("neither_ghosts", "client_ghosts", "freelancer_ghosts", "both_ghost"),
+)
+def test_outcomes_attribute_ghosting_and_observation_per_party(monkeypatch, freelancer_ghosts, client_ghosts):
+    profiles = _profiles_for_ghost_cases()
+    engagement = _concluded_engagement()
+    ghost_probabilities = iter((float(freelancer_ghosts), float(client_ghosts)))
+    monkeypatch.setattr(outcomes_module, "_party_ghost_probability", lambda *_: next(ghost_probabilities))
+
+    outcomes = generate_outcomes(GeneratorConfig(seed=42), profiles, [engagement])
+
+    assert len(outcomes) == 2
+    freelancer_outcome = next(o for o in outcomes if o["subjectRole"] == "freelancer")
+    client_outcome = next(o for o in outcomes if o["subjectRole"] == "client")
+    assert freelancer_outcome["subjectProfileLocalId"] == "freelancer-1"
+    assert freelancer_outcome["counterpartyProfileLocalId"] == "client-1"
+    assert client_outcome["subjectProfileLocalId"] == "client-1"
+    assert client_outcome["counterpartyProfileLocalId"] == "freelancer-1"
+    assert freelancer_outcome["ghosted"] is freelancer_ghosts
+    assert client_outcome["ghosted"] is client_ghosts
+    assert freelancer_outcome["observed"] is (not client_ghosts or freelancer_ghosts)
+    assert client_outcome["observed"] is (not freelancer_ghosts or client_ghosts)
+    expected_endings = {"ghosted"} if freelancer_ghosts or client_ghosts else {"completed", "cancelled"}
+    assert freelancer_outcome["endedAs"] in expected_endings
+    assert client_outcome["endedAs"] == freelancer_outcome["endedAs"]
+    for outcome in outcomes:
+        for field in _CONDUCT_FIELDS:
+            assert outcome[field] is None
+
+
+def test_every_concluded_engagement_produces_one_mapped_outcome_per_party():
+    config, profiles, engagements = _setup()
+    outcomes = generate_outcomes(config, profiles, engagements)
+    concluded_engagements = [e for e in engagements if e["status"] == "concluded"]
+
+    assert len(outcomes) == 2 * len(concluded_engagements)
+    for engagement in concluded_engagements:
+        engagement_outcomes = [o for o in outcomes if o["engagementLocalId"] == engagement["_localId"]]
+        assert len(engagement_outcomes) == 2
+        freelancer_outcome = next(o for o in engagement_outcomes if o["subjectRole"] == "freelancer")
+        client_outcome = next(o for o in engagement_outcomes if o["subjectRole"] == "client")
+        assert freelancer_outcome["subjectProfileLocalId"] == engagement["freelancerProfileLocalId"]
+        assert freelancer_outcome["counterpartyProfileLocalId"] == engagement["clientProfileLocalId"]
+        assert client_outcome["subjectProfileLocalId"] == engagement["clientProfileLocalId"]
+        assert client_outcome["counterpartyProfileLocalId"] == engagement["freelancerProfileLocalId"]
+
+
+def test_freelancer_ghost_rate_is_independent_of_client_archetype():
+    config, profiles, engagements = _setup(num_profiles=2000)
+    outcomes = generate_outcomes(config, profiles, engagements)
+    profiles_by_id = {profile["_localId"]: profile for profile in profiles}
+    freelancer_outcomes = [outcome for outcome in outcomes if outcome["subjectRole"] == "freelancer"]
+    ghost_rates_by_client_archetype = {}
+    for archetype in {profile["trueArchetype"] for profile in profiles if profile["role"] == "client"}:
+        matching_outcomes = [
+            outcome
+            for outcome in freelancer_outcomes
+            if profiles_by_id[outcome["counterpartyProfileLocalId"]]["trueArchetype"] == archetype
+        ]
+        if matching_outcomes:
+            ghost_rates_by_client_archetype[archetype] = sum(
+                outcome["ghosted"] for outcome in matching_outcomes
+            ) / len(matching_outcomes)
+
+    assert max(ghost_rates_by_client_archetype.values()) - min(ghost_rates_by_client_archetype.values()) < 0.2
 
 
 def test_bad_actors_ghost_more_than_reliable_parties():

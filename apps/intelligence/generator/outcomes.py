@@ -58,29 +58,35 @@ def generate_outcomes(config: GeneratorConfig, profiles: list[dict], engagements
 
         freelancer_ghost_p = _party_ghost_probability(freelancer, month_index)
         client_ghost_p = _party_ghost_probability(client, month_index)
-        if freelancer_ghost_p >= client_ghost_p:
-            worse_profile, ghost_p = freelancer, freelancer_ghost_p
-        else:
-            worse_profile, ghost_p = client, client_ghost_p
-
-        ghosted = rng.random() < ghost_p
-        low, high = _party_late_days_range(worse_profile, month_index)
-        days_late = 0 if ghosted else rng.randint(low, high)
-        scope_creep = rng.random() < (0.3 if ghost_p > 0.15 else 0.05)
-
-        outcomes.append(
-            {
-                "_localId": f"outcome-{engagement['_localId']}",
-                "engagementLocalId": engagement["_localId"],
-                "paidInFull": not ghosted and rng.random() < 0.95,
-                "daysLate": days_late if not ghosted else None,
-                "scopeCreepOccurred": scope_creep,
-                "ghosted": ghosted,
-                "endedAs": (
-                    "ghosted" if ghosted else rng.choices(["completed", "cancelled"], weights=[0.9, 0.1])[0]
-                ),
-                "labelSource": "synthetic",
-            }
+        freelancer_ghosted = rng.random() < freelancer_ghost_p
+        client_ghosted = rng.random() < client_ghost_p
+        ended_as = (
+            "ghosted"
+            if freelancer_ghosted or client_ghosted
+            else rng.choices(["completed", "cancelled"], weights=[0.9, 0.1])[0]
         )
+
+        for subject, counterparty, subject_role, subject_ghosted, counterparty_ghosted in (
+            (freelancer, client, "freelancer", freelancer_ghosted, client_ghosted),
+            (client, freelancer, "client", client_ghosted, freelancer_ghosted),
+        ):
+            outcomes.append(
+                {
+                    "_localId": f"outcome-{engagement['_localId']}-{subject['_localId']}",
+                    "engagementLocalId": engagement["_localId"],
+                    "subjectProfileLocalId": subject["_localId"],
+                    "counterpartyProfileLocalId": counterparty["_localId"],
+                    "subjectRole": subject_role,
+                    "observed": subject_ghosted or not counterparty_ghosted,
+                    "deliveredAt": None,
+                    "daysLate": None,
+                    "paidInFull": None,
+                    "revisionsRequested": None,
+                    "scopeCreepOccurred": None,
+                    "ghosted": subject_ghosted,
+                    "endedAs": ended_as,
+                    "labelSource": "synthetic",
+                }
+            )
 
     return outcomes

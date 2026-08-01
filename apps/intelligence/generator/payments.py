@@ -9,11 +9,15 @@ def generate_payments(
 ) -> list[dict]:
     rng = random.Random(config.seed + 7)
     now = datetime.utcnow()
-    outcomes_by_engagement = {o["engagementLocalId"]: o for o in outcomes}
+    outcomes_by_engagement_and_subject = {
+        (outcome["engagementLocalId"], outcome["subjectProfileLocalId"]): outcome for outcome in outcomes
+    }
     payments = []
 
     for engagement in engagements:
-        outcome = outcomes_by_engagement.get(engagement["_localId"])
+        outcome = outcomes_by_engagement_and_subject.get(
+            (engagement["_localId"], engagement["clientProfileLocalId"])
+        )
         if outcome is None or not outcome["paidInFull"]:
             continue
 

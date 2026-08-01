@@ -24,22 +24,30 @@ def generate_reviews(
     fake = Faker()
     Faker.seed(config.seed + 6)
 
-    outcomes_by_engagement = {o["engagementLocalId"]: o for o in outcomes}
+    outcomes_by_engagement_and_subject = {
+        (outcome["engagementLocalId"], outcome["subjectProfileLocalId"]): outcome for outcome in outcomes
+    }
     ring_member_ids = {m for ring in rings for m in ring["memberLocalIds"]}
 
     reviews = []
 
     for engagement in engagements:
-        outcome = outcomes_by_engagement.get(engagement["_localId"])
-        if outcome is None or rng.random() > 0.85:
-            continue
-
         freelancer_id = engagement["freelancerProfileLocalId"]
         client_id = engagement["clientProfileLocalId"]
+        if (
+            engagement["_localId"],
+            freelancer_id,
+        ) not in outcomes_by_engagement_and_subject or rng.random() > 0.85:
+            continue
+
         both_ring_members = freelancer_id in ring_member_ids and client_id in ring_member_ids
 
         for author_id, subject_id in ((freelancer_id, client_id), (client_id, freelancer_id)):
             if rng.random() > 0.9:
+                continue
+
+            outcome = outcomes_by_engagement_and_subject.get((engagement["_localId"], subject_id))
+            if outcome is None:
                 continue
 
             is_planted_collusion = both_ring_members
