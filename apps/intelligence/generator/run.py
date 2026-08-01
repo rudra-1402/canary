@@ -11,10 +11,11 @@ from generator.id_map import write_id_map
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
 from generator.manifest import build_manifest
-from generator.outcomes import generate_outcomes
+from generator.outcomes import draw_relative_conduct, generate_outcomes
 from generator.payments import generate_payments
 from generator.proposals import generate_proposals
 from generator.reviews import generate_reviews
+from generator.timeline import build_timelines
 from generator.validation import validate_dataset
 
 COLLECTIONS = [
@@ -81,10 +82,7 @@ def _resolve_ids(db, identities, profiles, jobposts, proposals, engagements, out
 
     # Mongoose's `timestamps:true`/`default: Date.now` never fire for these raw
     # pymongo inserts (same bypass already fixed once for Profile/JobPost/
-    # Proposal) — Outcome and Payment below set createdAt explicitly rather than
-    # relying on it. Outcome has no timing of its own in the generator's output,
-    # so it inherits its engagement's createdAt as a reasonable stand-in for
-    # "recorded around when the engagement concluded."
+    # Proposal), so generated rows carry their own resolved event timestamps.
     engagements_by_local_id = {e["_localId"]: e for e in engagements}
 
     for o in outcomes:
@@ -97,8 +95,8 @@ def _resolve_ids(db, identities, profiles, jobposts, proposals, engagements, out
             "ghosted": o["ghosted"],
             "endedAs": o["endedAs"],
             "labelSource": o["labelSource"],
-            "recordedAt": source_engagement["createdAt"],
-            "createdAt": source_engagement["createdAt"],
+            "recordedAt": o["recordedAt"],
+            "createdAt": o["recordedAt"],
         }
         db.outcomes.insert_one(doc)
 
@@ -148,10 +146,13 @@ def main():
     jobposts = generate_jobposts(config, profiles)
     proposals = generate_proposals(config, profiles, jobposts)
     engagements = generate_engagements(config, profiles, jobposts, proposals)
-    outcomes = generate_outcomes(config, profiles, engagements)
+    now = datetime.utcnow()
+    conduct = draw_relative_conduct(config, profiles, engagements, now=now)
+    timelines = build_timelines(config, engagements, conduct, now=now)
+    outcomes = generate_outcomes(config, profiles, engagements, conduct=conduct, timelines=timelines, now=now)
     rings = build_collusion_rings(config, profiles)
     reviews = generate_reviews(config, profiles, engagements, outcomes, rings)
-    payments = generate_payments(config, profiles, engagements, outcomes)
+    payments = generate_payments(config, profiles, engagements, conduct, timelines, now=now)
 
     # Build the manifest before writing anything — validation and the manifest
     # must agree on the same data, and nothing gets inserted if either check fails.

@@ -2,6 +2,7 @@ import random
 from datetime import datetime, timedelta
 
 from generator.config import GeneratorConfig
+from generator.timeline import build_timelines
 
 SPECIAL_ROLE_GHOST_RATE = {"colluder": 0.02, "saboteur": 0.03}
 
@@ -70,7 +71,14 @@ def _revisions_requested_from_traits(config: GeneratorConfig, traits: dict, rng:
     return max(0, round(requested))
 
 
-def generate_outcomes(config: GeneratorConfig, profiles: list[dict], engagements: list[dict]) -> list[dict]:
+def draw_relative_conduct(
+    config: GeneratorConfig,
+    profiles: list[dict],
+    engagements: list[dict],
+    *,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Draw conduct without assigning any absolute event time."""
     ghost_rng = random.Random(config.seed + 5)
     lateness_event_rng = random.Random(config.seed + 6)
     lateness_magnitude_rng = random.Random(config.seed + 7)
@@ -78,11 +86,11 @@ def generate_outcomes(config: GeneratorConfig, profiles: list[dict], engagements
     revisions_rng = random.Random(config.seed + 9)
     conclusion_rng = random.Random(config.seed + 10)
     profiles_by_id = {p["_localId"]: p for p in profiles}
-    now = datetime.utcnow()
-    outcomes = []
+    now = now or datetime.utcnow()
+    conduct = []
 
     for engagement in engagements:
-        if engagement["status"] != "concluded":
+        if engagement["status"] != "concluded" and not engagement.get("_timelineDeferred"):
             continue
 
         freelancer = profiles_by_id[engagement["freelancerProfileLocalId"]]
@@ -127,7 +135,6 @@ def generate_outcomes(config: GeneratorConfig, profiles: list[dict], engagements
                 missed_due_at = lateness_event_rng.random() < _miss_due_at_probability(config, traits)
                 days_late = _days_late_from_traits(config, traits, missed_due_at, lateness_magnitude_rng)
                 outcome["daysLate"] = days_late
-                outcome["deliveredAt"] = engagement["agreedTerms"]["dueAt"] + timedelta(days=days_late)
 
             if conduct_observed and subject_role == "client":
                 traits = _current_traits(subject, month_index)
@@ -138,6 +145,36 @@ def generate_outcomes(config: GeneratorConfig, profiles: list[dict], engagements
                     revisions_requested > engagement["agreedTerms"]["revisionsIncluded"]
                 )
 
-            outcomes.append(outcome)
+            conduct.append(outcome)
+
+    return conduct
+
+
+def generate_outcomes(
+    config: GeneratorConfig,
+    profiles: list[dict],
+    engagements: list[dict],
+    *,
+    conduct: list[dict] | None = None,
+    timelines: dict[str, dict] | None = None,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Materialize Outcome rows from relative conduct and the shared timeline."""
+    now = now or datetime.utcnow()
+    conduct = (
+        conduct if conduct is not None else draw_relative_conduct(config, profiles, engagements, now=now)
+    )
+    timelines = timelines if timelines is not None else build_timelines(config, engagements, conduct, now=now)
+    outcomes = []
+
+    for relative_outcome in conduct:
+        outcome = dict(relative_outcome)
+        event_times = timelines.get(outcome["engagementLocalId"])
+        if event_times is None:
+            continue
+        if outcome["subjectRole"] == "freelancer" and outcome["daysLate"] is not None:
+            outcome["deliveredAt"] = event_times["deliveredAt"]
+        outcome["recordedAt"] = event_times["recordedAt"]
+        outcomes.append(outcome)
 
     return outcomes

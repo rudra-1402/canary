@@ -27,6 +27,26 @@ def test_outcomes_only_generated_for_concluded_engagements():
     assert all(o["engagementLocalId"] in concluded_ids for o in outcomes)
 
 
+def test_outcome_timestamps_are_real_conclusion_moments():
+    """Conclusion timestamps must be usable as temporal-label boundaries."""
+    config, profiles, engagements = _setup(num_profiles=2000)
+    now = datetime.utcnow()
+    outcomes = generate_outcomes(config, profiles, engagements, now=now)
+    engagements_by_id = {engagement["_localId"]: engagement for engagement in engagements}
+
+    assert outcomes
+    assert all(
+        outcome["recordedAt"] != engagements_by_id[outcome["engagementLocalId"]]["createdAt"]
+        for outcome in outcomes
+    )
+    assert all(
+        outcome["recordedAt"] > engagements_by_id[outcome["engagementLocalId"]]["createdAt"]
+        for outcome in outcomes
+    )
+    assert all(outcome["recordedAt"] <= now for outcome in outcomes)
+    assert len({(outcome["recordedAt"].year, outcome["recordedAt"].month) for outcome in outcomes}) >= 12
+
+
 _CONDUCT_FIELDS = (
     "deliveredAt",
     "daysLate",
@@ -254,8 +274,12 @@ def test_drifting_profile_shows_worse_outcomes_later_than_earlier():
     trials = 300
     for trial_seed in range(trials):
         trial_config = GeneratorConfig(seed=trial_seed, num_profiles=1, timeline_months=18)
-        early_ghost_count += generate_outcomes(trial_config, profiles, [early_engagement])[0]["ghosted"]
-        late_ghost_count += generate_outcomes(trial_config, profiles, [late_engagement])[0]["ghosted"]
+        early_ghost_count += outcomes_module.draw_relative_conduct(
+            trial_config, profiles, [early_engagement]
+        )[0]["ghosted"]
+        late_ghost_count += outcomes_module.draw_relative_conduct(trial_config, profiles, [late_engagement])[
+            0
+        ]["ghosted"]
 
     assert late_ghost_count > early_ghost_count
 

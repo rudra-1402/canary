@@ -2,6 +2,7 @@ import random
 from datetime import datetime, timedelta
 
 from generator.config import GeneratorConfig
+from generator.timeline import max_chronology_days
 
 
 def _client_of(jobposts: list[dict], jobpost_local_id: str) -> str:
@@ -35,6 +36,16 @@ def generate_engagements(
 
         bad_terms = client["trueArchetype"] == "reliable" and rng.random() < 0.1
 
+        due_at = created_at + timedelta(days=accepted["proposedDurationDays"])
+        # The shared conclusion timeline can include maximum lateness, a
+        # payment event, and a conclusion event. Do not label an engagement
+        # concluded unless that full chronology can already have elapsed.
+        timeline_deferred = (
+            status == "concluded" and due_at + timedelta(days=max_chronology_days(config)) > now
+        )
+        if timeline_deferred:
+            status = "active"
+
         engagement = {
             "_localId": f"engagement-{jobpost_id}",
             "freelancerProfileLocalId": accepted["freelancerProfileLocalId"],
@@ -49,12 +60,16 @@ def generate_engagements(
                 "price": accepted["bid"],
                 "paymentTerms": "net-90" if bad_terms else rng.choice(["net-15", "net-30"]),
                 "timeline": accepted["durationEstimate"],
-                "dueAt": created_at + timedelta(days=accepted["proposedDurationDays"]),
+                "dueAt": due_at,
                 "revisionsIncluded": rng.randint(
                     config.revisions_included_min, config.revisions_included_max
                 ),
             },
         }
+        if timeline_deferred:
+            # Preserve the pre-timeline conduct RNG sequence without emitting
+            # an incoherent concluded Engagement or any documents for it.
+            engagement["_timelineDeferred"] = True
         engagements.append(engagement)
 
     return engagements

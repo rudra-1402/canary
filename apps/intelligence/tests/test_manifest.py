@@ -54,7 +54,7 @@ def test_manifest_records_rings_and_bad_terms_engagements():
 
 
 def test_manifest_records_which_reviews_were_planted():
-    config = GeneratorConfig(seed=42, num_profiles=500)
+    config = GeneratorConfig(seed=42, num_profiles=1000)
     _, profiles = generate_identities_and_profiles(config)
     jobposts = generate_jobposts(config, profiles)
     proposals = generate_proposals(config, profiles, jobposts)

@@ -11,7 +11,7 @@ from generator.proposals import generate_proposals
 from generator.reviews import generate_reviews
 
 
-def _setup(num_profiles=500):
+def _setup(num_profiles=1000):
     config = GeneratorConfig(seed=42, num_profiles=num_profiles)
     _, profiles = generate_identities_and_profiles(config)
     jobposts = generate_jobposts(config, profiles)
