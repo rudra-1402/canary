@@ -4,6 +4,7 @@ import pytest
 from bson import ObjectId
 
 from generator.config import GeneratorConfig
+from generator.identities_profiles import SEED_DEV_PASSWORD_HASH, generate_identities_and_profiles
 from generator.reviews import generate_reviews
 from generator.run import COLLECTIONS, PERSISTENCE_VALIDATION_COLLECTIONS, _resolve_ids
 
@@ -43,8 +44,22 @@ def _resolve_fixture():
     created_at = datetime(2026, 1, 1)
     concluded_at = created_at + timedelta(days=21)
     identities = [
-        {"_localId": "identity-freelancer", "email": "freelancer@example.test", "createdAt": created_at},
-        {"_localId": "identity-client", "email": "client@example.test", "createdAt": created_at},
+        {
+            "_localId": "identity-freelancer",
+            "email": "freelancer@example.test",
+            "passwordHash": SEED_DEV_PASSWORD_HASH,
+            "emailVerified": True,
+            "activeProfileLocalId": "profile-freelancer",
+            "createdAt": created_at,
+        },
+        {
+            "_localId": "identity-client",
+            "email": "client@example.test",
+            "passwordHash": SEED_DEV_PASSWORD_HASH,
+            "emailVerified": True,
+            "activeProfileLocalId": "profile-client",
+            "createdAt": created_at,
+        },
     ]
     profiles = [
         {
@@ -76,7 +91,7 @@ def _resolve_fixture():
             "budgetOrRate": 1000,
             "experienceLevel": "intermediate",
             "projectLength": "1-to-3-months",
-            "status": "open",
+            "status": "closed",
             "createdAt": created_at,
         }
     ]
@@ -207,6 +222,18 @@ def test_resolve_ids_persists_two_mapped_outcomes_with_per_party_semantics_and_r
     assert review["isPlantedSabotage"] is True
 
 
+def test_resolve_ids_maps_seeded_identity_active_profiles_to_profiles_they_own():
+    db = _FakeDatabase()
+    identities, profiles = generate_identities_and_profiles(GeneratorConfig(seed=42, num_profiles=20))
+
+    _resolve_ids(db, identities, profiles, [], [], [], [], [], [])
+
+    profiles_by_id = {profile["_id"]: profile for profile in db.profiles.documents}
+    for identity in db.identities.documents:
+        active_profile = profiles_by_id[identity["activeProfileId"]]
+        assert active_profile["identityId"] == identity["_id"]
+
+
 def test_reviews_are_timestamped_after_conclusion_and_visible_before_the_run_now():
     conclusion_at = datetime(2026, 1, 21)
     now = conclusion_at + timedelta(days=30)
@@ -305,6 +332,9 @@ def test_validate_persistence_rejects_review_subject_outside_the_engagement_befo
         {
             "_localId": "identity-outsider",
             "email": "outsider@example.test",
+            "passwordHash": SEED_DEV_PASSWORD_HASH,
+            "emailVerified": True,
+            "activeProfileLocalId": "profile-outsider",
             "createdAt": datetime(2026, 1, 1),
         }
     )

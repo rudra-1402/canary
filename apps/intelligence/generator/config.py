@@ -6,6 +6,10 @@ class GeneratorConfig:
     seed: int = 42
     num_profiles: int = 500
     num_engagements: int = 2500
+    # Multiplies the historical 1–4 JobPosts-per-client distribution. The CLI's
+    # seed default raises this to 3.0; keep the data-class baseline at 1.0 so
+    # focused component tests can opt into fan-out deliberately.
+    engagement_fanout_multiplier: float = 1.0
     num_reviews: int = 4500
     timeline_months: int = 18
     proposal_duration_min_days: int = 7

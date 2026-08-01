@@ -10,6 +10,13 @@ vi.mock('../../src/lib/email.js', () => ({
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../src/lib/email.js';
 import mongoose from 'mongoose';
 import { clearIdentitySessions } from '../../src/auth/auth.service.js';
+import Identity from '../../src/models/Identity.js';
+import Profile from '../../src/models/Profile.js';
+
+// This is the immutable bcryptjs hash emitted by the Python seed generator for
+// `canary-demo-password`. Hitting the route proves compatibility with the real
+// Node verifier and authenticated-session path, not just field presence.
+const SEED_DEV_PASSWORD_HASH = '$2b$12$XT.ISsDwePIbMP.KWFjc2uTK6w25hbfpVzFj0.MJS5PPzIXJWM36m';
 
 let app;
 beforeAll(async () => {
@@ -70,6 +77,46 @@ describe('auth routes', () => {
       .set('x-csrf-token', token2)
       .send({ email: 'log@in.com', password: 'longenough1' });
     expect(good.status).toBe(200);
+  });
+
+  it('logs a seed-provisioned Identity in through the real route and creates an authenticated session', async () => {
+    const identity = await Identity.create({
+      email: 'seeded@example.test',
+      passwordHash: SEED_DEV_PASSWORD_HASH,
+      emailVerified: true,
+    });
+    const profile = await Profile.create({
+      identityId: identity._id,
+      role: 'freelancer',
+      origin: 'synthetic-seeded',
+      displayName: 'Seeded Freelancer',
+    });
+    identity.activeProfileId = profile._id;
+    await identity.save();
+
+    // Give this additional brute-force-path check a separate synthetic client IP;
+    // the suite intentionally exercises the shared limiter close to its production cap.
+    app.set('trust proxy', true);
+    try {
+      const agent = request.agent(app);
+      const csrf = await agent.get('/api/auth/csrf-token').set('x-forwarded-for', '198.51.100.10');
+      const login = await agent
+        .post('/api/auth/login')
+        .set('x-csrf-token', csrf.body.csrfToken)
+        .set('x-forwarded-for', '198.51.100.10')
+        .send({ email: identity.email, password: 'canary-demo-password' });
+      expect(login.status).toBe(200);
+
+      const me = await agent.get('/api/auth/me').set('x-forwarded-for', '198.51.100.10');
+      expect(me.status).toBe(200);
+      expect(me.body).toMatchObject({
+        email: identity.email,
+        emailVerified: true,
+        activeProfile: { id: profile._id.toString(), role: 'freelancer' },
+      });
+    } finally {
+      app.set('trust proxy', false);
+    }
   });
 
   it('me is 401 when unauthenticated', async () => {

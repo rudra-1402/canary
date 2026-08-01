@@ -5,15 +5,12 @@ from generator.config import GeneratorConfig
 from generator.timeline import max_chronology_days
 
 
-def _client_of(jobposts: list[dict], jobpost_local_id: str) -> str:
-    return next(jp["clientProfileLocalId"] for jp in jobposts if jp["_localId"] == jobpost_local_id)
-
-
 def generate_engagements(
     config: GeneratorConfig, profiles: list[dict], jobposts: list[dict], proposals: list[dict]
 ) -> list[dict]:
     rng = random.Random(config.seed + 3)
     profiles_by_id = {p["_localId"]: p for p in profiles}
+    jobposts_by_id = {jobpost["_localId"]: jobpost for jobpost in jobposts}
     now = datetime.utcnow()
 
     engagements = []
@@ -25,7 +22,13 @@ def generate_engagements(
         if rng.random() > 0.7:
             continue
         accepted = rng.choice(jobpost_proposals)
-        client_id = _client_of(jobposts, jobpost_id)
+        accepted["status"] = "accepted"
+        for proposal in jobpost_proposals:
+            if proposal is not accepted:
+                proposal["status"] = "declined"
+        jobpost = jobposts_by_id[jobpost_id]
+        jobpost["status"] = "closed"
+        client_id = jobpost["clientProfileLocalId"]
         client = profiles_by_id[client_id]
 
         # Clamped to "now" as a second line of defense — a proposal chained off a

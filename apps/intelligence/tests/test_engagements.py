@@ -71,3 +71,39 @@ def test_engagement_terms_are_derived_from_the_accepted_proposal():
         revisions.append(revisions_included)
 
     assert len(set(revisions)) > 1
+
+
+def test_accepted_proposals_and_their_jobposts_leave_their_initial_states():
+    config = GeneratorConfig(seed=42, num_profiles=200)
+    _, profiles = generate_identities_and_profiles(config)
+    jobposts = generate_jobposts(config, profiles)
+    proposals = generate_proposals(config, profiles, jobposts)
+    engagements = generate_engagements(config, profiles, jobposts, proposals)
+
+    proposals_by_id = {proposal["_localId"]: proposal for proposal in proposals}
+    proposals_by_jobpost = {}
+    for proposal in proposals:
+        proposals_by_jobpost.setdefault(proposal["jobPostLocalId"], []).append(proposal)
+    jobposts_by_id = {jobpost["_localId"]: jobpost for jobpost in jobposts}
+
+    assert engagements
+    for engagement in engagements:
+        assert proposals_by_id[engagement["proposalLocalId"]]["status"] == "accepted"
+        assert all(
+            proposal["status"] == "declined"
+            for proposal in proposals_by_jobpost[engagement["jobPostLocalId"]]
+            if proposal["_localId"] != engagement["proposalLocalId"]
+        )
+        assert jobposts_by_id[engagement["jobPostLocalId"]]["status"] == "closed"
+
+
+def test_jobpost_proposal_and_engagement_lifecycles_all_have_multiple_statuses():
+    config = GeneratorConfig(seed=42, num_profiles=200)
+    _, profiles = generate_identities_and_profiles(config)
+    jobposts = generate_jobposts(config, profiles)
+    proposals = generate_proposals(config, profiles, jobposts)
+    engagements = generate_engagements(config, profiles, jobposts, proposals)
+
+    assert len({jobpost["status"] for jobpost in jobposts}) > 1
+    assert len({proposal["status"] for proposal in proposals}) > 1
+    assert len({engagement["status"] for engagement in engagements}) > 1

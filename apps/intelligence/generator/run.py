@@ -74,7 +74,13 @@ def _validate_optional(document, collection, index, field, expected_type):
 
 def _validate_structural_document(collection, document, index):
     required_fields = {
-        "identities": {"email": str, "createdAt": datetime},
+        "identities": {
+            "email": str,
+            "passwordHash": str,
+            "emailVerified": bool,
+            "activeProfileId": ObjectId,
+            "createdAt": datetime,
+        },
         "profiles": {
             "identityId": ObjectId,
             "role": str,
@@ -248,8 +254,27 @@ def _validate_structural_document(collection, document, index):
 
 def _validate_relational_documents(documents):
     engagements_by_id = {document["_id"]: document for document in documents["engagements"]}
+    profiles_by_id = {document["_id"]: document for document in documents["profiles"]}
+    proposals_by_id = {document["_id"]: document for document in documents["proposals"]}
+    jobposts_by_id = {document["_id"]: document for document in documents["jobposts"]}
     outcomes_by_engagement = {}
     seen_review_authors = set()
+
+    for index, identity in enumerate(documents["identities"]):
+        active_profile = profiles_by_id.get(identity["activeProfileId"])
+        if active_profile is None or active_profile["identityId"] != identity["_id"]:
+            raise ValueError(f"identities[{index}].activeProfileId must reference an owned Profile")
+
+    for index, engagement in enumerate(documents["engagements"]):
+        proposal = proposals_by_id.get(engagement["proposalId"])
+        if proposal is None:
+            raise ValueError(f"engagements[{index}].proposalId does not reference a Proposal")
+        if proposal["status"] != "accepted":
+            raise ValueError(f"engagements[{index}].proposalId must reference an accepted Proposal")
+        if engagement["status"] == "concluded":
+            jobpost = jobposts_by_id.get(engagement["jobPostId"])
+            if jobpost is None or jobpost["status"] == "open":
+                raise ValueError(f"engagements[{index}].jobPostId must not reference an open JobPost")
 
     for index, outcome in enumerate(documents["outcomes"]):
         engagement = engagements_by_id.get(outcome["engagementId"])
@@ -310,7 +335,8 @@ def _prepare_persistence_documents(
     documents["identities"] = [
         {
             "_id": identity_ids[identity["_localId"]],
-            **{k: v for k, v in identity.items() if not k.startswith("_")},
+            **{k: v for k, v in identity.items() if not k.startswith("_") and k != "activeProfileLocalId"},
+            "activeProfileId": profile_ids.get(identity.get("activeProfileLocalId")),
         }
         for identity in identities
     ]
@@ -432,12 +458,22 @@ def main():
     parser = argparse.ArgumentParser(description="Seed Canary's synthetic marketplace")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--num-profiles", type=int, default=500)
+    parser.add_argument(
+        "--engagement-fanout-multiplier",
+        type=float,
+        default=3.0,
+        help="Multiply JobPosts per client to raise seeded Engagement density",
+    )
     parser.add_argument("--wipe", action="store_true", help="Drop existing seeded collections first")
     parser.add_argument("--manifest-out", default="ground-truth-manifest.json")
     parser.add_argument("--id-map-out", default="profile-id-map.json")
     args = parser.parse_args()
 
-    config = GeneratorConfig(seed=args.seed, num_profiles=args.num_profiles)
+    config = GeneratorConfig(
+        seed=args.seed,
+        num_profiles=args.num_profiles,
+        engagement_fanout_multiplier=args.engagement_fanout_multiplier,
+    )
     db = get_database()
 
     if args.wipe:

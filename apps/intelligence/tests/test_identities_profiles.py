@@ -4,6 +4,7 @@ import pytest
 
 from generator.config import GeneratorConfig
 from generator.identities_profiles import (
+    SEED_DEV_PASSWORD_HASH,
     VERIFIED_RATE_BY_ARCHETYPE,
     generate_identities_and_profiles,
 )
@@ -86,3 +87,14 @@ def test_identities_carry_a_created_at_matching_their_profile():
         assert isinstance(identity["createdAt"], datetime)
         assert identity["createdAt"] <= now
         assert identity["createdAt"] == profile["createdAt"]
+
+
+def test_seeded_identities_are_provisioned_for_local_login_with_an_owned_active_profile():
+    config = GeneratorConfig(seed=42, num_profiles=100)
+    identities, profiles = generate_identities_and_profiles(config)
+    profile_by_identity = {profile["identityLocalId"]: profile for profile in profiles}
+
+    for identity in identities:
+        assert identity["passwordHash"] == SEED_DEV_PASSWORD_HASH
+        assert identity["emailVerified"] is True
+        assert identity["activeProfileLocalId"] == profile_by_identity[identity["_localId"]]["_localId"]

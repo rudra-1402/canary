@@ -20,6 +20,12 @@ VERIFIED_RATE_BY_ARCHETYPE = {
     "saboteur": 0.4,
 }
 
+# bcryptjs generated this once with the API's 12-round verifier for the known
+# development password `canary-demo-password`. Raw pymongo seed writes bypass
+# the registration path, so every synthetic Identity needs this local-login
+# provision explicitly rather than a placeholder OAuth provider id.
+SEED_DEV_PASSWORD_HASH = "$2b$12$XT.ISsDwePIbMP.KWFjc2uTK6w25hbfpVzFj0.MJS5PPzIXJWM36m"
+
 
 def _assign_join_month_index(rng: random.Random, config: GeneratorConfig) -> int:
     if rng.random() < config.cold_start_join_rate:
@@ -62,7 +68,9 @@ def generate_identities_and_profiles(config: GeneratorConfig) -> tuple[list[dict
         identity = {
             "_localId": f"identity-{i}",
             "email": fake.unique.email(),
-            "authProviderId": f"seed-provider|{i}",
+            "passwordHash": SEED_DEV_PASSWORD_HASH,
+            "emailVerified": True,
+            "activeProfileLocalId": f"profile-{i}",
             # Reuses the same created_at as the profile below — an Identity and
             # its first Profile are created at the same signup moment. Needed
             # explicitly because the orchestrator writes via raw pymongo, which

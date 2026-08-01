@@ -64,6 +64,27 @@ describe('cross-language config alignment', () => {
     expect(match, 'min_engagements_for_scoring declaration was not found').not.toBeNull();
     expect(Number(match[1])).toBe(MIN_ENGAGEMENTS_FOR_SCORING);
   });
+
+  // auth.routes.test.js hardcodes the seed dev password hash to prove a seeded Identity can log in
+  // through the real route. If the Python constant changes and that one does not, the login test
+  // keeps passing against a stale value while every real seeded login breaks — green suite, dead
+  // demo. Same drift class as the threshold check above.
+  it('the seed dev password hash stays aligned with the Python generator', async () => {
+    const srcUrl = new URL('../../intelligence/generator/identities_profiles.py', import.meta.url);
+    const src = await (await import('node:fs/promises')).readFile(srcUrl, 'utf8');
+    const pyMatch = src.match(/SEED_DEV_PASSWORD_HASH\s*=\s*"([^"]+)"/);
+    expect(
+      pyMatch,
+      'SEED_DEV_PASSWORD_HASH was not found in identities_profiles.py',
+    ).not.toBeNull();
+
+    const testUrl = new URL('./auth/auth.routes.test.js', import.meta.url);
+    const testSrc = await (await import('node:fs/promises')).readFile(testUrl, 'utf8');
+    const jsMatch = testSrc.match(/SEED_DEV_PASSWORD_HASH\s*=\s*'([^']+)'/);
+    expect(jsMatch, 'SEED_DEV_PASSWORD_HASH was not found in auth.routes.test.js').not.toBeNull();
+
+    expect(jsMatch[1], 'JS login test hash has drifted from the Python generator').toBe(pyMatch[1]);
+  });
 });
 
 describe.skipIf(!SEED_TESTS_ENABLED)(
@@ -193,13 +214,9 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // KNOWN BROKEN — each of these caught a real defect. Promote to `it()` when fixed.
-    // ─────────────────────────────────────────────────────────────────────────────
-
-    // Fixed by TS-C. "seed-provider|N" is a placeholder, not a real Google `sub`, so asserting the
-    // field merely EXISTS would pass while login stays impossible for all 20 000 identities.
-    it.fails(
+    // Seeded identities use the shared development credential; a placeholder OAuth sub alone is not
+    // loginable, so this asserts a real local-password path is present.
+    it(
       'every Identity has a usable credential (TS-C)',
       async () => {
         const unusable = await db()
@@ -216,9 +233,9 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // Fixed by TS-C. Written by createProfileForIdentity in the app path only; the generator never
-    // runs it, so active-profile resolution sees null for every seeded user.
-    it.fails(
+    // Raw pymongo writes bypass createProfileForIdentity, so the generator resolves the owned
+    // active Profile itself before persistence.
+    it(
       'every Identity has activeProfileId pointing at a Profile it owns (TS-C)',
       async () => {
         const bad = await db()
@@ -376,8 +393,8 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // Fixed by TS-C. An accepted proposal that became an Engagement still reads "submitted".
-    it.fails(
+    // An accepted proposal that became an Engagement must no longer read "submitted".
+    it(
       'no Proposal referenced by an Engagement is still "submitted" (TS-C)',
       async () => {
         const stale = await db()
@@ -404,8 +421,8 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // Fixed by TS-C. Find Work is the demo's primary browse screen and would list finished jobs.
-    it.fails(
+    // Find Work must not list a concluded JobPost as open.
+    it(
       'no JobPost with a concluded Engagement is still "open" (TS-C)',
       async () => {
         const stale = await db()
@@ -433,9 +450,8 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // Fixed by TS-C. The generalisation of the three defects above: the generator only ever writes
-    // the initial state of any lifecycle, so no state machine is exercised by the seed.
-    it.fails(
+    // The seed exercises every marketplace lifecycle rather than emitting only initial states.
+    it(
       'every lifecycle actually transitions — statuses show more than one value (TS-C)',
       async () => {
         for (const c of ['jobposts', 'proposals', 'engagements']) {

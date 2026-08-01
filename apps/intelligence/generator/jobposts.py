@@ -50,7 +50,7 @@ def generate_jobposts(config: GeneratorConfig, profiles: list[dict]) -> list[dic
     jobposts = []
 
     for client in clients:
-        num_posts = rng.randint(1, 4)
+        num_posts = round(rng.randint(1, 4) * config.engagement_fanout_multiplier)
         for j in range(num_posts):
             planted_red_flags = []
             description = fake.paragraph(nb_sentences=3)
