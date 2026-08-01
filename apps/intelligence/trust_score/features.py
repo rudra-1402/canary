@@ -131,7 +131,7 @@ def compute_features(outcomes: list[dict], reviews: list[dict], subject_role: st
         (outcome for outcome in outcomes if outcome["recordedAt"] <= as_of and outcome.get("observed", True)),
         key=lambda outcome: outcome["recordedAt"],
     )
-    reviews_as_of = [review for review in reviews if review["createdAt"] <= as_of]
+    reviews_as_of = [review for review in reviews if review["visibleAt"] <= as_of]
     features = _static_aggregates(outcomes_as_of, reviews_as_of, subject_role)
 
     if subject_role == "freelancer":

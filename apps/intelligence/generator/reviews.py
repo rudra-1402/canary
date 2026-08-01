@@ -1,10 +1,13 @@
 import random
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 from faker import Faker
 
 from generator.config import GeneratorConfig
 
 RATING_WEIGHTS = {5: 0.55, 4: 0.25, 3: 0.1, 2: 0.05, 1: 0.05}
+REVIEW_TIMEOUT_DAYS = 14
 
 
 def _sample_rating(rng: random.Random, ghosted: bool) -> int:
@@ -21,16 +24,78 @@ def _subject_conduct_is_good(outcome: dict) -> bool:
     return outcome["paidInFull"] is True and outcome["scopeCreepOccurred"] is False
 
 
+def _apply_review_timing(
+    reviews: list[dict], timelines: dict[str, dict], now: datetime, rng: random.Random
+) -> list[dict]:
+    """Resolve review authorship and visibility from the shared conclusion event.
+
+    A pair becomes visible when the second party submits. A lone review becomes
+    visible after the 14-day double-blind timeout. Reviews that could not yet
+    become visible at the run's `now` are not generated, so the seeded data
+    contains no future review timestamps.
+    """
+    reviews_by_engagement = defaultdict(list)
+    for review in reviews:
+        reviews_by_engagement[review["engagementLocalId"]].append(review)
+
+    timed_reviews = []
+    for engagement_id, engagement_reviews in reviews_by_engagement.items():
+        timeline = timelines.get(engagement_id)
+        if timeline is None:
+            continue
+        conclusion_at = timeline["recordedAt"]
+        first_possible_at = conclusion_at + timedelta(days=1)
+        if first_possible_at > now:
+            continue
+
+        if len(engagement_reviews) == 2:
+            for review in engagement_reviews:
+                review["createdAt"] = first_possible_at + timedelta(
+                    days=rng.randint(0, (now - first_possible_at).days)
+                )
+            visible_at = max(review["createdAt"] for review in engagement_reviews)
+            for review in engagement_reviews:
+                review["visibleAt"] = visible_at
+            timed_reviews.extend(engagement_reviews)
+            continue
+
+        latest_created_at = now - timedelta(days=REVIEW_TIMEOUT_DAYS)
+        if first_possible_at > latest_created_at:
+            continue
+        review = engagement_reviews[0]
+        review["createdAt"] = first_possible_at + timedelta(
+            days=rng.randint(0, (latest_created_at - first_possible_at).days)
+        )
+        review["visibleAt"] = review["createdAt"] + timedelta(days=REVIEW_TIMEOUT_DAYS)
+        timed_reviews.append(review)
+
+    return timed_reviews
+
+
 def generate_reviews(
     config: GeneratorConfig,
     profiles: list[dict],
     engagements: list[dict],
     outcomes: list[dict],
     rings: list[dict],
+    *,
+    timelines: dict[str, dict] | None = None,
+    now: datetime | None = None,
 ) -> list[dict]:
     rng = random.Random(config.seed + 6)
+    timing_rng = random.Random(config.seed + 13)
     fake = Faker()
     Faker.seed(config.seed + 6)
+    now = now or datetime.utcnow()
+    # Older direct callers already pass resolved Outcomes. Their recordedAt is
+    # the timeline's conclusion event; run.py passes the shared timeline
+    # explicitly so review timing has one source of truth in the seed path.
+    if timelines is None:
+        timelines = {
+            outcome["engagementLocalId"]: {"recordedAt": outcome["recordedAt"]}
+            for outcome in outcomes
+            if "recordedAt" in outcome
+        }
 
     outcomes_by_engagement_and_subject = {
         (outcome["engagementLocalId"], outcome["subjectProfileLocalId"]): outcome for outcome in outcomes
@@ -121,4 +186,4 @@ def generate_reviews(
             review_counts[engagement["_localId"]] = review_counts.get(engagement["_localId"], 0) + 1
             review_authors.add((engagement["_localId"], author_id))
 
-    return reviews
+    return _apply_review_timing(reviews, timelines, now, timing_rng)

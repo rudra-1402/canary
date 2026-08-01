@@ -33,8 +33,13 @@ def _outcome(
     }
 
 
-def _review(days_ago, rating):
-    return {"createdAt": NOW - timedelta(days=days_ago), "rating": rating}
+def _review(days_ago, rating, *, visible_days_ago=None):
+    visible_days_ago = days_ago if visible_days_ago is None else visible_days_ago
+    return {
+        "createdAt": NOW - timedelta(days=days_ago),
+        "visibleAt": NOW - timedelta(days=visible_days_ago),
+        "rating": rating,
+    }
 
 
 def test_freelancer_feature_vector_carries_superset_with_client_columns_missing():
@@ -122,6 +127,19 @@ def test_no_lookahead_excludes_outcomes_and_reviews_after_as_of(
     assert features["review_count"] == 1
     assert features["avg_review_rating"] == 5.0
     assert features[rate_name] == 1.0
+
+
+def test_no_lookahead_excludes_review_not_yet_visible_at_as_of():
+    features = compute_features(
+        [_outcome(5, subject_role="freelancer", days_late=0)],
+        [_review(10, 1, visible_days_ago=-5)],
+        "freelancer",
+        NOW,
+        TrustScoreConfig(),
+    )
+
+    assert features["review_count"] == 0
+    assert features["avg_review_rating"] == 3.0
 
 
 @pytest.mark.parametrize(

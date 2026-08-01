@@ -150,7 +150,13 @@ def test_review_ratings_use_the_reviewed_subjects_outcome(monkeypatch):
     monkeypatch.setattr(reviews_module, "_sample_rating", lambda _rng, ghosted: 1 if ghosted else 5)
 
     reviews = generate_reviews(
-        GeneratorConfig(seed=0), [], [engagement], [client_outcome, freelancer_outcome], []
+        GeneratorConfig(seed=0),
+        [],
+        [engagement],
+        [client_outcome, freelancer_outcome],
+        [],
+        timelines={"engagement-1": {"recordedAt": created_at + timedelta(days=20)}},
+        now=datetime.utcnow(),
     )
 
     ratings_by_subject = {review["subjectProfileLocalId"]: review["rating"] for review in reviews}
