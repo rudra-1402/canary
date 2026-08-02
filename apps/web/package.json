@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@canary/shared": "^0.0.1",
+    "prop-types": "^15.8.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.1.1"
@@ -19,6 +20,7 @@
     "@tailwindcss/vite": "^4.3.2",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^6.0.4",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4.3.2",
