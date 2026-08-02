@@ -26,8 +26,6 @@ MIN_SEEDS = 5
 ARCHETYPE_RECOVERABILITY_FLOOR = 0.5
 CONDITIONAL_SEPARATION_FLOOR = 0.3
 FEATURE_DEGENERACY_MAX_SHARE = 0.50
-LABEL_MIN_DISTINCT_VALUES = 20
-LABEL_DEGENERACY_MAX_SHARE = 0.10
 LABEL_COMPOSITION_FEATURE_FLOOR = 1.0
 
 PLAUSIBILITY_RANGES = {
@@ -282,38 +280,45 @@ def judge_feature_degeneracy(
 
 
 def judge_label_degeneracy(seeds: Sequence[Mapping[str, Any]]) -> GateResult:
-    """Require at least 20 label values and a largest atom no greater than 10%."""
+    """Judge a valid label the same way trust_score.labels does: one rule, one place.
+
+    This used to duplicate the acceptance rule as a raw largest-atom share cap,
+    which disagreed with the training path once that path moved to a band-outcome
+    definition (distinct values, non-empty tertile bands, minimum band size,
+    minimum spread -- trust_score.labels.assert_label_distribution). Delegating
+    here means the two paths cannot silently drift apart again.
+    """
+    # Imported lazily: trust_score.labels imports quality.gates at module load time
+    # (for MIN_SCOREABLE_PER_ARCHETYPE), so importing labels back at gates.py's
+    # module level would be circular.
+    from trust_score.labels import LabelDegeneracyError, assert_label_distribution
+
     precondition = _statistical_precondition("label_degeneracy", seeds)
     if precondition:
         return precondition
 
     failures: dict[str, list[str]] = {}
     ranges: dict[str, tuple[float, float]] = {}
-    by_role: dict[str, list[tuple[int, float]]] = {}
+    by_role: dict[str, list[dict[str, Any]]] = {}
     for seed in seeds:
         for role, measurement in seed["roles"].items():
             values = _scoreable_values(measurement["label_values"])
             if not values:
                 _add_failure(failures, role, "label has no scoreable values")
                 continue
-            by_role.setdefault(role, []).append((len(set(values)), _largest_share(values)))
-    for role, stats in by_role.items():
-        distinct = [float(item[0]) for item in stats]
-        atoms = [item[1] for item in stats]
+            try:
+                stats = assert_label_distribution(values)
+            except LabelDegeneracyError as error:
+                _add_failure(failures, role, str(error))
+                continue
+            by_role.setdefault(role, []).append(stats)
+    for role, stats_list in by_role.items():
+        distinct = [float(stats["distinct"]) for stats in stats_list]
+        min_band_sizes = [float(min(stats["bands"].values())) for stats in stats_list]
+        spreads = [float(stats["spread"]) for stats in stats_list]
         ranges[f"{role}.distinct"] = _range(distinct)
-        ranges[f"{role}.largest_atom"] = _range(atoms)
-        if min(distinct) < LABEL_MIN_DISTINCT_VALUES:
-            _add_failure(
-                failures,
-                role,
-                f"distinct value range {ranges[f'{role}.distinct']} is below {LABEL_MIN_DISTINCT_VALUES}",
-            )
-        if max(atoms) > LABEL_DEGENERACY_MAX_SHARE:
-            _add_failure(
-                failures,
-                role,
-                f"largest atom range {ranges[f'{role}.largest_atom']} exceeds {LABEL_DEGENERACY_MAX_SHARE}",
-            )
+        ranges[f"{role}.min_band_size"] = _range(min_band_sizes)
+        ranges[f"{role}.spread"] = _range(spreads)
     return GateResult(
         name="label_degeneracy",
         status=GateStatus.FAIL if failures else GateStatus.PASS,

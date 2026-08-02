@@ -49,3 +49,74 @@ def test_label_distribution_refuses_to_force_a_degenerate_label_through_gate_4b(
         assert "Gate 4b" in str(error)
     else:
         raise AssertionError("expected degenerate labels to fail Gate 4b")
+
+
+# Gate 4b tests what banding requires, not how concentrated raw values are.  A
+# population where most parties behave well is a population fact; it only matters
+# if it stops the three bands forming.  See pending-decisions P7 (2026-08-02).
+
+
+def test_gate_4b_accepts_a_top_heavy_label_whose_bands_still_form():
+    # 44% share a perfect record -- the real freelancer shape at 8x fan-out. Repeated
+    # 9x (proportions, thresholds and shares are unchanged by repeating a multiset)
+    # so every band also clears the 200-example minimum trainable size.
+    values = ([1.0] * 44 + [value / 100 for value in range(30, 86)]) * 9
+
+    stats = assert_label_distribution(values)
+
+    assert stats["largest_share"] > 0.4
+    assert stats["bands"] == {"low": 297, "med": 207, "high": 396}
+
+
+def test_gate_4b_refuses_a_label_whose_tertiles_cannot_separate():
+    # 80% on one value: both tertile boundaries land inside the same atom.
+    values = [1.0] * 80 + [value / 100 for value in range(50, 70)]
+
+    try:
+        assert_label_distribution(values)
+    except LabelDegeneracyError as error:
+        assert "Gate 4b" in str(error)
+    else:
+        raise AssertionError("expected collapsed tertiles to fail Gate 4b")
+
+
+def test_gate_4b_refuses_a_label_that_leaves_a_band_empty():
+    # Bottom-heavy: tertiles are strictly increasing, but nothing sorts below
+    # low_to_med, so "low" is unreachable.  Not caught by the tertile check alone.
+    values = [0.0] * 40 + [0.5 + value / 100 for value in range(0, 60)]
+
+    try:
+        assert_label_distribution(values)
+    except LabelDegeneracyError as error:
+        assert "low" in str(error)
+    else:
+        raise AssertionError("expected an empty band to fail Gate 4b")
+
+
+def test_gate_4b_refuses_a_two_example_band_even_with_distinct_values_and_full_bands():
+    # The exact counterexample the pre-A.1 gate let through: 36 distinct values,
+    # tertiles 0.33/1.00, bands low=33 med=2 high=65 -- all non-empty, but "med"
+    # carries only 2 examples.  A two-example training class is not scoreable.
+    values = [value / 100 for value in range(0, 35)] + [1.0] * 65
+
+    try:
+        assert_label_distribution(values)
+    except LabelDegeneracyError as error:
+        assert "Gate 4b" in str(error)
+    else:
+        raise AssertionError("expected an under-200 band to fail Gate 4b")
+
+
+def test_gate_4b_refuses_a_label_whose_spread_is_too_narrow():
+    # 900 distinct values, 300 per band, but every value sits within 0.05 of the
+    # next: no floor above catches this, yet the label is unusable at the 0-100
+    # reporting resolution the score is actually shown at.
+    values = [0.50 + (index / 900) * 0.05 for index in range(900)]
+
+    try:
+        assert_label_distribution(values)
+    except LabelDegeneracyError as error:
+        assert "Gate 4b" in str(error)
+        assert "spread" in str(error)
+    else:
+        raise AssertionError("expected a narrow-spread label to fail Gate 4b")

@@ -22,8 +22,14 @@ ARCHETYPES = {"reliable": 200, "risky": 200, "bad-actor": 200}
 
 
 def _seed(seed: int, *, role="freelancer"):
-    """One adequate-size signal-audit result; each test changes only its target fact."""
-    label_values = list(range(20)) * 10
+    """One adequate-size signal-audit result; each test changes only its target fact.
+
+    label_values needs 20 distinct values with every tertile band >= 200 and a
+    p90-p10 spread >= 0.10 (trust_score.labels.assert_label_distribution's Gate 4b
+    floors, reused here rather than duplicated) -- 100 of each of 20 values clears
+    both comfortably.
+    """
+    label_values = list(range(20)) * 100
     return {
         "seed": seed,
         "roles": {
@@ -151,14 +157,28 @@ def test_feature_degeneracy_fails_a_value_held_by_more_than_half_and_exempts_dis
     assert "subject_role" not in result.failures
 
 
-def test_label_degeneracy_fails_a_29_point_4_percent_atom():
+def test_label_degeneracy_fails_a_band_under_the_two_hundred_example_minimum():
+    # Same shape as the labels.py regression counterexample: 36 distinct values,
+    # tertiles separate and every band is non-empty, but "med" carries only 20
+    # examples. judge_label_degeneracy must apply the same band-outcome definition
+    # trust_score.labels.assert_label_distribution does -- one rule, one place.
     seeds = _seeds()
-    values = [0] * 294 + list(range(1, 707))
+    values = [value / 100 for value in range(0, 35)] * 10 + [1.0] * 650
     for seed in seeds:
         seed["roles"]["freelancer"]["label_values"] = values
     result = judge_label_degeneracy(seeds)
     assert result.status is GateStatus.FAIL
-    assert "largest atom" in result.failures["freelancer"][0]
+    assert "below the minimum trainable size" in result.failures["freelancer"][0]
+
+
+def test_label_degeneracy_fails_a_spread_narrower_than_the_reporting_resolution():
+    seeds = _seeds()
+    values = [0.50 + (index / 900) * 0.05 for index in range(900)]
+    for seed in seeds:
+        seed["roles"]["freelancer"]["label_values"] = values
+    result = judge_label_degeneracy(seeds)
+    assert result.status is GateStatus.FAIL
+    assert "spread" in result.failures["freelancer"][0]
 
 
 def test_plausibility_fails_a_98_point_7_percent_late_rate():

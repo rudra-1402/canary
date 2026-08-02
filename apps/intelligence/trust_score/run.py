@@ -17,8 +17,10 @@ from trust_score.labels import (
     build_temporal_examples,
     derive_bucket_thresholds,
 )
+from trust_score.learnability import LearnabilityError, assert_role_learnability
 from trust_score.model import score_profile, train_model
 from trust_score.persistence import persist_trust_score
+from trust_score.signals import build_risk_signals
 
 
 def prepare_output_collections(db, wipe: bool):
@@ -65,11 +67,32 @@ def train_temporal_models(dataset: dict, config) -> tuple[dict, dict]:
     failures = {}
     for role, examples in examples_by_role.items():
         try:
-            assert_label_distribution([example["label_value"] for example in examples])
+            stats = assert_label_distribution([example["label_value"] for example in examples])
+            # Printed so a run proves the gate executed. "The process exited zero"
+            # is not evidence its internal checks were on the path taken -- this
+            # project has three recorded instances of exactly that.
+            print(
+                f"Gate 4b {role}: PASS n={len(examples)} distinct={stats['distinct']} "
+                f"largest_share={stats['largest_share']:.4f} bands={stats['bands']}"
+            )
         except LabelDegeneracyError as error:
             failures[role] = str(error)
     if failures:
         raise LabelDegeneracyError("; ".join(f"{role}: {failure}" for role, failure in failures.items()))
+
+    # Gate A.3: distribution floors (Gate 4b, above) prove the label can be banded;
+    # they say nothing about whether it can be predicted. Refuse to persist a model
+    # that cannot beat label-permuted controls on a held-out split, for either role.
+    learnability_failures = {}
+    for role, examples in examples_by_role.items():
+        try:
+            assert_role_learnability(role, examples, config)
+        except LearnabilityError as error:
+            learnability_failures[role] = str(error)
+    if learnability_failures:
+        raise LearnabilityError(
+            "; ".join(f"{role}: {failure}" for role, failure in learnability_failures.items())
+        )
 
     for role in ("freelancer", "client"):
         examples = examples_by_role[role]
@@ -107,7 +130,7 @@ def score_current_profiles(dataset: dict, models: dict, config, now: datetime) -
                 "score": score,
                 "level": "low" if score < 33.34 else "med" if score < 66.67 else "high",
                 "generatedAt": now,
-                "riskSignals": [],
+                "riskSignals": build_risk_signals(features, profile["role"]),
             }
         )
     return snapshots

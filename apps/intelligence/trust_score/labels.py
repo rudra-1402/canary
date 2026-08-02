@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 
+from quality.gates import MIN_SCOREABLE_PER_ARCHETYPE
 from trust_score.features import compute_features
 
 LABEL_TO_INT = {"low": 0, "med": 1, "high": 2}
@@ -21,7 +22,14 @@ ROLE_LABEL_TERMS = {
 MIN_FEATURE_OUTCOMES = 3
 MIN_LABEL_OUTCOMES = 1
 MIN_DISTINCT_LABEL_VALUES = 20
-MAX_LABEL_VALUE_SHARE = 0.10
+# A band that bands correctly can still be too small to train on. Reuses the
+# per-archetype floor already chosen independently of this question (quality.gates)
+# rather than picking a second constant for the same underlying concern.
+MIN_BAND_SIZE = MIN_SCOREABLE_PER_ARCHETYPE
+# Grounded on the 0-100 reporting scale the score is actually shown at: bands
+# separated by less than this are not distinguishable to a viewer.
+MIN_LABEL_SPREAD = 0.10
+BANDS = ("low", "med", "high")
 
 
 @dataclass(frozen=True)
@@ -90,21 +98,65 @@ def bucket_label(reliability_index: float, thresholds: LabelThresholds) -> str:
     return "high"
 
 
-def assert_label_distribution(label_values: Sequence[float]) -> dict[str, float]:
-    """Enforce Gate 4b against raw (pre-bucket) temporal label values."""
+def assert_label_distribution(label_values: Sequence[float]) -> dict[str, Any]:
+    """Enforce Gate 4b: the label must be able to carry three usable bands.
+
+    Gate 4b originally also capped the share of any single raw value at 10%.  That
+    rule was removed on 2026-08-02 after measurement: it was refusing labels that
+    band correctly.  A large atom is only a defect if it stops the bands forming,
+    so the gate now asserts that outcome directly and holds no tuned constant --
+    the tertile and empty-band checks are threshold-free by construction.  Full
+    reasoning and the measurement: pending-decisions P7.
+    """
     values = [float(value) for value in label_values if not isnan(float(value))]
     if not values:
         raise LabelDegeneracyError("Temporal label distribution has no usable values.")
     counts = Counter(values)
     distinct = len(counts)
-    largest_share = max(counts.values()) / len(values)
-    if distinct < MIN_DISTINCT_LABEL_VALUES or largest_share > MAX_LABEL_VALUE_SHARE:
+    if distinct < MIN_DISTINCT_LABEL_VALUES:
         raise LabelDegeneracyError(
-            "Temporal label fails Gate 4b: "
-            f"distinct={distinct} (requires >= {MIN_DISTINCT_LABEL_VALUES}), "
-            f"largest_share={largest_share:.4f} (requires <= {MAX_LABEL_VALUE_SHARE:.2f})."
+            "Temporal label fails Gate 4b: " f"distinct={distinct} (requires >= {MIN_DISTINCT_LABEL_VALUES})."
         )
-    return {"distinct": distinct, "largest_share": largest_share}
+
+    # Derived here rather than only at training time: a gate placed upstream of a
+    # better check hides it, which is how the 10% rule masked this one for a segment.
+    try:
+        thresholds = derive_bucket_thresholds(values)
+    except LabelDegeneracyError as error:
+        raise LabelDegeneracyError(f"Temporal label fails Gate 4b: {error}") from error
+    bands = Counter(bucket_label(value, thresholds) for value in values)
+    empty = [band for band in BANDS if not bands.get(band)]
+    if empty:
+        raise LabelDegeneracyError(
+            f"Temporal label fails Gate 4b: band(s) {', '.join(empty)} are empty under "
+            f"thresholds {thresholds.low_to_med:.6f}/{thresholds.med_to_high:.6f} -- "
+            "the label cannot carry three usable classes."
+        )
+
+    undersized = [band for band in BANDS if bands[band] < MIN_BAND_SIZE]
+    if undersized:
+        sizes = ", ".join(f"{band}={bands[band]}" for band in undersized)
+        raise LabelDegeneracyError(
+            f"Temporal label fails Gate 4b: band(s) {sizes} are below the minimum "
+            f"trainable size ({MIN_BAND_SIZE}) -- non-empty is not the same as scoreable."
+        )
+
+    p10, p90 = np.quantile(values, [0.1, 0.9], method="linear")
+    spread = float(p90 - p10)
+    if spread < MIN_LABEL_SPREAD:
+        raise LabelDegeneracyError(
+            f"Temporal label fails Gate 4b: spread p90-p10={spread:.6f} is below the "
+            f"minimum {MIN_LABEL_SPREAD} -- the label is not separable at the scale it "
+            "is reported at."
+        )
+
+    return {
+        "distinct": distinct,
+        "largest_share": max(counts.values()) / len(values),
+        "bands": {band: bands.get(band, 0) for band in BANDS},
+        "thresholds": thresholds,
+        "spread": spread,
+    }
 
 
 def _outcome_row(outcome: dict, fallback_id: str) -> dict:
