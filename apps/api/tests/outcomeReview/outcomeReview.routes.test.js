@@ -101,6 +101,42 @@ describe('POST /api/outcome-reviews', () => {
     expect(reviews.every((review) => review.visibleAt instanceof Date)).toBe(true);
   });
 
+  it('exposes outcome evidence only after both parties conclude the Engagement', async () => {
+    const freelancer = await activeProfileAgent('freelancer');
+    const client = await activeProfileAgent('client');
+    const engagement = await activeEngagement(freelancer.profileId, client.profileId);
+
+    const first = await freelancer.agent
+      .post('/api/outcome-reviews')
+      .set('x-csrf-token', freelancer.csrf)
+      .send(bodyFor('freelancer', engagement._id));
+    expect(first.status).toBe(201);
+
+    const beforeConclusion = await freelancer.agent.get(
+      `/api/trust-scores/${freelancer.profileId}/outcomes`,
+    );
+    expect(beforeConclusion.status).toBe(200);
+    expect(beforeConclusion.body).toMatchObject({
+      data: [],
+      pagination: { page: 1, pageSize: 20, total: 0 },
+    });
+
+    const second = await client.agent
+      .post('/api/outcome-reviews')
+      .set('x-csrf-token', client.csrf)
+      .send(bodyFor('client', engagement._id));
+    expect(second.status).toBe(201);
+
+    const [freelancerEvidence, clientEvidence] = await Promise.all([
+      freelancer.agent.get(`/api/trust-scores/${freelancer.profileId}/outcomes`),
+      client.agent.get(`/api/trust-scores/${client.profileId}/outcomes`),
+    ]);
+    expect(freelancerEvidence.body.pagination.total).toBe(1);
+    expect(clientEvidence.body.pagination.total).toBe(1);
+    expect(freelancerEvidence.body.data[0].id).toBe(first.body.outcomeId);
+    expect(clientEvidence.body.data[0].id).toBe(second.body.outcomeId);
+  });
+
   it('recovers an Outcome-only partial write when the same party resubmits', async () => {
     const freelancer = await activeProfileAgent('freelancer');
     const client = await activeProfileAgent('client');

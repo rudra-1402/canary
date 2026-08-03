@@ -25,9 +25,17 @@ def _planted_review(engagement_id, author, subject):
     }
 
 
-def test_not_evaluable_when_no_rings_are_planted():
+def test_not_evaluable_when_no_rings_are_planted_or_ring_engagements_are_disabled():
     result = judge_ring_detectability([], [])
     assert result.status is GateStatus.NOT_EVALUABLE
+
+    rings = [_ring("ring-0", ["a", "b"])]
+
+    result = judge_ring_detectability(rings, [], ring_engagements_enabled=False)
+
+    assert result.status is GateStatus.NOT_EVALUABLE
+    assert result.status is not GateStatus.PASS
+    assert result.reason == "ring engagements were disabled; detectability was not assessed"
 
 
 def test_fails_when_rings_exist_but_leave_no_review_fingerprint():
@@ -82,6 +90,23 @@ def test_ignores_non_planted_reviews_as_evidence_of_a_fingerprint():
     ]
     result = judge_ring_detectability(rings, reviews)
     assert result.status is GateStatus.FAIL
+
+
+def test_fails_when_ring_members_only_have_reciprocal_reviews_with_outsiders():
+    """Marketplace reciprocity is not evidence that this ring is detectable."""
+    rings = [_ring("ring-0", ["a", "b"])]
+    reviews = [
+        {"engagementLocalId": "e-a", "authorProfileLocalId": "a", "subjectProfileLocalId": "x"},
+        {"engagementLocalId": "e-a", "authorProfileLocalId": "x", "subjectProfileLocalId": "a"},
+        {"engagementLocalId": "e-b", "authorProfileLocalId": "b", "subjectProfileLocalId": "y"},
+        {"engagementLocalId": "e-b", "authorProfileLocalId": "y", "subjectProfileLocalId": "b"},
+    ]
+
+    result = judge_ring_detectability(rings, reviews)
+
+    assert result.status is GateStatus.FAIL
+    assert result.ranges["member_coverage"][0] == 0
+    assert result.ranges["ring_coverage"][0] == 0
 
 
 def test_gate_is_structurally_blind_to_the_planted_flag():

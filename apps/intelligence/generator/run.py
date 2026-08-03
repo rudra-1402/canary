@@ -53,6 +53,19 @@ def _is_number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _print_ring_detectability_result(result):
+    if result.status is GateStatus.NOT_EVALUABLE:
+        print(f"Gate ring-detectability: NOT EVALUABLE - {result.reason}")
+        return
+    if result.status is GateStatus.PASS:
+        member_coverage = result.ranges["member_coverage"][0]
+        ring_coverage = result.ranges["ring_coverage"][0]
+        print(
+            "Gate ring-detectability: PASS - ring-internal reciprocal-review fingerprint met "
+            f"coverage floors (member_coverage={member_coverage:.1%}, ring_coverage={ring_coverage:.1%})"
+        )
+
+
 def _validate_required(document, collection, index, field, expected_type):
     value = document.get(field)
     if value is None:
@@ -669,7 +682,10 @@ def main():
     # since collusion_rings.py always built a fully-connected graph even
     # though nothing consumed it. This is the behavioural check: rings must
     # have actually left a detectable fingerprint in the emitted reviews.
-    ring_detectability = judge_ring_detectability(rings, reviews)
+    ring_detectability = judge_ring_detectability(
+        rings, reviews, ring_engagements_enabled=config.enable_ring_engagements
+    )
+    _print_ring_detectability_result(ring_detectability)
     if ring_detectability.status is GateStatus.FAIL:
         print(
             "Ring detectability gate FAILED — aborting seed:",

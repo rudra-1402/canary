@@ -1,14 +1,17 @@
 from datetime import datetime, timedelta
 
+from generator import corpus
 from generator import reviews as reviews_module
 from generator.collusion_rings import build_collusion_rings
 from generator.config import GeneratorConfig
 from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
 from generator.jobposts import generate_jobposts
-from generator.outcomes import generate_outcomes
+from generator.outcomes import draw_relative_conduct, generate_outcomes
 from generator.proposals import generate_proposals
 from generator.reviews import generate_reviews
+from generator.ring_engagements import build_ring_engagements
+from generator.timeline import build_timelines
 
 
 def _setup(num_profiles=1000):
@@ -54,6 +57,31 @@ def test_colluder_reviews_are_five_star_between_real_ring_counterparties():
         assert review["rating"] == 5
         assert {review["authorProfileLocalId"], review["subjectProfileLocalId"]} == parties
         assert parties <= ring_member_ids
+
+
+def test_planted_collusion_reviews_do_not_pair_five_stars_with_disapproving_text():
+    """A real batch must fabricate internally consistent collusion prose."""
+    config, profiles, organic_engagements, _, rings = _setup(num_profiles=5000)
+    _, _, ring_engagements = build_ring_engagements(config, profiles, rings)
+    engagements = organic_engagements + ring_engagements
+    conduct = draw_relative_conduct(config, profiles, engagements)
+    timelines = build_timelines(config, engagements, conduct)
+    outcomes = generate_outcomes(config, profiles, engagements, conduct=conduct, timelines=timelines)
+    reviews = generate_reviews(config, profiles, engagements, outcomes, rings, timelines=timelines)
+    planted_reviews = [review for review in reviews if review["isPlantedCollusion"]]
+    disapproving_markers = (
+        corpus.NEGATIVE_GENERIC
+        + corpus.GHOSTED_PHRASES
+        + corpus.VERY_LATE_PHRASES
+        + corpus.PAYMENT_ISSUE_PHRASES
+        + corpus.CANCELLED_PHRASES
+    )
+
+    assert len(planted_reviews) >= 30
+    assert all(review["rating"] == 5 for review in planted_reviews)
+    assert all(
+        not any(marker in review["text"] for marker in disapproving_markers) for review in planted_reviews
+    )
 
 
 def _subject_conduct_is_good(outcome):

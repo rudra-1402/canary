@@ -237,16 +237,29 @@ export async function getTrustScoreOutcomes(profileId, identityId, query) {
     throw new NotFoundError('Profile', profileId);
   }
 
-  const filter = { subjectProfileId: profile._id };
   const { page, pageSize } = query;
-  const [docs, total] = await Promise.all([
-    Outcome.find(filter)
-      .sort({ recordedAt: -1, _id: -1 })
-      .skip((page - 1) * pageSize)
-      .limit(pageSize)
-      .lean(),
-    Outcome.countDocuments(filter),
+  const [result] = await Outcome.aggregate([
+    { $match: { subjectProfileId: profile._id } },
+    {
+      $lookup: {
+        from: 'engagements',
+        localField: 'engagementId',
+        foreignField: '_id',
+        as: 'engagement',
+      },
+    },
+    { $unwind: '$engagement' },
+    { $match: { 'engagement.status': 'concluded' } },
+    { $sort: { recordedAt: -1, _id: -1 } },
+    {
+      $facet: {
+        docs: [{ $skip: (page - 1) * pageSize }, { $limit: pageSize }],
+        total: [{ $count: 'value' }],
+      },
+    },
   ]);
+  const docs = result.docs;
+  const total = result.total[0]?.value ?? 0;
   return TrustScoreOutcomeListResponseSchema.parse({
     data: docs.map((doc) => TrustScoreOutcomeSchema.parse(toTrustScoreOutcomeContract(doc))),
     pagination: { page, pageSize, total },

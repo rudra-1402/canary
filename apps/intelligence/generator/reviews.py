@@ -198,7 +198,11 @@ def generate_reviews(
                     "authorProfileLocalId": author_id,
                     "subjectProfileLocalId": subject_id,
                     "rating": rating,
-                    "text": corpus.compose_review_text(text_rng, rating, outcome),
+                    # Collusion fabricates praise regardless of the underlying
+                    # conduct, so its prose must follow the forced rating too.
+                    "text": corpus.compose_review_text(
+                        text_rng, rating, None if is_planted_collusion else outcome
+                    ),
                     "isPlantedCollusion": is_planted_collusion,
                     "isPlantedSabotage": False,
                 }

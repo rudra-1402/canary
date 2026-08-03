@@ -478,6 +478,8 @@ RING_COVERAGE_FLOOR = 0.7
 def judge_ring_detectability(
     rings: Sequence[Mapping[str, Any]],
     reviews: Sequence[Mapping[str, Any]],
+    *,
+    ring_engagements_enabled: bool = True,
 ) -> GateResult:
     """Behavioural acceptance gate: planted collusion rings must be DETECTABLE,
     not merely present as a label.
@@ -504,6 +506,11 @@ def judge_ring_detectability(
     never produced a reciprocal review pair with each other is undetectable
     by construction, not merely mislabeled.
     """
+    if not ring_engagements_enabled:
+        return _not_evaluable(
+            "ring_detectability", "ring engagements were disabled; detectability was not assessed"
+        )
+
     all_members = {member for ring in rings for member in ring["memberLocalIds"]}
     if not all_members:
         return _not_evaluable("ring_detectability", "no planted collusion rings in this seed")
@@ -515,19 +522,20 @@ def judge_ring_detectability(
     for review in reviews:
         reviewed_by.setdefault(review["authorProfileLocalId"], set()).add(review["subjectProfileLocalId"])
 
-    fingerprinted: set[str] = set()
-    for author, subjects in reviewed_by.items():
-        for subject in subjects:
-            if author in reviewed_by.get(subject, ()):
-                # `author` and `subject` reviewed each other -- a reciprocal
-                # pair, observable from review structure alone.
-                fingerprinted.add(author)
-                fingerprinted.add(subject)
-
     rings_with_fingerprint = 0
     inert_ring_ids: list[str] = []
+    fingerprinted: set[str] = set()
     for ring in rings:
-        if set(ring["memberLocalIds"]) & fingerprinted:
+        members = set(ring["memberLocalIds"])
+        ring_fingerprinted = {
+            participant
+            for author in members
+            for subject in reviewed_by.get(author, ())
+            if subject in members and author in reviewed_by.get(subject, ())
+            for participant in (author, subject)
+        }
+        fingerprinted.update(ring_fingerprinted)
+        if ring_fingerprinted:
             rings_with_fingerprint += 1
         else:
             inert_ring_ids.append(ring["_localId"])

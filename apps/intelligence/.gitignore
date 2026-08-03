@@ -1,0 +1,4 @@
+# Runtime artifacts from a generator run. Large (the manifest is ~90 MB) and
+# fully reproducible from the seed, so they are regenerated rather than tracked.
+ground-truth-manifest*.json
+profile-id-map*.json
