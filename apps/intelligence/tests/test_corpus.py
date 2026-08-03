@@ -7,6 +7,7 @@ document's own fields) and must fail against the pre-fix generator.
 """
 
 import random
+import re
 
 from generator import corpus
 from generator.collusion_rings import build_collusion_rings
@@ -263,6 +264,162 @@ def test_review_text_is_not_duplicated_beyond_a_small_fraction():
     texts = [r["text"] for r in reviews]
     unique_ratio = len(set(texts)) / len(texts)
     assert unique_ratio > 0.3, f"only {unique_ratio:.1%} of {len(texts)} review texts are unique"
+
+
+# ---------------------------------------------------------------------------
+# The indefinite article before a composed skill label must agree with the
+# label's spoken sound, not its first letter. "Excel Modeling" starts with a
+# vowel sound and needs "an"; "UI Design" starts with a consonant sound
+# ("you") and needs "a"; initialisms like "SEO" and "SQL" are read letter by
+# letter and take "an" because the letter name ("ess") starts with a vowel
+# sound. This table is independent of whatever table corpus.py itself uses --
+# it encodes the correct pronunciation directly, so the test cannot pass by
+# accident just because it shares corpus.py's (possibly wrong) table.
+# ---------------------------------------------------------------------------
+
+_EXPECTED_ARTICLE = {
+    "HTML/CSS": "an",
+    "JavaScript": "a",
+    "React": "a",
+    "Vue.js": "a",
+    "Node.js": "a",
+    "PHP": "a",
+    "WordPress": "a",
+    "API Integration": "an",
+    "Database Design": "a",
+    "Laravel": "a",
+    "Swift": "a",
+    "Kotlin": "a",
+    "React Native": "a",
+    "Flutter": "a",
+    "iOS Development": "an",
+    "Android Development": "an",
+    "Mobile UI Design": "a",
+    "App Store Optimization": "an",
+    "Photoshop": "a",
+    "Illustrator": "an",
+    "Figma": "a",
+    "UI Design": "a",
+    "UX Research": "a",
+    "Branding": "a",
+    "Logo Design": "a",
+    "Typography": "a",
+    "Print Design": "a",
+    "Copywriting": "a",
+    "Blog Writing": "a",
+    "Technical Writing": "a",
+    "Ghostwriting": "a",
+    "Editing and Proofreading": "an",
+    "Scriptwriting": "a",
+    "Grant Writing": "a",
+    "Resume Writing": "a",
+    "SEO": "an",
+    "Social Media Marketing": "a",
+    "Email Marketing": "an",
+    "PPC Advertising": "a",
+    "Content Strategy": "a",
+    "Influencer Outreach": "an",
+    "Marketing Analytics": "a",
+    "Conversion Rate Optimization": "a",
+    "Python": "a",
+    "SQL": "an",
+    "Data Visualization": "a",
+    "Machine Learning": "a",
+    "Data Cleaning": "a",
+    "Excel Modeling": "an",
+    "Statistics": "a",
+    "Tableau": "a",
+    "Video Editing": "a",
+    "After Effects": "an",
+    "2D Animation": "a",
+    "3D Animation": "a",
+    "Color Grading": "a",
+    "Motion Graphics": "a",
+    "Video Production": "a",
+    "Audio Editing": "an",
+    "Voiceover": "a",
+    "Music Production": "a",
+    "Sound Design": "a",
+    "Podcast Editing": "a",
+    "Mixing and Mastering": "a",
+    "Data Entry": "a",
+    "Virtual Assistant Support": "a",
+    "Customer Service": "a",
+    "Transcription": "a",
+    "Scheduling": "a",
+    "Bookkeeping": "a",
+    "Research": "a",
+    "Email Management": "an",
+    "Business Planning": "a",
+    "Financial Modeling": "a",
+    "Market Research": "a",
+    "Project Management": "a",
+    "Process Improvement": "a",
+    "CRM Setup": "a",
+    "Grant Strategy": "a",
+}
+
+
+def test_expected_article_table_covers_every_skill_label():
+    # Guards the guard: if a skill is ever added to CATEGORY_SKILLS/SKILL_LABELS
+    # without updating this table, the coverage below would silently skip it.
+    assert set(_EXPECTED_ARTICLE) == set(corpus.SKILL_LABELS.values())
+
+
+def _wrong_article_violations(text, wrong_article, other_article):
+    """Find `wrong_article label` occurrences where `label` actually wants
+    `other_article`, e.g. wrong_article="a", other_article="an" finds
+    "a Excel Modeling specialist" (should be "an Excel Modeling ...")."""
+    violations = []
+    for label, expected in _EXPECTED_ARTICLE.items():
+        if expected != other_article:
+            continue
+        pattern = rf"\b{wrong_article} {re.escape(label)}\b"
+        for match in re.finditer(pattern, text):
+            violations.append(match.group(0))
+    return violations
+
+
+def test_job_titles_never_use_a_before_an_word_in_a_real_batch():
+    """Must fail pre-fix: real batch contains e.g. 'Hiring a Excel Modeling
+    professional' and 'Hiring a App Store Optimization freelancer'."""
+    _, _, jobposts, *_ = _setup(seed=42, num_profiles=5000)
+    assert len(jobposts) > 1000
+
+    violations = []
+    for jobpost in jobposts:
+        violations.extend(_wrong_article_violations(jobpost["title"], "a", "an"))
+    assert not violations, f"titles use 'a' before an an-word: {violations[:20]}"
+
+
+def test_job_titles_never_use_an_before_a_word_in_a_real_batch():
+    """The other direction: an an-word context must never be applied to a
+    label that actually wants 'a' (e.g. 'an UI Design specialist')."""
+    _, _, jobposts, *_ = _setup(seed=42, num_profiles=5000)
+
+    violations = []
+    for jobpost in jobposts:
+        violations.extend(_wrong_article_violations(jobpost["title"], "an", "a"))
+    assert not violations, f"titles use 'an' before a a-word: {violations[:20]}"
+
+
+def test_cover_letters_never_use_a_before_an_word_in_a_real_batch():
+    _, _, _, proposals, *_ = _setup(seed=42, num_profiles=5000)
+    assert len(proposals) > 100
+
+    violations = []
+    for proposal in proposals:
+        violations.extend(_wrong_article_violations(proposal["coverLetter"], "a", "an"))
+    assert not violations, f"cover letters use 'a' before an an-word: {violations[:20]}"
+
+
+def test_cover_letters_never_use_an_before_a_word_in_a_real_batch():
+    _, _, _, proposals, *_ = _setup(seed=42, num_profiles=5000)
+
+    violations = []
+    for proposal in proposals:
+        violations.extend(_wrong_article_violations(proposal["coverLetter"], "an", "a"))
+    assert not violations, f"cover letters use 'an' before a a-word: {violations[:20]}"
 
 
 def test_a_page_of_twenty_titles_does_not_visibly_repeat():

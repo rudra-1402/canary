@@ -134,6 +134,101 @@ CATEGORY_SKILLS = {
 
 CATEGORIES = list(CATEGORY_SKILLS)
 
+# The indefinite article to use immediately before each skill's own label,
+# keyed by the sound the label is actually read with -- not its first
+# letter. Vowel-sounding words ("Excel", "Email", "Influencer", "After",
+# "Audio", "Illustrator", "Android", "App") and initialisms whose first
+# letter name starts with a vowel sound when read aloud ("SEO" -> "ess-ee-oh",
+# "SQL" -> "ess-cue-el", "API" -> "ay-pee-eye", "HTML" -> "aitch...",
+# "iOS" -> "eye-oh-es") take "an". Consonant-sounding words, including
+# initialisms whose first letter name starts with a consonant sound
+# ("UI"/"UX" -> "you...", "PHP" -> "pee...", "CRM" -> "cee...",
+# "PPC" -> "pee...") and digit-prefixed labels read as a number word
+# ("2D" -> "two...", "3D" -> "three..."), take "a". A naive first-letter
+# check gets SEO, SQL, UI, and UX wrong in both directions, so this is an
+# explicit lookup over the fixed CATEGORY_SKILLS vocabulary rather than a rule.
+SKILL_ARTICLE = {
+    "html-css": "an",
+    "javascript": "a",
+    "react": "a",
+    "vue": "a",
+    "node": "a",
+    "php": "a",
+    "wordpress": "a",
+    "api-integration": "an",
+    "database-design": "a",
+    "laravel": "a",
+    "swift": "a",
+    "kotlin": "a",
+    "react-native": "a",
+    "flutter": "a",
+    "ios-development": "an",
+    "android-development": "an",
+    "mobile-ui": "a",
+    "app-store-optimization": "an",
+    "photoshop": "a",
+    "illustrator": "an",
+    "figma": "a",
+    "ui-design": "a",
+    "ux-research": "a",
+    "branding": "a",
+    "logo-design": "a",
+    "typography": "a",
+    "print-design": "a",
+    "copywriting": "a",
+    "blog-writing": "a",
+    "technical-writing": "a",
+    "ghostwriting": "a",
+    "editing-proofreading": "an",
+    "scriptwriting": "a",
+    "grant-writing": "a",
+    "resume-writing": "a",
+    "seo": "an",
+    "social-media-marketing": "a",
+    "email-marketing": "an",
+    "ppc-advertising": "a",
+    "content-strategy": "a",
+    "influencer-outreach": "an",
+    "marketing-analytics": "a",
+    "conversion-optimization": "a",
+    "python": "a",
+    "sql": "an",
+    "data-visualization": "a",
+    "machine-learning": "a",
+    "data-cleaning": "a",
+    "excel-modeling": "an",
+    "statistics": "a",
+    "tableau": "a",
+    "video-editing": "a",
+    "after-effects": "an",
+    "2d-animation": "a",
+    "3d-animation": "a",
+    "color-grading": "a",
+    "motion-graphics": "a",
+    "video-production": "a",
+    "audio-editing": "an",
+    "voiceover": "a",
+    "music-production": "a",
+    "sound-design": "a",
+    "podcast-editing": "a",
+    "mixing-mastering": "a",
+    "data-entry": "a",
+    "virtual-assistant": "a",
+    "customer-service": "a",
+    "transcription": "a",
+    "scheduling": "a",
+    "bookkeeping": "a",
+    "research": "a",
+    "email-management": "an",
+    "business-planning": "a",
+    "financial-modeling": "a",
+    "market-research": "a",
+    "project-management": "a",
+    "process-improvement": "a",
+    "crm-setup": "a",
+    "grant-strategy": "a",
+}
+
 SKILL_LABELS = {
     "html-css": "HTML/CSS",
     "javascript": "JavaScript",
@@ -414,10 +509,10 @@ CLOSING_SENTENCES = [
 
 TITLE_TEMPLATES = [
     "{skill_phrase} needed for {noun}",
-    "Looking for a {skill_phrase} to help with {noun}",
+    "Looking for {article} {skill_phrase} to help with {noun}",
     "{skill_phrase} wanted: {noun}",
     "Freelance {skill_phrase} for {noun}",
-    "Hiring a {skill_phrase} for {noun}",
+    "Hiring {article} {skill_phrase} for {noun}",
 ]
 
 TITLE_TEMPLATES_TWO_SKILL = [
@@ -427,8 +522,18 @@ TITLE_TEMPLATES_TWO_SKILL = [
 ]
 
 
-def _skill_phrase(rng: random.Random, skill: str) -> str:
-    return rng.choice(SKILL_ROLE_TEMPLATES).format(label=SKILL_LABELS[skill])
+def _skill_phrase(rng: random.Random, skill: str) -> tuple[str, str]:
+    """The composed role phrase for `skill`, plus the indefinite article that
+    belongs immediately before it. The article depends on which
+    SKILL_ROLE_TEMPLATES entry gets drawn: templates that open on the skill
+    label ("{label} specialist") need the label's own article (SKILL_ARTICLE);
+    "freelancer skilled in {label}" opens on "freelancer" instead, which
+    always takes "a" regardless of the skill.
+    """
+    role_template = rng.choice(SKILL_ROLE_TEMPLATES)
+    phrase = role_template.format(label=SKILL_LABELS[skill])
+    article = SKILL_ARTICLE[skill] if role_template.startswith("{label}") else "a"
+    return phrase, article
 
 
 def _join_labels(labels: list[str]) -> str:
@@ -463,7 +568,7 @@ def compose_job_title(rng: random.Random, category: str, skills: list[str], noun
     ordered_skills = list(skills)
     rng.shuffle(ordered_skills)
     primary = ordered_skills[0]
-    skill_phrase = _skill_phrase(rng, primary)
+    skill_phrase, article = _skill_phrase(rng, primary)
 
     if len(ordered_skills) > 1 and rng.random() < 0.5:
         second_label = SKILL_LABELS[ordered_skills[1]]
@@ -471,7 +576,7 @@ def compose_job_title(rng: random.Random, category: str, skills: list[str], noun
         title = template.format(skill_phrase=skill_phrase, second_label=second_label, noun=noun)
     else:
         template = rng.choice(TITLE_TEMPLATES)
-        title = template.format(skill_phrase=skill_phrase, noun=noun)
+        title = template.format(skill_phrase=skill_phrase, article=article, noun=noun)
 
     return title[0].upper() + title[1:]
 
@@ -548,10 +653,12 @@ def compose_cover_letter(
     ordered_skills = list(skills)
     rng.shuffle(ordered_skills)
     primary_skill = ordered_skills[0]
-    skill_phrase = _skill_phrase(rng, primary_skill)
+    skill_phrase, article = _skill_phrase(rng, primary_skill)
 
     sentences = [rng.choice(COVER_OPENERS)]
-    sentences.append(f"I work regularly as a {skill_phrase} on {category.replace('-', ' ')} projects.")
+    sentences.append(
+        f"I work regularly as {article} {skill_phrase} on {category.replace('-', ' ')} projects."
+    )
     sentences.append(f"My bid comes to ${bid} and I can deliver in about {proposed_duration_days} days.")
     if rng.random() < 0.6:
         sentences.append(rng.choice(COVER_CLOSERS))
