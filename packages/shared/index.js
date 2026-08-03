@@ -27,10 +27,16 @@ export {
 } from './contracts/engagement.js';
 export {
   ProposalSchema,
+  CreateProposalRequestSchema,
+  CreateProposalResponseSchema,
   MyProposalSchema,
   MyProposalsResponseSchema,
 } from './contracts/proposal.js';
-export { OutcomeSchema } from './contracts/outcome.js';
+export {
+  OutcomeSchema,
+  CreateOutcomeReviewRequestSchema,
+  CreateOutcomeReviewResponseSchema,
+} from './contracts/outcome.js';
 export {
   ReviewSchema,
   ProfileReviewListQuerySchema,

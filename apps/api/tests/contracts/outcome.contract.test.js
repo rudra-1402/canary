@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { OutcomeSchema } from '@canary/shared';
+import { CreateOutcomeReviewRequestSchema, OutcomeSchema } from '@canary/shared';
 
 const objectId = (character) => character.repeat(24);
 
@@ -166,6 +166,37 @@ describe('Outcome contracts', () => {
 
     expect(counterpartyGhosted).toMatchObject({ observed: false, ghosted: false });
     expect(selfGhosted).toMatchObject({ observed: true, ghosted: true });
+  });
+
+  it('does not accept party identity, role, label source, or visibleAt in the write request', () => {
+    const request = {
+      engagementId: objectId('a'),
+      outcome: {
+        observed: true,
+        deliveredAt: '2026-01-01T00:00:00.000Z',
+        daysLate: 0,
+        paidInFull: null,
+        revisionsRequested: null,
+        scopeCreepOccurred: null,
+        endedAs: 'completed',
+      },
+      review: { rating: 5, text: 'Professional and clear.' },
+    };
+    expect(CreateOutcomeReviewRequestSchema.parse(request).outcome.deliveredAt).toBeInstanceOf(
+      Date,
+    );
+    expect(() =>
+      CreateOutcomeReviewRequestSchema.parse({
+        ...request,
+        outcome: { ...request.outcome, subjectProfileId: objectId('b') },
+      }),
+    ).toThrow();
+    expect(() =>
+      CreateOutcomeReviewRequestSchema.parse({
+        ...request,
+        review: { ...request.review, visibleAt: new Date() },
+      }),
+    ).toThrow();
   });
 
   it('does not default role-inapplicable or unobserved conduct fields', () => {

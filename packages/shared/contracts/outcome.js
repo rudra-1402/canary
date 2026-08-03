@@ -42,3 +42,34 @@ export const OutcomeSchema = z
       }
     }
   });
+
+const OutcomeConductSchema = z
+  .object({
+    observed: z.boolean(),
+    deliveredAt: z.coerce.date().nullable().optional(),
+    daysLate: z.number().nullable().optional(),
+    paidInFull: z.boolean().nullable().optional(),
+    revisionsRequested: z.number().nullable().optional(),
+    scopeCreepOccurred: z.boolean().nullable().optional(),
+    ghosted: z.boolean().default(false),
+    endedAs,
+  })
+  .strict();
+
+export const CreateOutcomeReviewRequestSchema = z
+  .object({
+    engagementId: objectId,
+    outcome: OutcomeConductSchema,
+    review: z
+      .object({ rating: z.number().min(1).max(5), text: z.string().max(5000).optional() })
+      .strict(),
+  })
+  .strict();
+
+export const CreateOutcomeReviewResponseSchema = z
+  .object({
+    outcomeId: objectId,
+    reviewId: objectId,
+    engagementStatus: z.enum(['active', 'concluded']),
+  })
+  .strict();

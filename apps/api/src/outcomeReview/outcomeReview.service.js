@@ -1,7 +1,8 @@
 import Engagement from '../models/Engagement.js';
 import Outcome from '../models/Outcome.js';
 import Review from '../models/Review.js';
-import { BadRequestError, NotFoundError } from '../lib/errors.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
+import { CreateOutcomeReviewResponseSchema, OutcomeSchema } from '@canary/shared';
 
 function sameId(left, right) {
   return String(left) === String(right);
@@ -106,4 +107,125 @@ export async function createReview(input) {
     }
     throw error;
   }
+}
+
+function hasBothPartyRows(rows, field, engagement) {
+  const values = new Set(rows.map((row) => String(row[field])));
+  return (
+    values.has(String(engagement.freelancerProfileId)) &&
+    values.has(String(engagement.clientProfileId))
+  );
+}
+
+// The ordered inserts intentionally allow an Outcome-only partial write because this deployment
+// has no replica set for transactions. A retry by that same party detects its existing Outcome and
+// completes the missing Review. There remains a narrow concurrent-request race around completion;
+// unique indexes retain the per-party write guard, while a replica set would be needed for atomicity.
+export async function createOutcomeReview(input, activeProfileId) {
+  const engagement = await engagementForWrite(input.engagementId);
+  if (engagement.status !== 'active') {
+    throw new BadRequestError('Outcome and Review submission requires an active Engagement');
+  }
+
+  const subjectRole = partyRole(engagement, activeProfileId);
+  if (!subjectRole) {
+    throw new ForbiddenError('Only an Engagement party may submit an Outcome and Review');
+  }
+  const counterpartyProfileId =
+    subjectRole === 'freelancer' ? engagement.clientProfileId : engagement.freelancerProfileId;
+  if (sameId(activeProfileId, counterpartyProfileId)) {
+    throw new BadRequestError(
+      'Review authorProfileId and subjectProfileId must be different parties',
+    );
+  }
+
+  const outcomeInput = OutcomeSchema.parse({
+    engagementId: String(engagement._id),
+    subjectProfileId: String(activeProfileId),
+    counterpartyProfileId: String(counterpartyProfileId),
+    subjectRole,
+    ...input.outcome,
+    labelSource: 'self-reported',
+  });
+
+  const existingReview = await Review.exists({
+    engagementId: engagement._id,
+    authorProfileId: activeProfileId,
+  });
+  if (existingReview) {
+    throw new BadRequestError('An Outcome and Review submission already exists for this party');
+  }
+
+  let outcome = await Outcome.findOne({
+    engagementId: engagement._id,
+    subjectProfileId: activeProfileId,
+  });
+  if (!outcome) {
+    try {
+      outcome = await Outcome.create(outcomeInput);
+    } catch (error) {
+      if (error?.code !== 11000) throw error;
+      outcome = await Outcome.findOne({
+        engagementId: engagement._id,
+        subjectProfileId: activeProfileId,
+      });
+      if (!outcome) throw error;
+    }
+  }
+
+  let review;
+  try {
+    review = await Review.create({
+      engagementId: engagement._id,
+      authorProfileId: activeProfileId,
+      subjectProfileId: counterpartyProfileId,
+      rating: input.review.rating,
+      ...(input.review.text === undefined ? {} : { text: input.review.text }),
+      visibleAt: null,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new BadRequestError('An Outcome and Review submission already exists for this party');
+    }
+    throw error;
+  }
+
+  const [outcomes, reviews] = await Promise.all([
+    Outcome.find({
+      engagementId: engagement._id,
+      subjectProfileId: { $in: [engagement.freelancerProfileId, engagement.clientProfileId] },
+    })
+      .select('subjectProfileId')
+      .lean(),
+    Review.find({
+      engagementId: engagement._id,
+      authorProfileId: { $in: [engagement.freelancerProfileId, engagement.clientProfileId] },
+    })
+      .select('authorProfileId')
+      .lean(),
+  ]);
+  const complete =
+    hasBothPartyRows(outcomes, 'subjectProfileId', engagement) &&
+    hasBothPartyRows(reviews, 'authorProfileId', engagement);
+  if (complete) {
+    const visibleAt = new Date();
+    await Review.updateMany(
+      {
+        engagementId: engagement._id,
+        authorProfileId: { $in: [engagement.freelancerProfileId, engagement.clientProfileId] },
+        visibleAt: null,
+      },
+      { $set: { visibleAt } },
+    );
+    await Engagement.updateOne(
+      { _id: engagement._id, status: 'active' },
+      { $set: { status: 'concluded' } },
+    );
+  }
+
+  return CreateOutcomeReviewResponseSchema.parse({
+    outcomeId: outcome._id.toString(),
+    reviewId: review._id.toString(),
+    engagementStatus: complete ? 'concluded' : 'active',
+  });
 }

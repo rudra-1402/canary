@@ -45,7 +45,7 @@ describe('TrustScore pure helpers', () => {
     expect(strengthForSignal(1, 10)).toBe('STRENGTH_WEAK');
   });
 
-  it('keeps signals for self only and resolves ownership independently of active Profile', () => {
+  it('provides the bounded safe explanation to self and counterparty viewers', () => {
     const identityId = new mongoose.Types.ObjectId();
     const profile = { _id: new mongoose.Types.ObjectId(), identityId };
     expect(viewerRelation(profile, identityId)).toBe('self');
@@ -58,8 +58,33 @@ describe('TrustScore pure helpers', () => {
     };
     expect(projectTrustScore({ ...base, identityId }).signals).toHaveLength(1);
     expect(
-      projectTrustScore({ ...base, identityId: new mongoose.Types.ObjectId() }),
-    ).not.toHaveProperty('signals');
+      projectTrustScore({ ...base, identityId: new mongoose.Types.ObjectId() }).signals,
+    ).toEqual([{ name: 'x', direction: 'favorable', strength: 'STRENGTH_STRONG' }]);
+  });
+
+  it('caps public explanations and never projects signal provenance or identity fields', () => {
+    const signals = Array.from({ length: 6 }, (_, index) => ({
+      name: `signal-${index}`,
+      value: 6 - index,
+      direction: 'favorable',
+      source: 'structured-data',
+      authorProfileId: new mongoose.Types.ObjectId(),
+      isPlantedCollusion: true,
+      isPlantedSabotage: true,
+    }));
+    const explanation = projectSignals(signals);
+    expect(explanation).toHaveLength(5);
+    expect(explanation[0]).toEqual({
+      name: 'signal-0',
+      direction: 'favorable',
+      strength: 'STRENGTH_MEDIUM',
+    });
+    for (const signal of explanation) {
+      expect(signal).not.toHaveProperty('authorProfileId');
+      expect(signal).not.toHaveProperty('isPlantedCollusion');
+      expect(signal).not.toHaveProperty('isPlantedSabotage');
+      expect(signal).not.toHaveProperty('value');
+    }
   });
 
   // Reachable whenever outcomes are recorded AFTER the last batch run: the live recount

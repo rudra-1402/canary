@@ -4,7 +4,10 @@ const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character h
 const band = z.enum(['BAND_LOW', 'BAND_MED', 'BAND_HIGH']);
 const direction = z.enum(['favorable', 'unfavorable']);
 const strength = z.enum(['STRENGTH_WEAK', 'STRENGTH_MEDIUM', 'STRENGTH_STRONG']);
+// This is the deliberately safe public explanation: no raw values, metadata, IDs,
+// counterparty details, or review provenance. Keep it small enough for inline UI.
 const signal = z.object({ name: z.string(), direction, strength }).strict();
+const publicExplanationSignals = z.array(signal).max(5);
 
 export const TrustScoreIdParamSchema = z.object({ profileId: objectId }).strict();
 export const TrustScoreBatchQuerySchema = z
@@ -25,7 +28,7 @@ export const TrustScoreResponseSchema = z.discriminatedUnion('status', [
       band,
       score: z.number().min(0).max(100),
       generatedAt: z.string().datetime(),
-      signals: z.array(signal).optional(),
+      signals: publicExplanationSignals.optional(),
     })
     .strict(),
   z
@@ -35,7 +38,7 @@ export const TrustScoreResponseSchema = z.discriminatedUnion('status', [
       band,
       score: z.number().min(0).max(100),
       generatedAt: z.string().datetime(),
-      signals: z.array(signal).optional(),
+      signals: publicExplanationSignals.optional(),
       outcomesSince: z.number().int().positive(),
     })
     .strict(),

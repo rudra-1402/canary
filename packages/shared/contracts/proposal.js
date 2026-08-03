@@ -24,6 +24,25 @@ export const ProposalSchema = z.object({
   status: status.default('submitted'),
 });
 
+// POST /api/proposals derives the submitting Profile and status on the server.  This
+// request shape deliberately does not accept either field from a browser.
+export const CreateProposalRequestSchema = z
+  .object({
+    jobPostId: objectId,
+    bid: z.number(),
+    payModel,
+    proposedMilestones: z.array(MilestoneSchema).default([]),
+    durationEstimate: z.string().optional(),
+    proposedDurationDays: z.number().int().min(1),
+    coverLetter: z.string().max(5000).optional(),
+    screeningAnswers: z.array(z.string()).default([]),
+  })
+  .strict();
+
+export const CreateProposalResponseSchema = z
+  .object({ id: objectId, status: z.literal('submitted') })
+  .strict();
+
 export const MyProposalSchema = z
   .object({
     id: objectId,

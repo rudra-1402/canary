@@ -24,6 +24,7 @@ export function projectSignals(signals) {
       magnitude: Math.abs(signal.value),
     }))
     .sort((a, b) => b.magnitude - a.magnitude || a.name.localeCompare(b.name))
+    .slice(0, 5)
     .map(({ magnitude, ...signal }) => signal);
 }
 
@@ -55,7 +56,9 @@ export function projectTrustScore({ profile, snapshot, counts, signals, identity
     generatedAt: new Date(snapshot.generatedAt).toISOString(),
     ...(counts.outcomesSince > 0 ? { outcomesSince: counts.outcomesSince } : {}),
   };
-  if (viewerRelation(profile, identityId) === 'self') result.signals = projectSignals(signals);
+  // This public projection exposes only the safe explanation contract, regardless of whether the
+  // authenticated viewer owns the Profile or is evaluating a counterparty.
+  if (viewerRelation(profile, identityId) !== 'anonymous') result.signals = projectSignals(signals);
   return result;
 }
 
