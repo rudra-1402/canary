@@ -1,4 +1,8 @@
-import { TrustScoreIdParamSchema, TrustScoreBatchQuerySchema } from '@canary/shared';
+import {
+  TrustScoreIdParamSchema,
+  TrustScoreBatchQuerySchema,
+  TrustScoreOutcomeListQuerySchema,
+} from '@canary/shared';
 import * as trustScoreService from './trustScore.service.js';
 
 export async function getByProfileId(req, res) {
@@ -10,5 +14,12 @@ export async function getByProfileId(req, res) {
 export async function list(req, res) {
   const { profileIds } = TrustScoreBatchQuerySchema.parse(req.query);
   const result = await trustScoreService.getTrustScoreBatch(profileIds, req.user._id);
+  res.set('Cache-Control', 'private, no-store').json(result);
+}
+
+export async function listOutcomes(req, res) {
+  const { profileId } = TrustScoreIdParamSchema.parse(req.params);
+  const query = TrustScoreOutcomeListQuerySchema.parse(req.query);
+  const result = await trustScoreService.getTrustScoreOutcomes(profileId, req.user._id, query);
   res.set('Cache-Control', 'private, no-store').json(result);
 }

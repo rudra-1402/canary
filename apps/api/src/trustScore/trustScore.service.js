@@ -3,8 +3,14 @@ import Profile from '../models/Profile.js';
 import TrustScore from '../models/TrustScore.js';
 import RiskSignal from '../models/RiskSignal.js';
 import Engagement from '../models/Engagement.js';
+import Outcome from '../models/Outcome.js';
 import { NotFoundError } from '../lib/errors.js';
-import { TrustScoreResponseSchema, TrustScoreBatchResponseSchema } from '@canary/shared';
+import {
+  TrustScoreResponseSchema,
+  TrustScoreBatchResponseSchema,
+  TrustScoreOutcomeSchema,
+  TrustScoreOutcomeListResponseSchema,
+} from '@canary/shared';
 import { MIN_ENGAGEMENTS_FOR_SCORING } from './scoringConfig.js';
 import { bandForScore, strengthForSignal } from './bands.js';
 
@@ -203,5 +209,46 @@ export async function getTrustScore(profileId, identityId) {
 export async function getTrustScoreBatch(profileIds, identityId) {
   return TrustScoreBatchResponseSchema.parse({
     data: await getTrustScores(profileIds, identityId),
+  });
+}
+
+// The safe public projection of an Outcome: no engagementId, no counterparty identity,
+// no labelSource. Same fields the Trust Score panel's evidence view is allowed to show.
+function toTrustScoreOutcomeContract(doc) {
+  return {
+    id: doc._id.toString(),
+    subjectRole: doc.subjectRole,
+    endedAs: doc.endedAs,
+    ghosted: Boolean(doc.ghosted),
+    daysLate: doc.daysLate ?? null,
+    paidInFull: doc.paidInFull ?? null,
+    scopeCreepOccurred: doc.scopeCreepOccurred ?? null,
+    recordedAt: new Date(doc.recordedAt).toISOString(),
+  };
+}
+
+// GET /api/trust-scores/:profileId/outcomes. Same discoverability gate as the score
+// itself: a non-owning viewer looking at a non-discoverable Profile gets NotFound, not
+// an empty-but-revealing 200.
+export async function getTrustScoreOutcomes(profileId, identityId, query) {
+  const profile = await Profile.findById(profileId).lean();
+  if (!profile) throw new NotFoundError('Profile', profileId);
+  if (viewerRelation(profile, identityId) === 'member' && !profile.discoverable) {
+    throw new NotFoundError('Profile', profileId);
+  }
+
+  const filter = { subjectProfileId: profile._id };
+  const { page, pageSize } = query;
+  const [docs, total] = await Promise.all([
+    Outcome.find(filter)
+      .sort({ recordedAt: -1, _id: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean(),
+    Outcome.countDocuments(filter),
+  ]);
+  return TrustScoreOutcomeListResponseSchema.parse({
+    data: docs.map((doc) => TrustScoreOutcomeSchema.parse(toTrustScoreOutcomeContract(doc))),
+    pagination: { page, pageSize, total },
   });
 }

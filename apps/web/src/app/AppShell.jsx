@@ -19,6 +19,11 @@ export default function AppShell({ children }) {
               <NavLink to="/" className={navLinkClass} end>
                 Find Work
               </NavLink>
+              {identity?.activeProfile && (
+                <NavLink to={`/trust/${identity.activeProfile.id}`} className={navLinkClass}>
+                  My Trust Score
+                </NavLink>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-4">

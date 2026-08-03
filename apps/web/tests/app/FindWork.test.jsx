@@ -1,8 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import FindWork from '../../src/app/routes/FindWork.jsx';
 import { resetCsrfToken } from '../../src/lib/apiClient.js';
+
+// FindWork rows link to the Job detail screen, so every render needs a Router in context.
+function renderFindWork() {
+  return render(
+    <MemoryRouter>
+      <FindWork />
+    </MemoryRouter>,
+  );
+}
 
 function jsonResponse(body, status = 200) {
   return Promise.resolve({
@@ -67,7 +77,7 @@ describe('FindWork', () => {
       throw new Error(`Unhandled fetch: ${href}`);
     });
 
-    render(<FindWork />);
+    renderFindWork();
 
     const item = await screen.findByText('Radio broadcast assistant');
     const row = item.closest('li');
@@ -96,7 +106,7 @@ describe('FindWork', () => {
       throw new Error(`Unhandled fetch: ${href}`);
     });
 
-    render(<FindWork />);
+    renderFindWork();
     await screen.findByText('Radio broadcast assistant');
 
     const jobPostCall = global.fetch.mock.calls.find(([url]) =>
@@ -114,7 +124,7 @@ describe('FindWork', () => {
     });
 
     const user = userEvent.setup();
-    render(<FindWork />);
+    renderFindWork();
     await screen.findByText('Radio broadcast assistant');
 
     const toggle = screen.getByRole('checkbox', { name: /Clients with a track record/i });
@@ -141,7 +151,7 @@ describe('FindWork', () => {
       throw new Error(`Unhandled fetch: ${href}`);
     });
 
-    render(<FindWork />);
+    renderFindWork();
 
     expect(await screen.findByText('No open job posts right now')).toBeInTheDocument();
   });
@@ -155,7 +165,7 @@ describe('FindWork', () => {
       throw new Error(`Unhandled fetch: ${href}`);
     });
 
-    render(<FindWork />);
+    renderFindWork();
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
   });
@@ -173,7 +183,7 @@ describe('FindWork', () => {
       throw new Error(`Unhandled fetch: ${href}`);
     });
 
-    render(<FindWork />);
+    renderFindWork();
 
     const item = await screen.findByText('Radio broadcast assistant');
     const row = item.closest('li');

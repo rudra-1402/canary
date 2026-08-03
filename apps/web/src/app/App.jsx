@@ -4,6 +4,8 @@ import RequireAuth from './RequireAuth.jsx';
 import AppShell from './AppShell.jsx';
 import Login from './routes/Login.jsx';
 import FindWork from './routes/FindWork.jsx';
+import JobDetail from './routes/JobDetail.jsx';
+import TrustScoreDetail from './routes/TrustScoreDetail.jsx';
 
 export default function App() {
   return (
@@ -17,6 +19,26 @@ export default function App() {
               <RequireAuth>
                 <AppShell>
                   <FindWork />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/jobs/:id"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <JobDetail />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/trust/:profileId"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <TrustScoreDetail />
                 </AppShell>
               </RequireAuth>
             }

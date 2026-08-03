@@ -19,6 +19,9 @@ export {
   TrustScoreBatchQuerySchema,
   TrustScoreResponseSchema,
   TrustScoreBatchResponseSchema,
+  TrustScoreOutcomeListQuerySchema,
+  TrustScoreOutcomeSchema,
+  TrustScoreOutcomeListResponseSchema,
 } from './contracts/trustScore.js';
 export {
   EngagementSchema,

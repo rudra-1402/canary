@@ -69,3 +69,40 @@ export const TrustScoreBatchResponseSchema = z
     ),
   })
   .strict();
+
+// GET /api/trust-scores/:profileId/outcomes -- the outcome-history evidence behind a
+// Trust Score. Same public-safety boundary as the score itself: no counterparty identity,
+// no engagement id, only the conduct fields the score is actually built from.
+export const TrustScoreOutcomeListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+
+const outcomeSubjectRole = z.enum(['freelancer', 'client']);
+const outcomeEndedAs = z.enum(['completed', 'cancelled', 'ghosted']);
+
+export const TrustScoreOutcomeSchema = z
+  .object({
+    id: objectId,
+    subjectRole: outcomeSubjectRole,
+    endedAs: outcomeEndedAs,
+    ghosted: z.boolean(),
+    daysLate: z.number().nullable().optional(),
+    paidInFull: z.boolean().nullable().optional(),
+    scopeCreepOccurred: z.boolean().nullable().optional(),
+    recordedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const TrustScoreOutcomeListResponseSchema = z
+  .object({
+    data: z.array(TrustScoreOutcomeSchema),
+    pagination: z.object({
+      page: z.number().int(),
+      pageSize: z.number().int(),
+      total: z.number().int(),
+    }),
+  })
+  .strict();

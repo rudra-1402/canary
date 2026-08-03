@@ -351,4 +351,26 @@ describe('getJobPostById', () => {
     const absentId = new mongoose.Types.ObjectId().toString();
     await expect(getJobPostById(absentId)).rejects.toThrow(`JobPost ${absentId} not found`);
   });
+
+  it('attaches the real proposal count, including zero, for the single-job detail view', async () => {
+    const withProposals = await JobPost.create(makeJobPost({ title: 'Has proposals' }));
+    await Proposal.create({
+      jobPostId: withProposals._id,
+      freelancerProfileId: new mongoose.Types.ObjectId(),
+      bid: 500,
+      payModel: 'project',
+      proposedDurationDays: 10,
+    });
+    await Proposal.create({
+      jobPostId: withProposals._id,
+      freelancerProfileId: new mongoose.Types.ObjectId(),
+      bid: 600,
+      payModel: 'project',
+      proposedDurationDays: 12,
+    });
+    const withoutProposals = await JobPost.create(makeJobPost({ title: 'No proposals' }));
+
+    expect((await getJobPostById(withProposals._id.toString())).proposalCount).toBe(2);
+    expect((await getJobPostById(withoutProposals._id.toString())).proposalCount).toBe(0);
+  });
 });

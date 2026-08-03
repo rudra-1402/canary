@@ -104,5 +104,6 @@ export async function listJobPosts(query) {
 export async function getJobPostById(id) {
   const doc = await JobPost.findById(id).lean();
   if (!doc) throw new NotFoundError('JobPost', id);
-  return JobPostSchema.parse(toJobPostContract(doc));
+  const proposalCount = await Proposal.countDocuments({ jobPostId: doc._id });
+  return JobPostSchema.parse(toJobPostContract(doc, { proposalCount }));
 }

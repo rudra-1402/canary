@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { listJobPosts } from '../../lib/api/jobPosts.js';
 import { getTrustScoresBatch } from '../../lib/api/trustScores.js';
 import Spinner from '../../components/ui/Spinner.jsx';
@@ -106,33 +107,38 @@ export default function FindWork() {
           <p className="mt-1 text-sm text-muted">{state.posts.length} open job posts.</p>
           <ul className="mt-6 divide-y divide-line rounded-md border border-line bg-surface">
             {state.posts.map((post) => (
-              <li key={post.id} className="flex items-start justify-between gap-4 px-5 py-4">
-                <div>
-                  <p className="font-medium text-ink">{post.title}</p>
-                  <p className="mt-1 text-sm text-muted">
-                    {budgetLabel(post)} · {post.experienceLevel}
-                    {post.createdAt &&
-                      ` · Posted ${dateFormatter.format(new Date(post.createdAt))}`}
-                    {post.proposalCount !== undefined &&
-                      ` · ${post.proposalCount} proposal${post.proposalCount === 1 ? '' : 's'}`}
-                  </p>
-                  {post.skills.length > 0 && (
-                    <ul className="mt-2 flex flex-wrap gap-1.5">
-                      {post.skills.map((skill) => (
-                        <li
-                          key={skill}
-                          className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted"
-                        >
-                          {skill}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <TrustBadge
-                  entry={state.trustByProfile[post.clientProfileId]}
-                  clientName={post.clientDisplayName}
-                />
+              <li key={post.id}>
+                <Link
+                  to={`/jobs/${post.id}`}
+                  className="flex items-start justify-between gap-4 px-5 py-4 hover:bg-paper"
+                >
+                  <div>
+                    <p className="font-medium text-ink">{post.title}</p>
+                    <p className="mt-1 text-sm text-muted">
+                      {budgetLabel(post)} · {post.experienceLevel}
+                      {post.createdAt &&
+                        ` · Posted ${dateFormatter.format(new Date(post.createdAt))}`}
+                      {post.proposalCount !== undefined &&
+                        ` · ${post.proposalCount} proposal${post.proposalCount === 1 ? '' : 's'}`}
+                    </p>
+                    {post.skills.length > 0 && (
+                      <ul className="mt-2 flex flex-wrap gap-1.5">
+                        {post.skills.map((skill) => (
+                          <li
+                            key={skill}
+                            className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted"
+                          >
+                            {skill}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <TrustBadge
+                    entry={state.trustByProfile[post.clientProfileId]}
+                    clientName={post.clientDisplayName}
+                  />
+                </Link>
               </li>
             ))}
           </ul>
