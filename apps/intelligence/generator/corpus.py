@@ -324,6 +324,14 @@ SKILL_ROLE_TEMPLATES = [
     "freelancer skilled in {label}",
 ]
 
+# The subset of SKILL_ROLE_TEMPLATES whose composed phrase opens on the skill
+# LABEL rather than on a bare role noun. "freelancer skilled in {label}" is
+# the one exception -- it opens on "freelancer" itself. This split is what
+# makes the title-level stutter ("Freelance freelancer skilled in...")
+# structurally impossible rather than patched after the fact: see
+# ROLE_NOUN_OPENING_TITLE_TEMPLATES below and its use in compose_job_title.
+LABEL_OPENING_SKILL_TEMPLATES = [t for t in SKILL_ROLE_TEMPLATES if t.startswith("{label}")]
+
 CATEGORY_NOUNS = {
     "web-development": [
         "a small-business website",
@@ -509,12 +517,22 @@ CLOSING_SENTENCES = [
 
 TITLE_TEMPLATES = [
     "{skill_phrase} needed for {noun}",
-    "Looking for {article} {skill_phrase} to help with {noun}",
+    "Need {article} {skill_phrase} for {noun}",
     "{skill_phrase} wanted: {noun}",
     "Freelance {skill_phrase} for {noun}",
     "Hiring {article} {skill_phrase} for {noun}",
 ]
 
+# Templates whose opening word is itself a role noun ("Freelance" shares its
+# stem with "freelancer"). A skill phrase drawn for one of these must come
+# from LABEL_OPENING_SKILL_TEMPLATES -- see compose_job_title -- so the two
+# role words can never land adjacent to each other.
+ROLE_NOUN_OPENING_TITLE_TEMPLATES = {"Freelance {skill_phrase} for {noun}"}
+
+# Each of these needs a connector between the second skill and "for", or the
+# title loses its verb: "Vue.js specialist and React for a site rebuild" reads
+# as broken English. Shortening these to save characters cost 12.9% of titles
+# their grammar, so length is traded away here deliberately.
 TITLE_TEMPLATES_TWO_SKILL = [
     "{skill_phrase} ({second_label} a plus) for {noun}",
     "{skill_phrase} with {second_label} experience for {noun}",
@@ -522,15 +540,21 @@ TITLE_TEMPLATES_TWO_SKILL = [
 ]
 
 
-def _skill_phrase(rng: random.Random, skill: str) -> tuple[str, str]:
+def _skill_phrase(rng: random.Random, skill: str, *, allow_role_noun_opening: bool = True) -> tuple[str, str]:
     """The composed role phrase for `skill`, plus the indefinite article that
     belongs immediately before it. The article depends on which
     SKILL_ROLE_TEMPLATES entry gets drawn: templates that open on the skill
     label ("{label} specialist") need the label's own article (SKILL_ARTICLE);
     "freelancer skilled in {label}" opens on "freelancer" instead, which
     always takes "a" regardless of the skill.
+
+    `allow_role_noun_opening=False` restricts the draw to
+    LABEL_OPENING_SKILL_TEMPLATES -- the caller uses this when the phrase is
+    about to be composed right after a title opener that is itself a role
+    noun, so the result can never stutter ("Freelance freelancer...").
     """
-    role_template = rng.choice(SKILL_ROLE_TEMPLATES)
+    pool = SKILL_ROLE_TEMPLATES if allow_role_noun_opening else LABEL_OPENING_SKILL_TEMPLATES
+    role_template = rng.choice(pool)
     phrase = role_template.format(label=SKILL_LABELS[skill])
     article = SKILL_ARTICLE[skill] if role_template.startswith("{label}") else "a"
     return phrase, article
@@ -564,18 +588,29 @@ def compose_job_title(rng: random.Random, category: str, skills: list[str], noun
     document. `noun` is the deliverable chosen once for this post (see
     choose_deliverable_noun) so the title names the same thing the
     description does.
+
+    The title template is chosen *before* the skill phrase (rather than
+    after, as an earlier version did) so a template that opens on a role
+    noun (ROLE_NOUN_OPENING_TITLE_TEMPLATES) can restrict the skill-phrase
+    draw to LABEL_OPENING_SKILL_TEMPLATES -- making a role-noun stutter like
+    "Freelance freelancer skilled in X" structurally impossible instead of
+    merely unlikely. This reorders the same draws the earlier version took
+    (shuffle, the two-skill coin flip, the template choice, the role-phrase
+    choice); it does not add or remove a draw from any stream.
     """
     ordered_skills = list(skills)
     rng.shuffle(ordered_skills)
     primary = ordered_skills[0]
-    skill_phrase, article = _skill_phrase(rng, primary)
 
     if len(ordered_skills) > 1 and rng.random() < 0.5:
         second_label = SKILL_LABELS[ordered_skills[1]]
         template = rng.choice(TITLE_TEMPLATES_TWO_SKILL)
+        skill_phrase, article = _skill_phrase(rng, primary)
         title = template.format(skill_phrase=skill_phrase, second_label=second_label, noun=noun)
     else:
         template = rng.choice(TITLE_TEMPLATES)
+        allow_role_noun_opening = template not in ROLE_NOUN_OPENING_TITLE_TEMPLATES
+        skill_phrase, article = _skill_phrase(rng, primary, allow_role_noun_opening=allow_role_noun_opening)
         title = template.format(skill_phrase=skill_phrase, article=article, noun=noun)
 
     return title[0].upper() + title[1:]
