@@ -1,8 +1,21 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import JobPost from '../../src/models/JobPost.js';
+import TrustScore from '../../src/models/TrustScore.js';
+import Proposal from '../../src/models/Proposal.js';
 import { listJobPosts, getJobPostById } from '../../src/jobPost/jobPost.service.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from '../helpers/memoryDb.js';
+
+function makeTrustScore(profileId, overrides = {}) {
+  return {
+    profileId,
+    status: 'scored',
+    score: 70,
+    level: 'high',
+    generatedAt: new Date('2026-01-01'),
+    ...overrides,
+  };
+}
 
 function makeJobPost(overrides = {}) {
   return {
@@ -95,6 +108,180 @@ describe('listJobPosts', () => {
     // Without the tiebreaker this order is unspecified in real MongoDB.
     const expectedIdDesc = [a._id.toString(), b._id.toString(), c._id.toString()].sort().reverse();
     expect(ids).toEqual(expectedIdDesc);
+  });
+});
+
+describe('listJobPosts proposalCount', () => {
+  it('attaches the real proposal count per job post, including zero', async () => {
+    const jobWithProposals = await JobPost.create(makeJobPost({ title: 'Has proposals' }));
+    // Asserted below by title; the zero-proposal case needs the row, not a handle.
+    await JobPost.create(makeJobPost({ title: 'No proposals' }));
+    await Proposal.create({
+      jobPostId: jobWithProposals._id,
+      freelancerProfileId: new mongoose.Types.ObjectId(),
+      bid: 500,
+      payModel: 'project',
+      proposedDurationDays: 10,
+    });
+    await Proposal.create({
+      jobPostId: jobWithProposals._id,
+      freelancerProfileId: new mongoose.Types.ObjectId(),
+      bid: 600,
+      payModel: 'project',
+      proposedDurationDays: 12,
+    });
+
+    const result = await listJobPosts({
+      status: 'open',
+      page: 1,
+      pageSize: 20,
+      trackRecordOnly: false,
+    });
+
+    const byTitle = Object.fromEntries(result.data.map((j) => [j.title, j.proposalCount]));
+    expect(byTitle['Has proposals']).toBe(2);
+    expect(byTitle['No proposals']).toBe(0);
+  });
+});
+
+describe('listJobPosts trackRecordOnly filter', () => {
+  it('excludes clients with an insufficient-history snapshot when trackRecordOnly is true', async () => {
+    const scoredClient = new mongoose.Types.ObjectId();
+    const unscoredClient = new mongoose.Types.ObjectId();
+    await TrustScore.create(makeTrustScore(scoredClient));
+    await TrustScore.create({
+      profileId: unscoredClient,
+      status: 'insufficient-history',
+      generatedAt: new Date('2026-01-01'),
+    });
+    await JobPost.create(
+      makeJobPost({ title: 'Scored client job', clientProfileId: scoredClient }),
+    );
+    await JobPost.create(
+      makeJobPost({ title: 'Unscored client job', clientProfileId: unscoredClient }),
+    );
+
+    const result = await listJobPosts({
+      status: 'open',
+      page: 1,
+      pageSize: 20,
+      trackRecordOnly: true,
+    });
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].title).toBe('Scored client job');
+    expect(result.pagination.total).toBe(1);
+  });
+
+  it('excludes clients with no TrustScore record at all when trackRecordOnly is true', async () => {
+    const scoredClient = new mongoose.Types.ObjectId();
+    const noHistoryClient = new mongoose.Types.ObjectId();
+    await TrustScore.create(makeTrustScore(scoredClient));
+    await JobPost.create(
+      makeJobPost({ title: 'Scored client job', clientProfileId: scoredClient }),
+    );
+    await JobPost.create(
+      makeJobPost({ title: 'No trust score row', clientProfileId: noHistoryClient }),
+    );
+
+    const result = await listJobPosts({
+      status: 'open',
+      page: 1,
+      pageSize: 20,
+      trackRecordOnly: true,
+    });
+
+    expect(result.data.map((j) => j.title)).toEqual(['Scored client job']);
+  });
+
+  it('returns everything, scored and unscored, when trackRecordOnly is false', async () => {
+    const scoredClient = new mongoose.Types.ObjectId();
+    const unscoredClient = new mongoose.Types.ObjectId();
+    await TrustScore.create(makeTrustScore(scoredClient));
+    await TrustScore.create({
+      profileId: unscoredClient,
+      status: 'insufficient-history',
+      generatedAt: new Date('2026-01-01'),
+    });
+    await JobPost.create(
+      makeJobPost({ title: 'Scored client job', clientProfileId: scoredClient }),
+    );
+    await JobPost.create(
+      makeJobPost({ title: 'Unscored client job', clientProfileId: unscoredClient }),
+    );
+
+    const result = await listJobPosts({
+      status: 'open',
+      page: 1,
+      pageSize: 20,
+      trackRecordOnly: false,
+    });
+
+    expect(result.data).toHaveLength(2);
+    expect(result.pagination.total).toBe(2);
+  });
+
+  it('uses the latest snapshot per client, not just any historical one', async () => {
+    const client = new mongoose.Types.ObjectId();
+    // Client used to be insufficient-history, has since been scored.
+    await TrustScore.create({
+      profileId: client,
+      status: 'insufficient-history',
+      generatedAt: new Date('2026-01-01'),
+    });
+    await TrustScore.create(makeTrustScore(client, { generatedAt: new Date('2026-06-01') }));
+    await JobPost.create(makeJobPost({ title: 'Now scored', clientProfileId: client }));
+
+    const result = await listJobPosts({
+      status: 'open',
+      page: 1,
+      pageSize: 20,
+      trackRecordOnly: true,
+    });
+
+    expect(result.data.map((j) => j.title)).toEqual(['Now scored']);
+  });
+
+  it('paginates correctly against the filtered set', async () => {
+    const scoredClients = [
+      new mongoose.Types.ObjectId(),
+      new mongoose.Types.ObjectId(),
+      new mongoose.Types.ObjectId(),
+    ];
+    const unscoredClient = new mongoose.Types.ObjectId();
+    for (const clientId of scoredClients) {
+      await TrustScore.create(makeTrustScore(clientId));
+    }
+    await TrustScore.create({
+      profileId: unscoredClient,
+      status: 'insufficient-history',
+      generatedAt: new Date('2026-01-01'),
+    });
+    let i = 0;
+    for (const clientId of scoredClients) {
+      await JobPost.create(makeJobPost({ title: `Scored ${i++}`, clientProfileId: clientId }));
+    }
+    await JobPost.create(makeJobPost({ title: 'Unscored', clientProfileId: unscoredClient }));
+
+    const page1 = await listJobPosts({
+      status: 'open',
+      page: 1,
+      pageSize: 2,
+      trackRecordOnly: true,
+    });
+    const page2 = await listJobPosts({
+      status: 'open',
+      page: 2,
+      pageSize: 2,
+      trackRecordOnly: true,
+    });
+
+    expect(page1.pagination.total).toBe(3);
+    expect(page1.data).toHaveLength(2);
+    expect(page2.data).toHaveLength(1);
+    const allTitles = [...page1.data, ...page2.data].map((j) => j.title);
+    expect(new Set(allTitles).size).toBe(3);
+    expect(allTitles.every((t) => t.startsWith('Scored'))).toBe(true);
   });
 });
 

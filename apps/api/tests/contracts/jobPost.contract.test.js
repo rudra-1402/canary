@@ -12,6 +12,18 @@ describe('JobPost contracts', () => {
     expect(parsed).toMatchObject({ status: 'open', page: 1, pageSize: 20 });
   });
 
+  it('list query defaults trackRecordOnly to true', () => {
+    expect(JobPostListQuerySchema.parse({}).trackRecordOnly).toBe(true);
+  });
+
+  it('list query parses trackRecordOnly=false from the querystring', () => {
+    expect(JobPostListQuerySchema.parse({ trackRecordOnly: 'false' }).trackRecordOnly).toBe(false);
+  });
+
+  it('list query treats trackRecordOnly=true explicitly the same as the default', () => {
+    expect(JobPostListQuerySchema.parse({ trackRecordOnly: 'true' }).trackRecordOnly).toBe(true);
+  });
+
   it('list query coerces numeric strings and rejects pageSize over 100', () => {
     expect(JobPostListQuerySchema.parse({ page: '2', pageSize: '5' })).toMatchObject({
       page: 2,

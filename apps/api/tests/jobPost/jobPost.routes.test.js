@@ -31,8 +31,10 @@ describe('GET /api/jobposts', () => {
   afterEach(clearCollections);
 
   it('lists open jobs (200) with the envelope shape', async () => {
+    // trackRecordOnly defaults to true; this test is about the envelope shape, not the
+    // trust-score filter, and the fixture client has no TrustScore snapshot at all.
     await JobPost.create(makeJobPost());
-    const res = await request(app).get('/api/jobposts');
+    const res = await request(app).get('/api/jobposts?trackRecordOnly=false');
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.pagination).toEqual({ page: 1, pageSize: 20, total: 1 });

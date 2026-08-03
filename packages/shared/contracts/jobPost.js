@@ -19,6 +19,13 @@ export const JobPostListQuerySchema = z.object({
   status: statusEnum.default('open'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  // Defaults ON: only show job posts whose client has a real (`scored`) Trust Score
+  // snapshot. A visible, user-facing filter — not a silent reorder — see FindWork's
+  // "Clients with a track record" toggle.
+  trackRecordOnly: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .optional()
+    .transform((value) => value === undefined || value === true || value === 'true'),
 });
 
 // GET /api/jobposts/:id path param. Malformed id fails here -> 400.
@@ -43,6 +50,9 @@ export const JobPostSchema = z.object({
   screeningQuestions: z.array(z.string()),
   status: statusEnum,
   createdAt: z.string().datetime().nullable(),
+  // Real Proposal document count for this job post. Optional: getJobPostById does not
+  // compute it (only the list endpoint, where it's cheap to batch per page).
+  proposalCount: z.number().int().min(0).optional(),
 });
 
 export const JobPostListResponseSchema = z.object({

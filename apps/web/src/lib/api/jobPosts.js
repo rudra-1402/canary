@@ -1,6 +1,6 @@
 import { apiRequest } from '../apiClient.js';
 
-// query: { page, pageSize, category, jobType, experienceLevel, status }
+// query: { page, pageSize, category, jobType, experienceLevel, status, trackRecordOnly }
 export function listJobPosts(query = {}) {
   const params = new URLSearchParams(
     Object.entries(query).filter(([, value]) => value !== undefined && value !== ''),

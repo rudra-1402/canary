@@ -23,11 +23,12 @@ function budgetLabel(post) {
 
 export default function FindWork() {
   const [state, setState] = useState({ status: 'loading', posts: [], trustByProfile: {} });
+  const [trackRecordOnly, setTrackRecordOnly] = useState(true);
 
   const load = useCallback(async () => {
     setState({ status: 'loading', posts: [], trustByProfile: {} });
     try {
-      const result = await listJobPosts({ status: 'open', page: 1, pageSize: 20 });
+      const result = await listJobPosts({ status: 'open', page: 1, pageSize: 20, trackRecordOnly });
       const posts = result.data;
 
       // Trust bands are a nice-to-have on this list; if the batch call fails
@@ -55,18 +56,29 @@ export default function FindWork() {
         error: err.message || 'Failed to load job posts',
       });
     }
-  }, []);
+  }, [trackRecordOnly]);
 
   useEffect(() => {
-    // Fetch-on-mount: no data-fetching library is in scope for this slice
-    // (PLAN-UI Part D), so this is deliberate, not an oversight.
+    // Fetch-on-mount and on trackRecordOnly toggle: no data-fetching library is in scope
+    // for this slice (PLAN-UI Part D), so this is deliberate, not an oversight.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight text-ink">Find Work</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold tracking-tight text-ink">Find Work</h1>
+        <label className="flex items-center gap-2 text-sm text-muted">
+          <input
+            type="checkbox"
+            checked={trackRecordOnly}
+            onChange={(event) => setTrackRecordOnly(event.target.checked)}
+            className="size-4 rounded border-line accent-current"
+          />
+          Clients with a track record
+        </label>
+      </div>
 
       {state.status === 'loading' && (
         <div className="mt-6">
@@ -101,7 +113,21 @@ export default function FindWork() {
                     {budgetLabel(post)} · {post.experienceLevel}
                     {post.createdAt &&
                       ` · Posted ${dateFormatter.format(new Date(post.createdAt))}`}
+                    {post.proposalCount !== undefined &&
+                      ` · ${post.proposalCount} proposal${post.proposalCount === 1 ? '' : 's'}`}
                   </p>
+                  {post.skills.length > 0 && (
+                    <ul className="mt-2 flex flex-wrap gap-1.5">
+                      {post.skills.map((skill) => (
+                        <li
+                          key={skill}
+                          className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted"
+                        >
+                          {skill}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <TrustBadge entry={state.trustByProfile[post.clientProfileId]} />
               </li>
