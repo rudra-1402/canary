@@ -3,8 +3,24 @@ import mongoose from 'mongoose';
 import JobPost from '../../src/models/JobPost.js';
 import TrustScore from '../../src/models/TrustScore.js';
 import Proposal from '../../src/models/Proposal.js';
+import Profile from '../../src/models/Profile.js';
+import Identity from '../../src/models/Identity.js';
 import { listJobPosts, getJobPostById } from '../../src/jobPost/jobPost.service.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from '../helpers/memoryDb.js';
+
+async function makeClientProfile(displayName) {
+  const identity = await Identity.create({
+    email: `${displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new mongoose.Types.ObjectId()}@example.test`,
+    passwordHash: 'x',
+  });
+  const profile = await Profile.create({
+    identityId: identity._id,
+    role: 'client',
+    origin: 'synthetic-seeded',
+    displayName,
+  });
+  return profile._id;
+}
 
 function makeTrustScore(profileId, overrides = {}) {
   return {
@@ -141,6 +157,42 @@ describe('listJobPosts proposalCount', () => {
     const byTitle = Object.fromEntries(result.data.map((j) => [j.title, j.proposalCount]));
     expect(byTitle['Has proposals']).toBe(2);
     expect(byTitle['No proposals']).toBe(0);
+  });
+});
+
+describe('listJobPosts clientDisplayName', () => {
+  it('resolves each row to the display name of the client who posted it, across several clients', async () => {
+    const clientA = await makeClientProfile('Acme Studio');
+    const clientB = await makeClientProfile('Blue Harbor LLC');
+    await JobPost.create(makeJobPost({ title: 'Post by A', clientProfileId: clientA }));
+    await JobPost.create(makeJobPost({ title: 'Post by B', clientProfileId: clientB }));
+    await JobPost.create(makeJobPost({ title: 'Second post by A', clientProfileId: clientA }));
+
+    const result = await listJobPosts({
+      status: 'open',
+      page: 1,
+      pageSize: 20,
+      trackRecordOnly: false,
+    });
+
+    const byTitle = Object.fromEntries(result.data.map((j) => [j.title, j.clientDisplayName]));
+    expect(byTitle['Post by A']).toBe('Acme Studio');
+    expect(byTitle['Post by B']).toBe('Blue Harbor LLC');
+    expect(byTitle['Second post by A']).toBe('Acme Studio');
+  });
+
+  it('omits clientDisplayName rather than throwing when the client profile no longer exists', async () => {
+    const orphanClientId = new mongoose.Types.ObjectId();
+    await JobPost.create(makeJobPost({ title: 'Orphaned post', clientProfileId: orphanClientId }));
+
+    const result = await listJobPosts({
+      status: 'open',
+      page: 1,
+      pageSize: 20,
+      trackRecordOnly: false,
+    });
+
+    expect(result.data[0].clientDisplayName).toBeUndefined();
   });
 });
 

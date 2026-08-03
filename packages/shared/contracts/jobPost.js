@@ -53,6 +53,10 @@ export const JobPostSchema = z.object({
   // Real Proposal document count for this job post. Optional: getJobPostById does not
   // compute it (only the list endpoint, where it's cheap to batch per page).
   proposalCount: z.number().int().min(0).optional(),
+  // Display name of the client (Profile.displayName) who posted this job. Optional, same
+  // reason as proposalCount: only the list endpoint batches it per page, and it's absent
+  // if the client Profile no longer exists.
+  clientDisplayName: z.string().optional(),
 });
 
 export const JobPostListResponseSchema = z.object({

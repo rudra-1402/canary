@@ -129,7 +129,10 @@ export default function FindWork() {
                     </ul>
                   )}
                 </div>
-                <TrustBadge entry={state.trustByProfile[post.clientProfileId]} />
+                <TrustBadge
+                  entry={state.trustByProfile[post.clientProfileId]}
+                  clientName={post.clientDisplayName}
+                />
               </li>
             ))}
           </ul>

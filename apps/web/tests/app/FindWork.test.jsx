@@ -31,6 +31,7 @@ const REAL_JOBPOSTS_RESPONSE = {
       status: 'open',
       createdAt: '2026-08-01T19:49:24.899Z',
       proposalCount: 5,
+      clientDisplayName: 'Harborview Media',
     },
   ],
   pagination: { page: 1, pageSize: 20, total: 1 },
@@ -75,6 +76,16 @@ describe('FindWork', () => {
     expect(within(row).getByText('python')).toBeInTheDocument();
     expect(within(row).getByText('node')).toBeInTheDocument();
     expect(within(row).getByText(/5 proposals/)).toBeInTheDocument();
+
+    // The client's name must appear on the card, and the trust pill must read as
+    // belonging to that named client, not to the job post or a freelancer.
+    const clientName = within(row).getByText('Harborview Media');
+    expect(clientName).toBeInTheDocument();
+    const badge = within(row).getByText(/Med trust/);
+    // Name and badge are grouped together in one shared container -- that's what
+    // makes ownership legible without any caller having to be told.
+    const sharedGroup = clientName.closest('div');
+    expect(sharedGroup).toContainElement(badge);
   });
 
   it('requests trackRecordOnly=true by default', async () => {

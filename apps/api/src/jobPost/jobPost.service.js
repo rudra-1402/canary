@@ -1,6 +1,7 @@
 import JobPost from '../models/JobPost.js';
 import TrustScore from '../models/TrustScore.js';
 import Proposal from '../models/Proposal.js';
+import Profile from '../models/Profile.js';
 import { NotFoundError } from '../lib/errors.js';
 import { JobPostSchema, JobPostListResponseSchema } from '@canary/shared';
 
@@ -15,7 +16,7 @@ export function buildJobPostFilter(query) {
 
 // Map a lean Mongoose doc to the public shape; _id/__v never leak. createdAt is null when
 // absent (seeded-data guard).
-export function toJobPostContract(doc, { proposalCount } = {}) {
+export function toJobPostContract(doc, { proposalCount, clientDisplayName } = {}) {
   return {
     id: doc._id.toString(),
     clientProfileId: doc.clientProfileId.toString(),
@@ -32,6 +33,7 @@ export function toJobPostContract(doc, { proposalCount } = {}) {
     status: doc.status,
     createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
     ...(proposalCount === undefined ? {} : { proposalCount }),
+    ...(clientDisplayName === undefined ? {} : { clientDisplayName }),
   };
 }
 
@@ -43,6 +45,16 @@ async function proposalCountsFor(jobPostIds) {
     { $group: { _id: '$jobPostId', count: { $sum: 1 } } },
   ]);
   return new Map(rows.map((row) => [String(row._id), row.count]));
+}
+
+// Display names for exactly this page's distinct clients (bounded by pageSize, not the
+// whole `profiles` collection). A client whose Profile has since been deleted is simply
+// absent from the returned Map — toJobPostContract omits clientDisplayName for that row.
+async function clientDisplayNamesFor(clientProfileIds) {
+  if (clientProfileIds.length === 0) return new Map();
+  const uniqueIds = [...new Set(clientProfileIds.map((id) => String(id)))];
+  const profiles = await Profile.find({ _id: { $in: uniqueIds } }, { displayName: 1 }).lean();
+  return new Map(profiles.map((profile) => [String(profile._id), profile.displayName]));
 }
 
 // Of the clients posting under `filter`, which have a real Trust Score (latest
@@ -74,10 +86,16 @@ export async function listJobPosts(query) {
       .lean(),
     JobPost.countDocuments(filter),
   ]);
-  const proposalCounts = await proposalCountsFor(docs.map((doc) => doc._id));
+  const [proposalCounts, clientDisplayNames] = await Promise.all([
+    proposalCountsFor(docs.map((doc) => doc._id)),
+    clientDisplayNamesFor(docs.map((doc) => doc.clientProfileId)),
+  ]);
   return JobPostListResponseSchema.parse({
     data: docs.map((doc) =>
-      toJobPostContract(doc, { proposalCount: proposalCounts.get(String(doc._id)) ?? 0 }),
+      toJobPostContract(doc, {
+        proposalCount: proposalCounts.get(String(doc._id)) ?? 0,
+        clientDisplayName: clientDisplayNames.get(String(doc.clientProfileId)),
+      }),
     ),
     pagination: { page, pageSize, total },
   });

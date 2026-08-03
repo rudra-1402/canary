@@ -58,4 +58,11 @@ describe('toJobPostContract', () => {
     expect(toJobPostContract(base, { proposalCount: 4 }).proposalCount).toBe(4);
     expect(toJobPostContract(base).proposalCount).toBeUndefined();
   });
+
+  it('attaches clientDisplayName when given a name, omits it otherwise', () => {
+    expect(toJobPostContract(base, { clientDisplayName: 'Acme Studio' }).clientDisplayName).toBe(
+      'Acme Studio',
+    );
+    expect(toJobPostContract(base).clientDisplayName).toBeUndefined();
+  });
 });
