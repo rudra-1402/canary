@@ -19,6 +19,9 @@ export default function AppShell({ children }) {
               <NavLink to="/" className={navLinkClass} end>
                 Find Work
               </NavLink>
+              <NavLink to="/engagements" className={navLinkClass}>
+                Engagements
+              </NavLink>
               {identity?.activeProfile && (
                 <NavLink to={`/trust/${identity.activeProfile.id}`} className={navLinkClass}>
                   My Trust Score

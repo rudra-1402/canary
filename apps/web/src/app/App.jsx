@@ -6,6 +6,8 @@ import Login from './routes/Login.jsx';
 import FindWork from './routes/FindWork.jsx';
 import JobDetail from './routes/JobDetail.jsx';
 import TrustScoreDetail from './routes/TrustScoreDetail.jsx';
+import Engagements from './routes/Engagements.jsx';
+import RecordOutcome from './routes/RecordOutcome.jsx';
 
 export default function App() {
   return (
@@ -39,6 +41,26 @@ export default function App() {
               <RequireAuth>
                 <AppShell>
                   <TrustScoreDetail />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/engagements"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <Engagements />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/engagements/:id/review"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <RecordOutcome />
                 </AppShell>
               </RequireAuth>
             }
