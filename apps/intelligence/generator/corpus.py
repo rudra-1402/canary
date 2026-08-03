@@ -439,14 +439,27 @@ def _join_labels(labels: list[str]) -> str:
     return ", ".join(labels[:-1]) + f", and {labels[-1]}"
 
 
-def compose_job_title(rng: random.Random, category: str, skills: list[str]) -> str:
+def choose_deliverable_noun(rng: random.Random, category: str) -> str:
+    """The one deliverable noun a job post's title and description must both
+    name. Drawn once per post by the caller (generator/jobposts.py,
+    generator/ring_engagements.py) and passed into both compose_job_title and
+    compose_job_description -- each function used to draw its own noun
+    independently, so a post could title itself around one deliverable
+    ("a competitive landscape report") while its description opened on a
+    different one ("a business plan for a new venture").
+    """
+    return rng.choice(CATEGORY_NOUNS[category])
+
+
+def compose_job_title(rng: random.Random, category: str, skills: list[str], noun: str) -> str:
     """A plausible freelance engagement title consistent with category and skills.
 
     Only ever pulls wording from `skills`' own entries in SKILL_ROLE_PHRASES /
     SKILL_LABELS, so a title can never mention a skill absent from the
-    document.
+    document. `noun` is the deliverable chosen once for this post (see
+    choose_deliverable_noun) so the title names the same thing the
+    description does.
     """
-    noun = rng.choice(CATEGORY_NOUNS[category])
     ordered_skills = list(skills)
     rng.shuffle(ordered_skills)
     primary = ordered_skills[0]
@@ -472,14 +485,16 @@ def compose_job_description(
     budget_or_rate,
     experience_level: str,
     project_length: str,
+    noun: str,
 ) -> str:
     """A short, believable client brief consistent with the document's fields.
 
     Skill requirements only ever name the skills already on the document, so
     a post tagged seo + copywriting never reads like an embedded-firmware
-    job.
+    job. `noun` is the deliverable chosen once for this post (see
+    choose_deliverable_noun) so the description names the same thing the
+    title does.
     """
-    noun = rng.choice(CATEGORY_NOUNS[category])
     sentences = [rng.choice(CATEGORY_OPENERS[category]).format(noun=noun)]
 
     ordered_skills = list(skills)

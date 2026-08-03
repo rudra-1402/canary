@@ -535,11 +535,16 @@ def generate(config: GeneratorConfig, *, now: datetime | None = None) -> dict:
     # ever transact if the ordinary matching above pairs them by chance (it
     # measured at ~11% of planted colluders). These are merged in before
     # conduct/timelines/outcomes/reviews are computed so they flow through the
-    # exact same downstream pipeline as organic engagements.
-    ring_jobposts, ring_proposals, ring_engagements = build_ring_engagements(config, profiles, rings, now=now)
-    jobposts = jobposts + ring_jobposts
-    proposals = proposals + ring_proposals
-    engagements = engagements + ring_engagements
+    # exact same downstream pipeline as organic engagements. Gated behind
+    # `config.enable_ring_engagements` (default True == prior unconditional
+    # behaviour) so callers can deliberately leave rings inert instead.
+    if config.enable_ring_engagements:
+        ring_jobposts, ring_proposals, ring_engagements = build_ring_engagements(
+            config, profiles, rings, now=now
+        )
+        jobposts = jobposts + ring_jobposts
+        proposals = proposals + ring_proposals
+        engagements = engagements + ring_engagements
     conduct = draw_relative_conduct(config, profiles, engagements, now=now)
     timelines = build_timelines(config, engagements, conduct, now=now)
     outcomes = generate_outcomes(config, profiles, engagements, conduct=conduct, timelines=timelines, now=now)
@@ -604,6 +609,16 @@ def main():
         ),
     )
     parser.add_argument("--wipe", action="store_true", help="Drop existing seeded collections first")
+    parser.add_argument(
+        "--disable-ring-engagements",
+        action="store_true",
+        help=(
+            "Do not force ring-internal jobpost -> proposal -> engagement chains; "
+            "planted collusion rings stay inert (organic-chance-only transacting), "
+            "matching the pre-fix generator / current canary_a4_dense demo data. "
+            "Default is False (ring engagements forced), the prior unconditional behaviour."
+        ),
+    )
     parser.add_argument("--manifest-out", default="ground-truth-manifest.json")
     parser.add_argument("--id-map-out", default="profile-id-map.json")
     parser.add_argument(
@@ -621,6 +636,7 @@ def main():
         seed=args.seed,
         num_profiles=args.num_profiles,
         engagement_fanout_multiplier=args.engagement_fanout_multiplier,
+        enable_ring_engagements=not args.disable_ring_engagements,
     )
     db = get_database()
 

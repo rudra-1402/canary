@@ -94,7 +94,8 @@ def test_job_title_never_mentions_an_unrelated_skill():
         skill_combos = [pool[:1], pool[:2], pool[1:3] if len(pool) > 2 else pool[:2]]
         for skills in skill_combos:
             for _ in range(20):
-                title = corpus.compose_job_title(rng, category, skills)
+                noun = corpus.choose_deliverable_noun(rng, category)
+                title = corpus.compose_job_title(rng, category, skills, noun)
                 absent_skills = [s for s in pool if s not in skills]
                 for absent in absent_skills:
                     label = corpus.SKILL_LABELS[absent]
@@ -110,6 +111,7 @@ def test_job_description_never_mentions_an_unrelated_skill():
         skill_combos = [pool[:1], pool[:2], pool[1:3] if len(pool) > 2 else pool[:2]]
         for skills in skill_combos:
             for _ in range(20):
+                noun = corpus.choose_deliverable_noun(rng, category)
                 description = corpus.compose_job_description(
                     rng,
                     category=category,
@@ -120,6 +122,7 @@ def test_job_description_never_mentions_an_unrelated_skill():
                     project_length=rng.choice(
                         ["less-than-1-month", "1-to-3-months", "3-to-6-months", "more-than-6-months"]
                     ),
+                    noun=noun,
                 )
                 absent_skills = [s for s in pool if s not in skills]
                 for absent in absent_skills:

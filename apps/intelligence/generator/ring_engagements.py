@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from generator import corpus
 from generator.clock import resolve_now
 from generator.config import GeneratorConfig
+from generator.jobposts import draw_budget_or_rate
 from generator.timeline import max_chronology_days
 
 # Same categorical vocab as generator/jobposts.py and generator/proposals.py --
@@ -57,6 +58,9 @@ def build_ring_engagements(
     # see generator/jobposts.py for why text composition must not share the
     # structural rng that drives bid/pricing/timing.
     corpus_rng = random.Random(f"ring-jobpost-corpus:{config.seed}")
+    # Same reasoning, its own stream for budgetOrRate -- see
+    # generator/jobposts.py::draw_budget_or_rate.
+    budget_rng = random.Random(f"ring-jobpost-budget:{config.seed}")
     now = resolve_now(config, now)
     profiles_by_id = {p["_localId"]: p for p in profiles}
     buffer_days = max_chronology_days(config)
@@ -86,16 +90,22 @@ def build_ring_engagements(
                 num_skills = corpus_rng.randint(1, min(4, len(skill_pool)))
                 skills = corpus_rng.sample(skill_pool, k=num_skills)
                 job_type = rng.choice(_JOB_TYPES)
-                budget_or_rate = rng.randint(200, 8000)
+                # Discarded -- see generator/jobposts.py for why this call must
+                # stay exactly here: it holds `rng`'s stream at its pre-fix
+                # position so bid/payModel/paymentTerms/revisionsIncluded below
+                # keep drawing exactly what they drew before this fix.
+                rng.randint(200, 8000)
                 experience_level = rng.choice(_EXPERIENCE_LEVELS)
                 project_length = rng.choice(_PROJECT_LENGTHS)
+                budget_or_rate = draw_budget_or_rate(budget_rng, config, job_type, experience_level)
 
                 jobpost_id = f"ring-jobpost-{local_suffix}"
+                noun = corpus.choose_deliverable_noun(corpus_rng, category)
                 jobposts.append(
                     {
                         "_localId": jobpost_id,
                         "clientProfileLocalId": client_id,
-                        "title": corpus.compose_job_title(corpus_rng, category, skills),
+                        "title": corpus.compose_job_title(corpus_rng, category, skills, noun),
                         "category": category,
                         "description": corpus.compose_job_description(
                             corpus_rng,
@@ -105,6 +115,7 @@ def build_ring_engagements(
                             budget_or_rate=budget_or_rate,
                             experience_level=experience_level,
                             project_length=project_length,
+                            noun=noun,
                         ),
                         "skills": skills,
                         "jobType": job_type,
