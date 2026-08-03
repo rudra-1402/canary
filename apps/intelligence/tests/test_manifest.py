@@ -54,7 +54,13 @@ def test_manifest_records_rings_and_bad_terms_engagements():
 
 
 def test_manifest_records_which_reviews_were_planted():
-    config = GeneratorConfig(seed=42, num_profiles=1000)
+    # num_profiles=2000, not the module's usual 1000: organic (non-forced)
+    # ring-member collision is luck-of-the-draw at ~11-17% per the measurement
+    # in ring_engagements.py's docstring, and this test predates
+    # build_ring_engagements -- it exercises the ordinary generate_reviews
+    # path with no forced ring transactions. 2000 profiles reliably reproduces
+    # at least one organic collision at this seed; smaller counts don't.
+    config = GeneratorConfig(seed=42, num_profiles=2000)
     _, profiles = generate_identities_and_profiles(config)
     jobposts = generate_jobposts(config, profiles)
     proposals = generate_proposals(config, profiles, jobposts)

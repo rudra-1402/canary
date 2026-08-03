@@ -1,8 +1,7 @@
 import random
 from datetime import datetime, timedelta
 
-from faker import Faker
-
+from generator import corpus
 from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 
@@ -44,8 +43,13 @@ def generate_jobposts(
     config: GeneratorConfig, profiles: list[dict], *, now: datetime | None = None
 ) -> list[dict]:
     rng = random.Random(config.seed + 1)
-    fake = Faker()
-    Faker.seed(config.seed + 1)
+    # A dedicated stream for category/skills/title/description. Composing text
+    # necessarily consumes a different number of draws than the record it
+    # replaces (fake.job()/fake.paragraph() drew from their own Faker
+    # instance, never from `rng`) -- keeping that consumption off `rng`
+    # preserves the createdAt/budgetOrRate/etc. distribution `rng` already
+    # produces for every other stage of the pipeline that reads a jobpost.
+    corpus_rng = random.Random(f"jobpost-corpus:{config.seed}")
 
     now = resolve_now(config, now)
 
@@ -56,8 +60,31 @@ def generate_jobposts(
         num_posts = round(rng.randint(1, 4) * config.engagement_fanout_multiplier)
         for j in range(num_posts):
             planted_red_flags = []
-            description = fake.paragraph(nb_sentences=3)
             created_at = _jobpost_created_at(rng, client, now)
+
+            category = corpus_rng.choice(corpus.CATEGORIES)
+            skill_pool = corpus.CATEGORY_SKILLS[category]
+            # Variable count, not a fixed 2 -- a fixed skill count is itself a
+            # visible tell on a list screen.
+            num_skills = corpus_rng.randint(1, min(4, len(skill_pool)))
+            skills = corpus_rng.sample(skill_pool, k=num_skills)
+            job_type = rng.choice(["hourly", "fixed"])
+            budget_or_rate = rng.randint(200, 8000)
+            experience_level = rng.choice(["entry", "intermediate", "expert"])
+            project_length = rng.choice(
+                ["less-than-1-month", "1-to-3-months", "3-to-6-months", "more-than-6-months"]
+            )
+
+            title = corpus.compose_job_title(corpus_rng, category, skills)
+            description = corpus.compose_job_description(
+                corpus_rng,
+                category=category,
+                skills=skills,
+                job_type=job_type,
+                budget_or_rate=budget_or_rate,
+                experience_level=experience_level,
+                project_length=project_length,
+            )
 
             if client["trueArchetype"] == "cold-start" and rng.random() < 0.7:
                 flags_to_plant = rng.sample(
@@ -73,16 +100,14 @@ def generate_jobposts(
                 {
                     "_localId": f"jobpost-{client['_localId']}-{j}",
                     "clientProfileLocalId": client["_localId"],
-                    "title": fake.job(),
-                    "category": rng.choice(["web-development", "design", "writing", "marketing"]),
+                    "title": title,
+                    "category": category,
                     "description": description,
-                    "skills": rng.sample(["react", "node", "python", "seo", "copywriting"], k=2),
-                    "jobType": rng.choice(["hourly", "fixed"]),
-                    "budgetOrRate": rng.randint(200, 8000),
-                    "experienceLevel": rng.choice(["entry", "intermediate", "expert"]),
-                    "projectLength": rng.choice(
-                        ["less-than-1-month", "1-to-3-months", "3-to-6-months", "more-than-6-months"]
-                    ),
+                    "skills": skills,
+                    "jobType": job_type,
+                    "budgetOrRate": budget_or_rate,
+                    "experienceLevel": experience_level,
+                    "projectLength": project_length,
                     "status": "open",
                     "plantedRedFlags": planted_red_flags,
                     "createdAt": created_at,

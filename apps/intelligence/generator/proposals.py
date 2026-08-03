@@ -1,8 +1,7 @@
 import random
 from datetime import datetime, timedelta
 
-from faker import Faker
-
+from generator import corpus
 from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 
@@ -11,8 +10,10 @@ def generate_proposals(
     config: GeneratorConfig, profiles: list[dict], jobposts: list[dict], *, now: datetime | None = None
 ) -> list[dict]:
     rng = random.Random(config.seed + 2)
-    fake = Faker()
-    Faker.seed(config.seed + 2)
+    # Dedicated stream for the cover letter text -- see generator/jobposts.py
+    # for why composed text must not share the structural rng that drives
+    # bid/duration/payModel, all of which downstream trust-score code reads.
+    corpus_rng = random.Random(f"proposal-corpus:{config.seed}")
 
     now = resolve_now(config, now)
     freelancers = [p for p in profiles if p["role"] == "freelancer"]
@@ -30,6 +31,13 @@ def generate_proposals(
             # Clamped to "now" — a jobpost from a very-recently-joined client may
             # not have the full 14-day buffer available (see jobposts.py).
             created_at = min(jobpost["createdAt"] + timedelta(days=rng.randint(1, 14)), now)
+            cover_letter = corpus.compose_cover_letter(
+                corpus_rng,
+                category=jobpost["category"],
+                skills=jobpost["skills"],
+                bid=bid,
+                proposed_duration_days=proposed_duration_days,
+            )
             proposals.append(
                 {
                     "_localId": f"proposal-{jobpost['_localId']}-{freelancer['_localId']}",
@@ -39,7 +47,7 @@ def generate_proposals(
                     "payModel": rng.choice(["project", "milestone"]),
                     "durationEstimate": f"{proposed_duration_days} days",
                     "proposedDurationDays": proposed_duration_days,
-                    "coverLetter": fake.paragraph(nb_sentences=2),
+                    "coverLetter": cover_letter,
                     "status": "submitted",
                     "createdAt": created_at,
                 }

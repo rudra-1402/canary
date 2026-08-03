@@ -1,16 +1,13 @@
 import random
 from datetime import datetime, timedelta
 
-from faker import Faker
-
+from generator import corpus
 from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 from generator.timeline import max_chronology_days
 
 # Same categorical vocab as generator/jobposts.py and generator/proposals.py --
 # ring-forced records must be indistinguishable in shape from organic ones.
-_CATEGORIES = ["web-development", "design", "writing", "marketing"]
-_SKILLS = ["react", "node", "python", "seo", "copywriting"]
 _JOB_TYPES = ["hourly", "fixed"]
 _EXPERIENCE_LEVELS = ["entry", "intermediate", "expert"]
 _PROJECT_LENGTHS = ["less-than-1-month", "1-to-3-months", "3-to-6-months", "more-than-6-months"]
@@ -56,8 +53,10 @@ def build_ring_engagements(
     is left "active" so it never produces an incoherent future timestamp.
     """
     rng = random.Random(config.seed + 21)
-    fake = Faker()
-    Faker.seed(config.seed + 21)
+    # Dedicated stream for category/skills/title/description/cover letter --
+    # see generator/jobposts.py for why text composition must not share the
+    # structural rng that drives bid/pricing/timing.
+    corpus_rng = random.Random(f"ring-jobpost-corpus:{config.seed}")
     now = resolve_now(config, now)
     profiles_by_id = {p["_localId"]: p for p in profiles}
     buffer_days = max_chronology_days(config)
@@ -82,19 +81,36 @@ def build_ring_engagements(
                 earliest = _earliest_workable_created_at(client, freelancer, config, now)
                 jobpost_created_at = min(earliest, now)
 
+                category = corpus_rng.choice(corpus.CATEGORIES)
+                skill_pool = corpus.CATEGORY_SKILLS[category]
+                num_skills = corpus_rng.randint(1, min(4, len(skill_pool)))
+                skills = corpus_rng.sample(skill_pool, k=num_skills)
+                job_type = rng.choice(_JOB_TYPES)
+                budget_or_rate = rng.randint(200, 8000)
+                experience_level = rng.choice(_EXPERIENCE_LEVELS)
+                project_length = rng.choice(_PROJECT_LENGTHS)
+
                 jobpost_id = f"ring-jobpost-{local_suffix}"
                 jobposts.append(
                     {
                         "_localId": jobpost_id,
                         "clientProfileLocalId": client_id,
-                        "title": fake.job(),
-                        "category": rng.choice(_CATEGORIES),
-                        "description": fake.paragraph(nb_sentences=3),
-                        "skills": rng.sample(_SKILLS, k=2),
-                        "jobType": rng.choice(_JOB_TYPES),
-                        "budgetOrRate": rng.randint(200, 8000),
-                        "experienceLevel": rng.choice(_EXPERIENCE_LEVELS),
-                        "projectLength": rng.choice(_PROJECT_LENGTHS),
+                        "title": corpus.compose_job_title(corpus_rng, category, skills),
+                        "category": category,
+                        "description": corpus.compose_job_description(
+                            corpus_rng,
+                            category=category,
+                            skills=skills,
+                            job_type=job_type,
+                            budget_or_rate=budget_or_rate,
+                            experience_level=experience_level,
+                            project_length=project_length,
+                        ),
+                        "skills": skills,
+                        "jobType": job_type,
+                        "budgetOrRate": budget_or_rate,
+                        "experienceLevel": experience_level,
+                        "projectLength": project_length,
                         "status": "closed",
                         "plantedRedFlags": [],
                         "createdAt": jobpost_created_at,
@@ -113,7 +129,13 @@ def build_ring_engagements(
                         "payModel": rng.choice(_PAY_MODELS),
                         "durationEstimate": f"{_RING_DURATION_DAYS} days",
                         "proposedDurationDays": _RING_DURATION_DAYS,
-                        "coverLetter": fake.paragraph(nb_sentences=2),
+                        "coverLetter": corpus.compose_cover_letter(
+                            corpus_rng,
+                            category=category,
+                            skills=skills,
+                            bid=bid,
+                            proposed_duration_days=_RING_DURATION_DAYS,
+                        ),
                         "status": "accepted",
                         "createdAt": proposal_created_at,
                     }

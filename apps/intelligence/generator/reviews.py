@@ -2,8 +2,7 @@ import random
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from faker import Faker
-
+from generator import corpus
 from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 
@@ -85,8 +84,12 @@ def generate_reviews(
 ) -> list[dict]:
     rng = random.Random(config.seed + 6)
     timing_rng = random.Random(config.seed + 13)
-    fake = Faker()
-    Faker.seed(config.seed + 6)
+    # Dedicated stream for review text -- see generator/jobposts.py for why
+    # composed text must not share the structural rng that drives which
+    # candidates get selected, sampled, and rated; that selection logic is
+    # exactly what the ring-detectability and sabotage-population tests
+    # depend on being unperturbed by adding a text field.
+    text_rng = random.Random(f"review-corpus:{config.seed}")
     now = resolve_now(config, now)
     # Older direct callers already pass resolved Outcomes. Their recordedAt is
     # the timeline's conclusion event; run.py passes the shared timeline
@@ -131,14 +134,20 @@ def generate_reviews(
             engagement_id = matching_engagement["_localId"]
             if review_counts.get(engagement_id, 0) >= 2 or (engagement_id, saboteur_id) in review_authors:
                 continue
+            sabotage_rating = rng.choice([1, 2, 3])
             reviews.append(
                 {
                     "_localId": f"review-sabotage-{engagement_id}-{saboteur_id}",
                     "engagementLocalId": engagement_id,
                     "authorProfileLocalId": saboteur_id,
                     "subjectProfileLocalId": subject_id,
-                    "rating": rng.choice([1, 2, 3]),
-                    "text": fake.sentence(),
+                    "rating": sabotage_rating,
+                    # A sabotage review is fake negative feedback grafted onto
+                    # observed *good* conduct -- deriving its text from the
+                    # real outcome would erase the plant. Text follows the
+                    # fabricated rating instead, same as a real bad-faith
+                    # reviewer would write.
+                    "text": corpus.compose_review_text(text_rng, sabotage_rating, None),
                     "isPlantedCollusion": False,
                     "isPlantedSabotage": True,
                 }
@@ -189,7 +198,7 @@ def generate_reviews(
                     "authorProfileLocalId": author_id,
                     "subjectProfileLocalId": subject_id,
                     "rating": rating,
-                    "text": fake.sentence(),
+                    "text": corpus.compose_review_text(text_rng, rating, outcome),
                     "isPlantedCollusion": is_planted_collusion,
                     "isPlantedSabotage": False,
                 }

@@ -32,7 +32,13 @@ def test_reviews_are_at_most_two_per_engagement():
 
 
 def test_colluder_reviews_are_five_star_between_real_ring_counterparties():
-    config, profiles, engagements, outcomes, rings = _setup()
+    # num_profiles=2000, not the module default of 1000: organic (non-forced)
+    # ring-member collision is luck-of-the-draw at ~11-17% per the
+    # measurement in ring_engagements.py's docstring -- this test predates
+    # build_ring_engagements and exercises the ordinary generate_reviews path
+    # with no forced ring transactions. 2000 profiles reliably reproduces at
+    # least one organic collision at this seed; 1000 doesn't.
+    config, profiles, engagements, outcomes, rings = _setup(num_profiles=2000)
     reviews = generate_reviews(config, profiles, engagements, outcomes, rings)
     colluder_reviews = [r for r in reviews if r.get("isPlantedCollusion")]
     engagement_by_id = {engagement["_localId"]: engagement for engagement in engagements}
