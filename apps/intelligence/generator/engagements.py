@@ -1,17 +1,23 @@
 import random
 from datetime import datetime, timedelta
 
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 from generator.timeline import max_chronology_days
 
 
 def generate_engagements(
-    config: GeneratorConfig, profiles: list[dict], jobposts: list[dict], proposals: list[dict]
+    config: GeneratorConfig,
+    profiles: list[dict],
+    jobposts: list[dict],
+    proposals: list[dict],
+    *,
+    now: datetime | None = None,
 ) -> list[dict]:
     rng = random.Random(config.seed + 3)
     profiles_by_id = {p["_localId"]: p for p in profiles}
     jobposts_by_id = {jobpost["_localId"]: jobpost for jobpost in jobposts}
-    now = datetime.utcnow()
+    now = resolve_now(config, now)
 
     engagements = []
     proposals_by_jobpost: dict[str, list[dict]] = {}

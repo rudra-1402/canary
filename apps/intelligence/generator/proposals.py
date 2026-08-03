@@ -3,15 +3,18 @@ from datetime import datetime, timedelta
 
 from faker import Faker
 
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 
 
-def generate_proposals(config: GeneratorConfig, profiles: list[dict], jobposts: list[dict]) -> list[dict]:
+def generate_proposals(
+    config: GeneratorConfig, profiles: list[dict], jobposts: list[dict], *, now: datetime | None = None
+) -> list[dict]:
     rng = random.Random(config.seed + 2)
     fake = Faker()
     Faker.seed(config.seed + 2)
 
-    now = datetime.utcnow()
+    now = resolve_now(config, now)
     freelancers = [p for p in profiles if p["role"] == "freelancer"]
     proposals = []
 

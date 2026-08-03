@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
@@ -25,7 +26,7 @@ def test_engagements_are_timestamped_across_the_timeline():
     proposals = generate_proposals(config, profiles, jobposts)
     engagements = generate_engagements(config, profiles, jobposts, proposals)
 
-    now = datetime.utcnow()
+    now = resolve_now(config)
     for e in engagements:
         assert e["createdAt"] <= now
         assert (now - e["createdAt"]).days <= config.timeline_months * 31

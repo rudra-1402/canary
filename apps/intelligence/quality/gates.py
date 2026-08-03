@@ -471,6 +471,98 @@ def _combine_degeneracy(feature: GateResult, label: GateResult) -> GateResult:
     )
 
 
+RING_MEMBER_FINGERPRINT_FLOOR = 0.7
+RING_COVERAGE_FLOOR = 0.7
+
+
+def judge_ring_detectability(
+    rings: Sequence[Mapping[str, Any]],
+    reviews: Sequence[Mapping[str, Any]],
+) -> GateResult:
+    """Behavioural acceptance gate: planted collusion rings must be DETECTABLE,
+    not merely present as a label.
+
+    This is the gate the project's history was missing -- and the fix for it
+    committed the same defect once already. `generator/collusion_rings.py` can
+    build a ring, attach a graph to it, and label every member `isColluder` --
+    all of that is structural, and every prior check (validate_dataset's
+    ringSignatureCheck included) only re-checks that same structure. None of
+    it proves a detector reading the *data* could ever recover the plant. The
+    first version of this gate asserted the plant instead of proving it was
+    recoverable: it read `review["isPlantedCollusion"]` directly, so it was
+    scoring the encode (did the generator remember to plant?), never the
+    decode (could anything blind to that flag find it?). A gate that reads
+    its own ground truth while scoring cannot fail on an undetectable plant.
+
+    This version never references `isPlantedCollusion` at all -- that key is
+    not read anywhere below, so there is no line of code here that *could*
+    leak it, structurally, not just by convention. The fingerprint is instead
+    a purely observable structural fact: whether a profile has left AND
+    received a review with the same counterparty (a reciprocal review pair).
+    That is exactly the shape of evidence a real detector has to work with --
+    review authorship and subject, nothing else -- so a ring whose members
+    never produced a reciprocal review pair with each other is undetectable
+    by construction, not merely mislabeled.
+    """
+    all_members = {member for ring in rings for member in ring["memberLocalIds"]}
+    if not all_members:
+        return _not_evaluable("ring_detectability", "no planted collusion rings in this seed")
+
+    # Blind structural signal: who reviewed whom. No planted-ground-truth field
+    # is read here or anywhere below -- only authorProfileLocalId/
+    # subjectProfileLocalId, which any real detector also has access to.
+    reviewed_by: dict[str, set[str]] = {}
+    for review in reviews:
+        reviewed_by.setdefault(review["authorProfileLocalId"], set()).add(review["subjectProfileLocalId"])
+
+    fingerprinted: set[str] = set()
+    for author, subjects in reviewed_by.items():
+        for subject in subjects:
+            if author in reviewed_by.get(subject, ()):
+                # `author` and `subject` reviewed each other -- a reciprocal
+                # pair, observable from review structure alone.
+                fingerprinted.add(author)
+                fingerprinted.add(subject)
+
+    rings_with_fingerprint = 0
+    inert_ring_ids: list[str] = []
+    for ring in rings:
+        if set(ring["memberLocalIds"]) & fingerprinted:
+            rings_with_fingerprint += 1
+        else:
+            inert_ring_ids.append(ring["_localId"])
+
+    member_coverage = len(all_members & fingerprinted) / len(all_members)
+    ring_coverage = rings_with_fingerprint / len(rings)
+
+    failures: dict[str, list[str]] = {}
+    if member_coverage < RING_MEMBER_FINGERPRINT_FLOOR:
+        _add_failure(
+            failures,
+            "member_coverage",
+            f"only {member_coverage:.1%} of planted colluders left a reciprocal "
+            f"ring-internal review fingerprint; floor is {RING_MEMBER_FINGERPRINT_FLOOR:.0%}",
+        )
+    if ring_coverage < RING_COVERAGE_FLOOR:
+        _add_failure(
+            failures,
+            "ring_coverage",
+            f"only {ring_coverage:.1%} of rings ({len(inert_ring_ids)} of {len(rings)}) produced "
+            f"any ring-internal fingerprint; floor is {RING_COVERAGE_FLOOR:.0%}. "
+            f"Inert rings: {inert_ring_ids[:10]}",
+        )
+
+    return GateResult(
+        name="ring_detectability",
+        status=GateStatus.FAIL if failures else GateStatus.PASS,
+        failures=failures,
+        ranges={
+            "member_coverage": (member_coverage, member_coverage),
+            "ring_coverage": (ring_coverage, ring_coverage),
+        },
+    )
+
+
 def evaluate_all_gates(
     seeds: Sequence[Mapping[str, Any]],
     *,

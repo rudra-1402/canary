@@ -1,10 +1,12 @@
 import argparse
 import json
+import random
 import sys
 from datetime import datetime
 
 from bson import ObjectId
 
+from generator.clock import resolve_now
 from generator.collusion_rings import build_collusion_rings
 from generator.config import GeneratorConfig
 from generator.db import get_database
@@ -17,8 +19,10 @@ from generator.outcomes import draw_relative_conduct, generate_outcomes
 from generator.payments import generate_payments
 from generator.proposals import generate_proposals
 from generator.reviews import generate_reviews
+from generator.ring_engagements import build_ring_engagements
 from generator.timeline import build_timelines
 from generator.validation import validate_dataset
+from quality.gates import GateStatus, judge_ring_detectability
 
 COLLECTIONS = [
     "identities",
@@ -322,14 +326,40 @@ def validate_persistence_documents(documents):
     _validate_relational_documents(documents)
 
 
+def _deterministic_object_ids(local_ids, config: GeneratorConfig, salt: str) -> dict:
+    """Deterministic replacement for `ObjectId()` at persistence time.
+
+    `ObjectId()` embeds a wall-clock timestamp plus `os.urandom` bytes, so two
+    `generate()` calls at the same seed would otherwise diverge here even
+    after every upstream document already matched byte-for-byte -- this is
+    the second half of defect #6, not merely the `now` reads. Bytes are drawn
+    from an RNG stream keyed on `(config.seed, salt)`, independent of every
+    RNG used upstream in the generation path, so persistence id assignment
+    can never perturb any distribution the generator already produced.
+    """
+    rng = random.Random(f"object-id:{config.seed}:{salt}")
+    return {local_id: ObjectId(rng.randbytes(12)) for local_id in local_ids}
+
+
 def _prepare_persistence_documents(
-    identities, profiles, jobposts, proposals, engagements, outcomes, reviews, payments
+    identities,
+    profiles,
+    jobposts,
+    proposals,
+    engagements,
+    outcomes,
+    reviews,
+    payments,
+    config: GeneratorConfig,
 ):
-    identity_ids = {identity["_localId"]: ObjectId() for identity in identities}
-    profile_ids = {profile["_localId"]: ObjectId() for profile in profiles}
-    jobpost_ids = {jobpost["_localId"]: ObjectId() for jobpost in jobposts}
-    proposal_ids = {proposal["_localId"]: ObjectId() for proposal in proposals}
-    engagement_ids = {engagement["_localId"]: ObjectId() for engagement in engagements}
+    identity_ids = _deterministic_object_ids([i["_localId"] for i in identities], config, "identities")
+    profile_ids = _deterministic_object_ids([p["_localId"] for p in profiles], config, "profiles")
+    jobpost_ids = _deterministic_object_ids([j["_localId"] for j in jobposts], config, "jobposts")
+    proposal_ids = _deterministic_object_ids([p["_localId"] for p in proposals], config, "proposals")
+    engagement_ids = _deterministic_object_ids([e["_localId"] for e in engagements], config, "engagements")
+    outcome_ids = _deterministic_object_ids([o["_localId"] for o in outcomes], config, "outcomes")
+    review_ids = _deterministic_object_ids([r["_localId"] for r in reviews], config, "reviews")
+    payment_ids = _deterministic_object_ids([p["_localId"] for p in payments], config, "payments")
 
     documents = {collection: [] for collection in PERSISTENCE_VALIDATION_COLLECTIONS}
     documents["identities"] = [
@@ -392,6 +422,7 @@ def _prepare_persistence_documents(
     ]
     documents["outcomes"] = [
         {
+            "_id": outcome_ids[outcome["_localId"]],
             "engagementId": engagement_ids.get(outcome.get("engagementLocalId")),
             "subjectProfileId": profile_ids.get(outcome.get("subjectProfileLocalId")),
             "counterpartyProfileId": profile_ids.get(outcome.get("counterpartyProfileLocalId")),
@@ -412,6 +443,7 @@ def _prepare_persistence_documents(
     ]
     documents["reviews"] = [
         {
+            "_id": review_ids[review["_localId"]],
             "engagementId": engagement_ids.get(review.get("engagementLocalId")),
             "authorProfileId": profile_ids.get(review.get("authorProfileLocalId")),
             "subjectProfileId": profile_ids.get(review.get("subjectProfileLocalId")),
@@ -426,6 +458,7 @@ def _prepare_persistence_documents(
     ]
     documents["payments"] = [
         {
+            "_id": payment_ids[payment["_localId"]],
             "freelancerProfileId": profile_ids.get(payment.get("freelancerProfileLocalId")),
             "engagementId": engagement_ids.get(payment.get("engagementLocalId")),
             "amount": payment.get("amount"),
@@ -438,10 +471,37 @@ def _prepare_persistence_documents(
     return documents, profile_ids, jobpost_ids, engagement_ids
 
 
-def _resolve_ids(db, identities, profiles, jobposts, proposals, engagements, outcomes, reviews, payments):
-    """Resolve every id, validate the complete write set, then insert in dependency order."""
+def _resolve_ids(
+    db,
+    identities,
+    profiles,
+    jobposts,
+    proposals,
+    engagements,
+    outcomes,
+    reviews,
+    payments,
+    *,
+    config: GeneratorConfig | None = None,
+):
+    """Resolve every id, validate the complete write set, then insert in dependency order.
+
+    `config` is keyword-only and defaults to a fresh `GeneratorConfig()` so
+    existing callers that only care about mapping correctness (not
+    reproducibility of the `_id`s themselves) are unaffected; callers that
+    need `generate(seed) == generate(seed)` including `_id`s must pass the
+    same `config` used for generation.
+    """
     documents, profile_ids, jobpost_ids, engagement_ids = _prepare_persistence_documents(
-        identities, profiles, jobposts, proposals, engagements, outcomes, reviews, payments
+        identities,
+        profiles,
+        jobposts,
+        proposals,
+        engagements,
+        outcomes,
+        reviews,
+        payments,
+        config or GeneratorConfig(),
     )
     validate_persistence_documents(documents)
     for collection in COLLECTIONS:
@@ -454,46 +514,35 @@ def _resolve_ids(db, identities, profiles, jobposts, proposals, engagements, out
     return profile_ids, jobpost_ids, engagement_ids
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Seed Canary's synthetic marketplace")
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--num-profiles", type=int, default=500)
-    parser.add_argument(
-        "--engagement-fanout-multiplier",
-        type=float,
-        default=8.0,
-        help=(
-            "Multiply JobPosts per client to raise seeded Engagement density. "
-            "8.0 measured: at 3.0 only 19.9%% of profiles had enough history for a temporal "
-            "split and the label was degenerate (one value on 54.9%%); at 8.0 it is 68.9%% "
-            "and Gate 4b passes."
-        ),
-    )
-    parser.add_argument("--wipe", action="store_true", help="Drop existing seeded collections first")
-    parser.add_argument("--manifest-out", default="ground-truth-manifest.json")
-    parser.add_argument("--id-map-out", default="profile-id-map.json")
-    args = parser.parse_args()
+def generate(config: GeneratorConfig, *, now: datetime | None = None) -> dict:
+    """Run the full generation path in memory -- no database, no wall clock.
 
-    config = GeneratorConfig(
-        seed=args.seed,
-        num_profiles=args.num_profiles,
-        engagement_fanout_multiplier=args.engagement_fanout_multiplier,
-    )
-    db = get_database()
+    This is the seam defect #6 was missing: `main()` used to inline every one
+    of these calls, so there was no single unit that could be invoked twice
+    and diffed to prove `generate(seed) == generate(seed)`. `now` is resolved
+    exactly once, here, and threaded to every downstream call; nothing below
+    this point reads `datetime.utcnow()`.
+    """
+    now = resolve_now(config, now)
 
-    if args.wipe:
-        for name in COLLECTIONS:
-            db[name].delete_many({})
-
-    identities, profiles = generate_identities_and_profiles(config)
-    jobposts = generate_jobposts(config, profiles)
-    proposals = generate_proposals(config, profiles, jobposts)
-    engagements = generate_engagements(config, profiles, jobposts, proposals)
-    now = datetime.utcnow()
+    identities, profiles = generate_identities_and_profiles(config, now=now)
+    jobposts = generate_jobposts(config, profiles, now=now)
+    proposals = generate_proposals(config, profiles, jobposts, now=now)
+    engagements = generate_engagements(config, profiles, jobposts, proposals, now=now)
+    rings = build_collusion_rings(config, profiles)
+    # Ring membership alone is a label, not a behaviour: without forcing real
+    # ring-internal jobpost -> proposal -> engagement activity, ring-mates only
+    # ever transact if the ordinary matching above pairs them by chance (it
+    # measured at ~11% of planted colluders). These are merged in before
+    # conduct/timelines/outcomes/reviews are computed so they flow through the
+    # exact same downstream pipeline as organic engagements.
+    ring_jobposts, ring_proposals, ring_engagements = build_ring_engagements(config, profiles, rings, now=now)
+    jobposts = jobposts + ring_jobposts
+    proposals = proposals + ring_proposals
+    engagements = engagements + ring_engagements
     conduct = draw_relative_conduct(config, profiles, engagements, now=now)
     timelines = build_timelines(config, engagements, conduct, now=now)
     outcomes = generate_outcomes(config, profiles, engagements, conduct=conduct, timelines=timelines, now=now)
-    rings = build_collusion_rings(config, profiles)
     reviews = generate_reviews(config, profiles, engagements, outcomes, rings, timelines=timelines, now=now)
     payments = generate_payments(config, profiles, engagements, conduct, timelines, now=now)
 
@@ -520,11 +569,97 @@ def main():
         rings=rings,
         manifest=manifest,
     )
+
+    return {
+        "now": now,
+        "identities": identities,
+        "profiles": profiles,
+        "jobposts": jobposts,
+        "proposals": proposals,
+        "engagements": engagements,
+        "rings": rings,
+        "conduct": conduct,
+        "timelines": timelines,
+        "outcomes": outcomes,
+        "reviews": reviews,
+        "payments": payments,
+        "manifest": manifest,
+        "report": report,
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Seed Canary's synthetic marketplace")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--num-profiles", type=int, default=500)
+    parser.add_argument(
+        "--engagement-fanout-multiplier",
+        type=float,
+        default=8.0,
+        help=(
+            "Multiply JobPosts per client to raise seeded Engagement density. "
+            "8.0 measured: at 3.0 only 19.9%% of profiles had enough history for a temporal "
+            "split and the label was degenerate (one value on 54.9%%); at 8.0 it is 68.9%% "
+            "and Gate 4b passes."
+        ),
+    )
+    parser.add_argument("--wipe", action="store_true", help="Drop existing seeded collections first")
+    parser.add_argument("--manifest-out", default="ground-truth-manifest.json")
+    parser.add_argument("--id-map-out", default="profile-id-map.json")
+    parser.add_argument(
+        "--now",
+        default=None,
+        help=(
+            "ISO-8601 instant to use as the generation run's 'now', overriding the "
+            "seed-derived default. Pin this to make two separate `run.py` invocations "
+            "at the same --seed produce byte-identical output, including _id."
+        ),
+    )
+    args = parser.parse_args()
+
+    config = GeneratorConfig(
+        seed=args.seed,
+        num_profiles=args.num_profiles,
+        engagement_fanout_multiplier=args.engagement_fanout_multiplier,
+    )
+    db = get_database()
+
+    if args.wipe:
+        for name in COLLECTIONS:
+            db[name].delete_many({})
+
+    pinned_now = datetime.fromisoformat(args.now) if args.now else None
+    dataset = generate(config, now=pinned_now)
+    identities = dataset["identities"]
+    profiles = dataset["profiles"]
+    jobposts = dataset["jobposts"]
+    proposals = dataset["proposals"]
+    engagements = dataset["engagements"]
+    rings = dataset["rings"]
+    outcomes = dataset["outcomes"]
+    reviews = dataset["reviews"]
+    payments = dataset["payments"]
+    manifest = dataset["manifest"]
+    report = dataset["report"]
+
     if any(v > 0 for v in report["referentialIntegrity"].values()):
         print("Self-validation FAILED — aborting seed:", json.dumps(report, indent=2), file=sys.stderr)
         sys.exit(1)
     if report["ringSignatureCheck"]["ringsWithoutReciprocity"] > 0:
         print("Ring signature check FAILED — aborting seed:", json.dumps(report, indent=2), file=sys.stderr)
+        sys.exit(1)
+    # ringSignatureCheck above is purely structural (the graph nx object has
+    # reciprocal edges) -- it would have passed on the pre-fix generator too,
+    # since collusion_rings.py always built a fully-connected graph even
+    # though nothing consumed it. This is the behavioural check: rings must
+    # have actually left a detectable fingerprint in the emitted reviews.
+    ring_detectability = judge_ring_detectability(rings, reviews)
+    if ring_detectability.status is GateStatus.FAIL:
+        print(
+            "Ring detectability gate FAILED — aborting seed:",
+            json.dumps(ring_detectability.failures, indent=2),
+            file=sys.stderr,
+        )
         sys.exit(1)
     reconciliation = report["manifestReconciliation"]
     if not (reconciliation["profileCountMatches"] and reconciliation["ringCountMatches"]):
@@ -534,14 +669,14 @@ def main():
         sys.exit(1)
 
     profile_local_to_real, _, _ = _resolve_ids(
-        db, identities, profiles, jobposts, proposals, engagements, outcomes, reviews, payments
+        db, identities, profiles, jobposts, proposals, engagements, outcomes, reviews, payments, config=config
     )
 
     with open(args.manifest_out, "w") as f:
         json.dump(manifest, f, indent=2, default=str)
     write_id_map(args.id_map_out, profile_local_to_real)
 
-    print(f"Seeded at {datetime.utcnow().isoformat()}Z")
+    print(f"Seeded at {dataset['now'].isoformat()}Z")
     print(json.dumps(report["counts"], indent=2))
     print(f"Ground-truth manifest written to {args.manifest_out}")
     print(f"Profile id-map written to {args.id_map_out}")

@@ -112,6 +112,71 @@ def test_sabotage_population_is_non_vacuous_and_ratings_are_diverse_across_seeds
     assert min(sabotage_counts) >= 30
 
 
+def test_ring_internal_engagements_deterministically_get_reciprocal_planted_reviews():
+    """Ring-internal engagements must not depend on the ordinary review-sampling
+    dice (85% skip-entirely, 90% skip-per-direction) to produce their planted
+    fingerprint -- those gates model organic review non-response and would
+    silently erase most of the collusion signal even after ring members are
+    forced to transact. Every ring-internal engagement with good, observed
+    conduct must produce both reciprocal 5-star isPlantedCollusion reviews,
+    every time, for every seed."""
+    for seed in range(5):
+        created_at = datetime.utcnow() - timedelta(days=60)
+        engagements = []
+        outcomes = []
+        for i in range(20):
+            engagement_id = f"engagement-{i}"
+            engagements.append(
+                {
+                    "_localId": engagement_id,
+                    "freelancerProfileLocalId": f"freelancer-{i}",
+                    "clientProfileLocalId": f"client-{i}",
+                    "status": "concluded",
+                    "createdAt": created_at,
+                }
+            )
+            for role, subject_id, counterparty_id in (
+                ("freelancer", f"freelancer-{i}", f"client-{i}"),
+                ("client", f"client-{i}", f"freelancer-{i}"),
+            ):
+                outcomes.append(
+                    {
+                        "engagementLocalId": engagement_id,
+                        "subjectProfileLocalId": subject_id,
+                        "counterpartyProfileLocalId": counterparty_id,
+                        "subjectRole": role,
+                        "observed": True,
+                        "ghosted": False,
+                        "paidInFull": True,
+                        "daysLate": 0,
+                        "scopeCreepOccurred": False,
+                    }
+                )
+        rings = [
+            {
+                "_localId": f"ring-{i}",
+                "memberLocalIds": [f"freelancer-{i}", f"client-{i}"],
+            }
+            for i in range(20)
+        ]
+
+        reviews = generate_reviews(
+            GeneratorConfig(seed=seed),
+            [],
+            engagements,
+            outcomes,
+            rings,
+            timelines={e["_localId"]: {"recordedAt": created_at + timedelta(days=20)} for e in engagements},
+            now=datetime.utcnow(),
+        )
+
+        planted = [r for r in reviews if r["isPlantedCollusion"]]
+        assert len(planted) == 40, f"seed {seed}: expected 40 planted reviews, got {len(planted)}"
+        assert all(r["rating"] == 5 for r in planted)
+        fingerprinted_engagements = {r["engagementLocalId"] for r in planted}
+        assert fingerprinted_engagements == {e["_localId"] for e in engagements}
+
+
 def test_review_ratings_use_the_reviewed_subjects_outcome(monkeypatch):
     created_at = datetime.utcnow() - timedelta(days=60)
     engagement = {

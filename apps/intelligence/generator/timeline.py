@@ -1,6 +1,7 @@
 import random
 from datetime import datetime, timedelta
 
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 
 MAX_PAYMENT_DELAY_DAYS = 7
@@ -31,7 +32,7 @@ def build_timelines(
     date and `paidInFull` only says whether a payment occurred. This module is
     the sole place those facts become timestamps.
     """
-    now = now or datetime.utcnow()
+    now = resolve_now(config, now)
     payment_rng = random.Random(config.seed + 11)
     conclusion_rng = random.Random(config.seed + 12)
     conduct_by_engagement_and_role = {

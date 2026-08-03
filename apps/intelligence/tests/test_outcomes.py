@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from generator import outcomes as outcomes_module
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 from generator.engagements import generate_engagements
 from generator.identities_profiles import generate_identities_and_profiles
@@ -99,13 +100,19 @@ def _eligible_conduct_values(outcomes: list[dict], role: str, field: str) -> lis
 
 
 def _concluded_engagement() -> dict:
-    due_at = datetime.utcnow() - timedelta(days=30)
+    # Anchored to the same seed=42 default `now` that the bare
+    # `generate_outcomes(GeneratorConfig(seed=42), ...)` calls below resolve
+    # internally -- a wall-clock anchor here would drift out of sync with the
+    # generator's synthetic "now" and make build_timelines see a due date in
+    # what it considers its own future.
+    now = resolve_now(GeneratorConfig(seed=42))
+    due_at = now - timedelta(days=30)
     return {
         "_localId": "engagement-1",
         "status": "concluded",
         "freelancerProfileLocalId": "freelancer-1",
         "clientProfileLocalId": "client-1",
-        "createdAt": datetime.utcnow() - timedelta(days=60),
+        "createdAt": now - timedelta(days=60),
         "agreedTerms": {"dueAt": due_at, "revisionsIncluded": 2},
     }
 

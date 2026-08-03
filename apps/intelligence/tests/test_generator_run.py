@@ -128,6 +128,7 @@ def _resolve_fixture():
     ]
     outcomes = [
         {
+            "_localId": "outcome-engagement-1-profile-freelancer",
             "engagementLocalId": "engagement-1",
             "subjectProfileLocalId": "profile-freelancer",
             "counterpartyProfileLocalId": "profile-client",
@@ -144,6 +145,7 @@ def _resolve_fixture():
             "recordedAt": concluded_at,
         },
         {
+            "_localId": "outcome-engagement-1-profile-client",
             "engagementLocalId": "engagement-1",
             "subjectProfileLocalId": "profile-client",
             "counterpartyProfileLocalId": "profile-freelancer",

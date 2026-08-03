@@ -1,6 +1,7 @@
 import random
 from datetime import datetime, timedelta
 
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 from generator.timeline import build_timelines
 
@@ -86,7 +87,7 @@ def draw_relative_conduct(
     revisions_rng = random.Random(config.seed + 9)
     conclusion_rng = random.Random(config.seed + 10)
     profiles_by_id = {p["_localId"]: p for p in profiles}
-    now = now or datetime.utcnow()
+    now = resolve_now(config, now)
     conduct = []
 
     for engagement in engagements:
@@ -160,7 +161,7 @@ def generate_outcomes(
     now: datetime | None = None,
 ) -> list[dict]:
     """Materialize Outcome rows from relative conduct and the shared timeline."""
-    now = now or datetime.utcnow()
+    now = resolve_now(config, now)
     conduct = (
         conduct if conduct is not None else draw_relative_conduct(config, profiles, engagements, now=now)
     )

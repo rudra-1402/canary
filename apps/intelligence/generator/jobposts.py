@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 from faker import Faker
 
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 
 RED_FLAG_PHRASES = {
@@ -39,12 +40,14 @@ def _jobpost_created_at(rng: random.Random, client: dict, now: datetime) -> date
     return earliest + timedelta(days=rng.randint(0, span_days))
 
 
-def generate_jobposts(config: GeneratorConfig, profiles: list[dict]) -> list[dict]:
+def generate_jobposts(
+    config: GeneratorConfig, profiles: list[dict], *, now: datetime | None = None
+) -> list[dict]:
     rng = random.Random(config.seed + 1)
     fake = Faker()
     Faker.seed(config.seed + 1)
 
-    now = datetime.utcnow()
+    now = resolve_now(config, now)
 
     clients = [p for p in profiles if p["role"] == "client"]
     jobposts = []

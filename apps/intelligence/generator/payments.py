@@ -1,6 +1,7 @@
 import random
 from datetime import datetime
 
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 from generator.timeline import build_timelines
 
@@ -15,7 +16,7 @@ def generate_payments(
     now: datetime | None = None,
 ) -> list[dict]:
     rng = random.Random(config.seed + 7)
-    now = now or datetime.utcnow()
+    now = resolve_now(config, now)
     timelines = timelines if timelines is not None else build_timelines(config, engagements, conduct, now=now)
     outcomes_by_engagement_and_subject = {
         (outcome["engagementLocalId"], outcome["subjectProfileLocalId"]): outcome for outcome in conduct

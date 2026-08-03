@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from faker import Faker
 
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 
 RATING_WEIGHTS = {5: 0.55, 4: 0.25, 3: 0.1, 2: 0.05, 1: 0.05}
@@ -86,7 +87,7 @@ def generate_reviews(
     timing_rng = random.Random(config.seed + 13)
     fake = Faker()
     Faker.seed(config.seed + 6)
-    now = now or datetime.utcnow()
+    now = resolve_now(config, now)
     # Older direct callers already pass resolved Outcomes. Their recordedAt is
     # the timeline's conclusion event; run.py passes the shared timeline
     # explicitly so review timing has one source of truth in the seed path.
@@ -148,20 +149,30 @@ def generate_reviews(
     for engagement in engagements:
         freelancer_id = engagement["freelancerProfileLocalId"]
         client_id = engagement["clientProfileLocalId"]
-        if (
-            engagement["_localId"],
-            freelancer_id,
-        ) not in outcomes_by_engagement_and_subject or rng.random() > 0.85:
-            continue
-
         both_ring_members = freelancer_id in ring_member_ids and client_id in ring_member_ids
+
+        if (engagement["_localId"], freelancer_id) not in outcomes_by_engagement_and_subject:
+            continue
+        # The 0.85 skip below models ordinary organic non-response -- a real
+        # marketplace where most engagements never get reviewed at all. A
+        # ring-internal engagement is a planted transaction whose entire
+        # purpose is to leave a reciprocal collusion fingerprint, so it must
+        # not be subject to the same non-response modelling or the plant
+        # would depend on luck rather than the mechanism meant to produce it.
+        if not both_ring_members and rng.random() > 0.85:
+            continue
 
         for author_id, subject_id in ((freelancer_id, client_id), (client_id, freelancer_id)):
             if (
                 review_counts.get(engagement["_localId"], 0) >= 2
-                or (engagement["_localId"], author_id) in review_authors
-                or rng.random() > 0.9
+                or (
+                    engagement["_localId"],
+                    author_id,
+                )
+                in review_authors
             ):
+                continue
+            if not both_ring_members and rng.random() > 0.9:
                 continue
 
             outcome = outcomes_by_engagement_and_subject.get((engagement["_localId"], subject_id))

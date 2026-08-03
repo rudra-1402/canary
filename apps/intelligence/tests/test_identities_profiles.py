@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytest
 
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 from generator.identities_profiles import (
     SEED_DEV_PASSWORD_HASH,
@@ -59,7 +60,7 @@ def test_verification_status_correlates_with_bad_actor_archetype():
 def test_profiles_carry_a_trait_trajectory_and_join_date():
     config = GeneratorConfig(seed=42, num_profiles=100, timeline_months=18)
     _, profiles = generate_identities_and_profiles(config)
-    now = datetime.utcnow()
+    now = resolve_now(config)
     for profile in profiles:
         assert len(profile["_traitTrajectory"]) == 19
         assert isinstance(profile["createdAt"], datetime)
@@ -69,7 +70,7 @@ def test_profiles_carry_a_trait_trajectory_and_join_date():
 def test_cold_start_profiles_joined_recently():
     config = GeneratorConfig(seed=42, num_profiles=500, timeline_months=18)
     _, profiles = generate_identities_and_profiles(config)
-    now = datetime.utcnow()
+    now = resolve_now(config)
     cold_start = [p for p in profiles if p["trueArchetype"] == "cold-start"]
     assert cold_start, "expected at least one cold-start profile in this seed"
     for profile in cold_start:
@@ -81,7 +82,7 @@ def test_identities_carry_a_created_at_matching_their_profile():
     config = GeneratorConfig(seed=42, num_profiles=100, timeline_months=18)
     identities, profiles = generate_identities_and_profiles(config)
     identities_by_local_id = {i["_localId"]: i for i in identities}
-    now = datetime.utcnow()
+    now = resolve_now(config)
     for profile in profiles:
         identity = identities_by_local_id[profile["identityLocalId"]]
         assert isinstance(identity["createdAt"], datetime)
