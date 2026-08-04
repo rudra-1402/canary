@@ -3,6 +3,7 @@ import Outcome from '../models/Outcome.js';
 import Review from '../models/Review.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
 import { CreateOutcomeReviewResponseSchema, OutcomeSchema } from '@canary/shared';
+import { triggerRescoreOnConclusion } from './rescoreTrigger.js';
 
 function sameId(left, right) {
   return String(left) === String(right);
@@ -211,19 +212,22 @@ export async function createOutcomeReview(input, activeProfileId) {
     hasBothPartyRows(outcomes, 'subjectProfileId', engagement) &&
     hasBothPartyRows(reviews, 'authorProfileId', engagement);
   if (complete) {
-    const visibleAt = new Date();
-    await Review.updateMany(
-      {
-        engagementId: engagement._id,
-        authorProfileId: { $in: [engagement.freelancerProfileId, engagement.clientProfileId] },
-        visibleAt: null,
-      },
-      { $set: { visibleAt } },
-    );
-    await Engagement.updateOne(
+    const transition = await Engagement.updateOne(
       { _id: engagement._id, status: 'active' },
       { $set: { status: 'concluded' } },
     );
+    if (transition.modifiedCount === 1) {
+      const visibleAt = new Date();
+      await Review.updateMany(
+        {
+          engagementId: engagement._id,
+          authorProfileId: { $in: [engagement.freelancerProfileId, engagement.clientProfileId] },
+          visibleAt: null,
+        },
+        { $set: { visibleAt } },
+      );
+      triggerRescoreOnConclusion(engagement.freelancerProfileId, engagement.clientProfileId);
+    }
   }
 
   return CreateOutcomeReviewResponseSchema.parse({

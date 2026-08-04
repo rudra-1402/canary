@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { createApp } from '../../src/app.js';
@@ -6,6 +6,10 @@ import Engagement from '../../src/models/Engagement.js';
 import Outcome from '../../src/models/Outcome.js';
 import Review from '../../src/models/Review.js';
 import { clearCollections, startMemoryDb, stopMemoryDb } from '../helpers/memoryDb.js';
+
+const triggerRescoreOnConclusion = vi.hoisted(() => vi.fn());
+
+vi.mock('../../src/outcomeReview/rescoreTrigger.js', () => ({ triggerRescoreOnConclusion }));
 
 let app;
 
@@ -72,7 +76,10 @@ beforeAll(async () => {
   app = createApp();
 }, 60000);
 afterAll(stopMemoryDb);
-afterEach(clearCollections);
+afterEach(async () => {
+  triggerRescoreOnConclusion.mockClear();
+  await clearCollections();
+});
 
 describe('POST /api/outcome-reviews', () => {
   it('keeps the Engagement active after first submission, then concludes and releases both Reviews', async () => {
@@ -99,6 +106,66 @@ describe('POST /api/outcome-reviews', () => {
     const reviews = await Review.find({ engagementId: engagement._id });
     expect(reviews).toHaveLength(2);
     expect(reviews.every((review) => review.visibleAt instanceof Date)).toBe(true);
+    expect(triggerRescoreOnConclusion).toHaveBeenCalledTimes(1);
+    expect(triggerRescoreOnConclusion.mock.calls[0].map(String)).toEqual([
+      freelancer.profileId,
+      client.profileId,
+    ]);
+  });
+
+  it('concludes once and triggers one rescore when both final submissions race', async () => {
+    const freelancer = await activeProfileAgent('freelancer');
+    const client = await activeProfileAgent('client');
+    const engagement = await activeEngagement(freelancer.profileId, client.profileId);
+    await Outcome.create({
+      engagementId: engagement._id,
+      subjectProfileId: client.profileId,
+      counterpartyProfileId: freelancer.profileId,
+      subjectRole: 'client',
+      observed: true,
+      deliveredAt: null,
+      daysLate: null,
+      paidInFull: true,
+      revisionsRequested: 0,
+      scopeCreepOccurred: false,
+      ghosted: false,
+      endedAs: 'completed',
+      labelSource: 'counterparty-reported',
+    });
+    await Outcome.create({
+      engagementId: engagement._id,
+      subjectProfileId: freelancer.profileId,
+      counterpartyProfileId: client.profileId,
+      subjectRole: 'freelancer',
+      observed: true,
+      deliveredAt: new Date('2026-01-30T00:00:00.000Z'),
+      daysLate: -2,
+      paidInFull: null,
+      revisionsRequested: null,
+      scopeCreepOccurred: null,
+      ghosted: false,
+      endedAs: 'completed',
+      labelSource: 'counterparty-reported',
+    });
+
+    const [freelancerResult, clientResult] = await Promise.all([
+      freelancer.agent
+        .post('/api/outcome-reviews')
+        .set('x-csrf-token', freelancer.csrf)
+        .send(bodyFor('freelancer', engagement._id)),
+      client.agent
+        .post('/api/outcome-reviews')
+        .set('x-csrf-token', client.csrf)
+        .send(bodyFor('client', engagement._id)),
+    ]);
+
+    expect([freelancerResult.status, clientResult.status]).toEqual([201, 201]);
+    expect((await Engagement.findById(engagement._id)).status).toBe('concluded');
+    expect(triggerRescoreOnConclusion).toHaveBeenCalledTimes(1);
+    expect(triggerRescoreOnConclusion.mock.calls[0].map(String)).toEqual([
+      freelancer.profileId,
+      client.profileId,
+    ]);
   });
 
   it('exposes outcome evidence only after both parties conclude the Engagement', async () => {
