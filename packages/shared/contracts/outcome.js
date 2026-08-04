@@ -3,7 +3,7 @@ import { z } from 'zod';
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character hex ObjectId');
 const subjectRole = z.enum(['freelancer', 'client']);
 const endedAs = z.enum(['completed', 'cancelled', 'ghosted']);
-const labelSource = z.enum(['synthetic', 'heuristic', 'self-reported']);
+const labelSource = z.enum(['synthetic', 'heuristic', 'self-reported', 'counterparty-reported']);
 
 export const OutcomeSchema = z
   .object({

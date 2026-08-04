@@ -36,7 +36,7 @@ function outcomeFor(engagementDoc, overrides = {}) {
     scopeCreepOccurred: null,
     ghosted: false,
     endedAs: 'completed',
-    labelSource: 'self-reported',
+    labelSource: 'counterparty-reported',
     ...overrides,
   };
 }
@@ -79,6 +79,7 @@ describe('Outcome and Review write service', () => {
 
     await expect(createOutcome(outcomeFor(engagementDoc))).resolves.toMatchObject({
       subjectRole: 'freelancer',
+      labelSource: 'counterparty-reported',
     });
     await expect(createOutcome(clientOutcomeFor(engagementDoc))).resolves.toMatchObject({
       subjectRole: 'client',

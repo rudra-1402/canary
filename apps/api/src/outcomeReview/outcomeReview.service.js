@@ -127,12 +127,14 @@ export async function createOutcomeReview(input, activeProfileId) {
     throw new BadRequestError('Outcome and Review submission requires an active Engagement');
   }
 
-  const subjectRole = partyRole(engagement, activeProfileId);
-  if (!subjectRole) {
+  const activeProfileRole = partyRole(engagement, activeProfileId);
+  if (!activeProfileRole) {
     throw new ForbiddenError('Only an Engagement party may submit an Outcome and Review');
   }
   const counterpartyProfileId =
-    subjectRole === 'freelancer' ? engagement.clientProfileId : engagement.freelancerProfileId;
+    activeProfileRole === 'freelancer'
+      ? engagement.clientProfileId
+      : engagement.freelancerProfileId;
   if (sameId(activeProfileId, counterpartyProfileId)) {
     throw new BadRequestError(
       'Review authorProfileId and subjectProfileId must be different parties',
@@ -141,11 +143,12 @@ export async function createOutcomeReview(input, activeProfileId) {
 
   const outcomeInput = OutcomeSchema.parse({
     engagementId: String(engagement._id),
-    subjectProfileId: String(activeProfileId),
-    counterpartyProfileId: String(counterpartyProfileId),
-    subjectRole,
+    subjectProfileId: String(counterpartyProfileId),
+    counterpartyProfileId: String(activeProfileId),
+    subjectRole: activeProfileRole === 'freelancer' ? 'client' : 'freelancer',
     ...input.outcome,
-    labelSource: 'self-reported',
+    observed: true,
+    labelSource: 'counterparty-reported',
   });
 
   const existingReview = await Review.exists({
@@ -158,7 +161,7 @@ export async function createOutcomeReview(input, activeProfileId) {
 
   let outcome = await Outcome.findOne({
     engagementId: engagement._id,
-    subjectProfileId: activeProfileId,
+    subjectProfileId: counterpartyProfileId,
   });
   if (!outcome) {
     try {
@@ -167,7 +170,7 @@ export async function createOutcomeReview(input, activeProfileId) {
       if (error?.code !== 11000) throw error;
       outcome = await Outcome.findOne({
         engagementId: engagement._id,
-        subjectProfileId: activeProfileId,
+        subjectProfileId: counterpartyProfileId,
       });
       if (!outcome) throw error;
     }

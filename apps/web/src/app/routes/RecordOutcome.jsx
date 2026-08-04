@@ -43,15 +43,13 @@ function buildPayload(engagementId, role, form) {
   const outcome = {
     endedAs: form.endedAs,
     ghosted: form.ghosted,
-    // Required by the schema; no UI question of its own — a ghosted party was
-    // never observed completing conduct, so the two are the same fact here.
-    observed: !form.ghosted,
+    observed: true,
   };
 
   if (!form.ghosted) {
-    if (role === 'freelancer') {
+    if (role === 'client') {
       if (form.daysLate !== '') outcome.daysLate = Number(form.daysLate);
-    } else if (role === 'client') {
+    } else if (role === 'freelancer') {
       if (form.revisionsRequested !== '') {
         outcome.revisionsRequested = Number(form.revisionsRequested);
       }
@@ -298,10 +296,10 @@ export default function RecordOutcome() {
           </label>
         </div>
 
-        {!form.ghosted && role === 'freelancer' && (
+        {!form.ghosted && role === 'client' && (
           <div>
             <label htmlFor="daysLate" className="block text-sm font-medium text-ink">
-              Days late (leave blank if delivered on time)
+              Days late for the other party (leave blank if delivered on time)
             </label>
             <input
               id="daysLate"
@@ -315,11 +313,11 @@ export default function RecordOutcome() {
           </div>
         )}
 
-        {!form.ghosted && role === 'client' && (
+        {!form.ghosted && role === 'freelancer' && (
           <>
             <div>
               <label htmlFor="paidInFull" className="block text-sm font-medium text-ink">
-                Paid in full?
+                Paid in full by the other party?
               </label>
               <select
                 id="paidInFull"
@@ -336,7 +334,7 @@ export default function RecordOutcome() {
             </div>
             <div>
               <label htmlFor="revisionsRequested" className="block text-sm font-medium text-ink">
-                Revisions requested
+                Revisions requested by the other party
               </label>
               <input
                 id="revisionsRequested"
@@ -350,7 +348,7 @@ export default function RecordOutcome() {
             </div>
             <div>
               <label htmlFor="scopeCreepOccurred" className="block text-sm font-medium text-ink">
-                Scope creep occurred?
+                Scope creep caused by the other party?
               </label>
               <select
                 id="scopeCreepOccurred"

@@ -48,7 +48,9 @@ function mockFetch({ engagements, profile, postHandler }) {
     if (href.includes(`/profiles/${COUNTERPARTY_ID}`)) return jsonResponse(profile);
     if (href.endsWith('/auth/csrf-token')) return jsonResponse({ csrfToken: 'test-token' });
     if (href.includes('/outcome-reviews') && init.method === 'POST') {
-      return postHandler ? postHandler() : Promise.reject(new Error('no postHandler configured'));
+      return postHandler
+        ? postHandler(init)
+        : Promise.reject(new Error('no postHandler configured'));
     }
     throw new Error(`Unhandled fetch: ${href} ${init.method || 'GET'}`);
   });
@@ -114,9 +116,20 @@ describe('RecordOutcome', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows freelancer-side conduct fields, not client-side ones, for a freelancer viewer', async () => {
+  it('shows client-side conduct fields, not freelancer-side ones, for a freelancer viewer', async () => {
     mockFetch({ engagements: [activeEngagement()], profile: PROFILE });
     renderScreen('freelancer');
+
+    await screen.findAllByText(/Harborview Media/);
+    expect(screen.queryByLabelText(/Days late/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Paid in full/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Revisions requested/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Scope creep/i)).toBeInTheDocument();
+  });
+
+  it('shows freelancer-side conduct fields, not client-side ones, for a client viewer', async () => {
+    mockFetch({ engagements: [activeEngagement()], profile: PROFILE });
+    renderScreen('client');
 
     await screen.findAllByText(/Harborview Media/);
     expect(screen.getByLabelText(/Days late/i)).toBeInTheDocument();
@@ -125,15 +138,49 @@ describe('RecordOutcome', () => {
     expect(screen.queryByLabelText(/Scope creep/i)).not.toBeInTheDocument();
   });
 
-  it('shows client-side conduct fields, not freelancer-side ones, for a client viewer', async () => {
-    mockFetch({ engagements: [activeEngagement()], profile: PROFILE });
-    renderScreen('client');
+  it('submits counterparty conduct for both roles and keeps a ghosting report observed', async () => {
+    const user = userEvent.setup();
+    const submitted = [];
+    const postHandler = (init) => {
+      submitted.push(JSON.parse(init.body));
+      return jsonResponse(
+        { outcomeId: OUTCOME_ID, reviewId: REVIEW_ID, engagementStatus: 'active' },
+        201,
+      );
+    };
 
+    mockFetch({ engagements: [activeEngagement()], profile: PROFILE, postHandler });
+    const first = renderScreen('client');
     await screen.findAllByText(/Harborview Media/);
-    expect(screen.getByLabelText(/Paid in full/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Revisions requested/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Scope creep/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Days late/i)).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Days late/i), '3');
+    await user.click(screen.getByRole('button', { name: /Submit outcome/i }));
+    expect(submitted[0].outcome).toMatchObject({ daysLate: 3, observed: true });
+
+    first.unmount();
+    vi.restoreAllMocks();
+    mockFetch({ engagements: [activeEngagement()], profile: PROFILE, postHandler });
+    const second = renderScreen('freelancer');
+    await screen.findAllByText(/Harborview Media/);
+    await user.selectOptions(screen.getByLabelText(/Paid in full/i), 'yes');
+    await user.selectOptions(screen.getByLabelText(/Scope creep/i), 'no');
+    await user.click(screen.getByRole('button', { name: /Submit outcome/i }));
+    expect(submitted[1].outcome).toMatchObject({
+      paidInFull: true,
+      scopeCreepOccurred: false,
+      observed: true,
+    });
+
+    second.unmount();
+    vi.restoreAllMocks();
+    mockFetch({ engagements: [activeEngagement()], profile: PROFILE, postHandler });
+    renderScreen('freelancer');
+    await screen.findAllByText(/Harborview Media/);
+    await user.click(screen.getByLabelText(/The other party stopped responding/i));
+    await user.click(screen.getByRole('button', { name: /Submit outcome/i }));
+    expect(submitted[2].outcome).toMatchObject({
+      ghosted: true,
+      observed: true,
+    });
   });
 
   it('shows the already-concluded state directly when both sides have already submitted', async () => {

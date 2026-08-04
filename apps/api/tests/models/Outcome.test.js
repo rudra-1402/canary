@@ -43,6 +43,11 @@ describe('Outcome schema', () => {
     expect(err.errors.endedAs).toBeDefined();
   });
 
+  it('accepts counterparty-reported label source', () => {
+    const doc = new Outcome(outcome({ labelSource: 'counterparty-reported' }));
+    expect(doc.validateSync()).toBeUndefined();
+  });
+
   it('allows different parties to save Outcomes for the same Engagement', async () => {
     const engagementId = objectId();
     await Outcome.create(outcome({ engagementId, subjectProfileId: objectId() }));

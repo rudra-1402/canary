@@ -36,6 +36,15 @@ describe('Outcome contracts', () => {
     expect(() => OutcomeSchema.parse(outcome({ subjectRole: 'agency' }))).toThrow();
   });
 
+  it('accepts counterparty-reported and synthetic label sources', () => {
+    expect(OutcomeSchema.parse(outcome({ labelSource: 'counterparty-reported' })).labelSource).toBe(
+      'counterparty-reported',
+    );
+    expect(OutcomeSchema.parse(outcome({ labelSource: 'synthetic' })).labelSource).toBe(
+      'synthetic',
+    );
+  });
+
   it('accepts a negative daysLate value for early delivery', () => {
     expect(OutcomeSchema.parse(outcome({ daysLate: -3 })).daysLate).toBe(-3);
   });

@@ -40,7 +40,7 @@ async function activeEngagement(freelancerProfileId, clientProfileId, status = '
 
 function bodyFor(role, engagementId, overrides = {}) {
   const outcome =
-    role === 'freelancer'
+    role === 'client'
       ? {
           observed: true,
           deliveredAt: '2026-01-30T00:00:00.000Z',
@@ -133,8 +133,8 @@ describe('POST /api/outcome-reviews', () => {
     ]);
     expect(freelancerEvidence.body.pagination.total).toBe(1);
     expect(clientEvidence.body.pagination.total).toBe(1);
-    expect(freelancerEvidence.body.data[0].id).toBe(first.body.outcomeId);
-    expect(clientEvidence.body.data[0].id).toBe(second.body.outcomeId);
+    expect(freelancerEvidence.body.data[0].id).toBe(second.body.outcomeId);
+    expect(clientEvidence.body.data[0].id).toBe(first.body.outcomeId);
   });
 
   it('recovers an Outcome-only partial write when the same party resubmits', async () => {
@@ -143,17 +143,17 @@ describe('POST /api/outcome-reviews', () => {
     const engagement = await activeEngagement(freelancer.profileId, client.profileId);
     await Outcome.create({
       engagementId: engagement._id,
-      subjectProfileId: freelancer.profileId,
-      counterpartyProfileId: client.profileId,
-      subjectRole: 'freelancer',
+      subjectProfileId: client.profileId,
+      counterpartyProfileId: freelancer.profileId,
+      subjectRole: 'client',
       observed: true,
-      deliveredAt: new Date('2026-01-30T00:00:00.000Z'),
-      daysLate: -2,
-      paidInFull: null,
-      revisionsRequested: null,
-      scopeCreepOccurred: null,
+      deliveredAt: null,
+      daysLate: null,
+      paidInFull: true,
+      revisionsRequested: 0,
+      scopeCreepOccurred: false,
       endedAs: 'completed',
-      labelSource: 'self-reported',
+      labelSource: 'counterparty-reported',
     });
 
     const res = await freelancer.agent
@@ -163,6 +163,49 @@ describe('POST /api/outcome-reviews', () => {
     expect(res.status).toBe(201);
     expect(await Outcome.countDocuments({ engagementId: engagement._id })).toBe(1);
     expect(await Review.countDocuments({ engagementId: engagement._id })).toBe(1);
+  });
+
+  it('attributes a freelancer ghosting report to the client and forces it observed', async () => {
+    const freelancer = await activeProfileAgent('freelancer');
+    const client = await activeProfileAgent('client');
+    const engagement = await activeEngagement(freelancer.profileId, client.profileId);
+
+    const response = await freelancer.agent
+      .post('/api/outcome-reviews')
+      .set('x-csrf-token', freelancer.csrf)
+      .send({
+        ...bodyFor('freelancer', engagement._id),
+        outcome: {
+          observed: false,
+          deliveredAt: null,
+          daysLate: null,
+          paidInFull: null,
+          revisionsRequested: null,
+          scopeCreepOccurred: null,
+          ghosted: true,
+          endedAs: 'ghosted',
+        },
+      });
+
+    expect(response.status).toBe(201);
+    const outcome = await Outcome.findById(response.body.outcomeId);
+    expect(outcome).toMatchObject({
+      subjectProfileId: expect.objectContaining({ toString: expect.any(Function) }),
+      counterpartyProfileId: expect.objectContaining({ toString: expect.any(Function) }),
+      subjectRole: 'client',
+      ghosted: true,
+      observed: true,
+      labelSource: 'counterparty-reported',
+    });
+    expect(String(outcome.subjectProfileId)).toBe(client.profileId);
+    expect(String(outcome.counterpartyProfileId)).toBe(freelancer.profileId);
+    expect(
+      await Outcome.exists({
+        engagementId: engagement._id,
+        subjectProfileId: freelancer.profileId,
+        ghosted: true,
+      }),
+    ).toBeNull();
   });
 
   it('rejects a non-party, an inactive Engagement, and a completed duplicate submission', async () => {

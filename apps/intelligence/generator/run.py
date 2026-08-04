@@ -182,7 +182,7 @@ def _validate_structural_document(collection, document, index):
         "outcomes": {
             "subjectRole": {"freelancer", "client"},
             "endedAs": {"completed", "cancelled", "ghosted"},
-            "labelSource": {"synthetic", "heuristic", "self-reported"},
+            "labelSource": {"synthetic", "heuristic", "self-reported", "counterparty-reported"},
         },
         "payments": {"importSource": {"manual", "csv", "stripe-test"}},
     }

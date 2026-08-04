@@ -61,7 +61,7 @@ const outcomeSchema = new Schema(
     endedAs: { type: String, enum: ['completed', 'cancelled', 'ghosted'], required: true },
     labelSource: {
       type: String,
-      enum: ['synthetic', 'heuristic', 'self-reported'],
+      enum: ['synthetic', 'heuristic', 'self-reported', 'counterparty-reported'],
       required: true,
     },
     recordedAt: { type: Date, default: Date.now },
