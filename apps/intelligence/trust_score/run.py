@@ -6,6 +6,7 @@ from pathlib import Path
 
 from generator.db import close_client, get_client
 from quality.gates import judge_temporal_label_leakage
+from trust_score.artifact import save_model_artifact
 from trust_score.config import TrustScoreConfig
 from trust_score.evaluate import evaluate_role
 from trust_score.features import compute_features
@@ -155,6 +156,7 @@ def main(argv=None):
     parser.add_argument(
         "--wipe", action="store_true", help="Replace existing TrustScore snapshots (requires --persist)."
     )
+    parser.add_argument("--model-artifact", help="Path to save the trained Trust Score model artifact.")
     parser.add_argument("--manifest", default="ground-truth-manifest.json")
     parser.add_argument("--id-map", default="profile-id-map.json")
     args = parser.parse_args(argv)
@@ -194,7 +196,9 @@ def main(argv=None):
             if not args.persist:
                 return results
 
-        models, _ = train_temporal_models(dataset, config)
+        models, thresholds_by_role = train_temporal_models(dataset, config)
+        if args.model_artifact:
+            save_model_artifact(args.model_artifact, models, thresholds_by_role, config)
         snapshots = score_current_profiles(dataset, models, config, datetime.utcnow())
         if args.persist:
             prepare_output_collections(db, args.wipe)

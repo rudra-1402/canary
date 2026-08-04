@@ -19,18 +19,23 @@ def persist_trust_score(db, profile_id, snapshot: dict):
     result = db.trustscores.insert_one(trust_score_doc)
     trust_score_id = result.inserted_id
 
-    for signal in snapshot["riskSignals"]:
-        db.risksignals.insert_one(
-            {
-                "parentType": "TrustScore",
-                "parentId": trust_score_id,
-                "name": signal["name"],
-                "value": signal["value"],
-                "direction": signal["direction"],
-                "source": signal["source"],
-                "sourceBriefAnalysisId": None,
-                "createdAt": snapshot["generatedAt"],
-            }
-        )
+    try:
+        for signal in snapshot["riskSignals"]:
+            db.risksignals.insert_one(
+                {
+                    "parentType": "TrustScore",
+                    "parentId": trust_score_id,
+                    "name": signal["name"],
+                    "value": signal["value"],
+                    "direction": signal["direction"],
+                    "source": signal["source"],
+                    "sourceBriefAnalysisId": None,
+                    "createdAt": snapshot["generatedAt"],
+                }
+            )
+    except Exception:
+        db.risksignals.delete_many({"parentId": trust_score_id})
+        db.trustscores.delete_one({"_id": trust_score_id})
+        raise
 
     return trust_score_id

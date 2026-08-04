@@ -1,5 +1,8 @@
 from math import isnan
 
+import pytest
+
+from trust_score.artifact import load_model_artifact, save_model_artifact
 from trust_score.features import FEATURE_NAMES
 from trust_score.model import (
     FEATURE_COLUMNS,
@@ -74,3 +77,45 @@ def test_is_cold_start_uses_observed_engagement_count():
     config = type("Config", (), {"min_engagements_for_scoring": 3})()
     assert is_cold_start({"observed_engagement_count": 2}, config) is True
     assert is_cold_start({"observed_engagement_count": 3}, config) is False
+
+
+def test_model_artifact_round_trip_preserves_scores_exactly_for_both_roles(tmp_path):
+    config = type(
+        "Config",
+        (),
+        {"xgb_n_estimators": 2, "xgb_max_depth": 2, "xgb_learning_rate": 0.1, "seed": 42},
+    )()
+    models = {
+        "freelancer": train_model([_freelancer_features(), _freelancer_features()], ["low", "high"], config),
+        "client": train_model([_client_features(), _client_features()], ["low", "high"], config),
+    }
+    path = tmp_path / "trust-score-model.pkl"
+    before = {
+        "freelancer": score_profile(models["freelancer"], _freelancer_features()),
+        "client": score_profile(models["client"], _client_features()),
+    }
+
+    save_model_artifact(path, models, {"freelancer": (1, 2), "client": (3, 4)}, config)
+    loaded_models, _ = load_model_artifact(path, config)
+
+    assert score_profile(loaded_models["freelancer"], _freelancer_features()) == before["freelancer"]
+    assert score_profile(loaded_models["client"], _client_features()) == before["client"]
+
+
+def test_model_artifact_load_refuses_feature_column_mismatch(tmp_path):
+    config = type(
+        "Config",
+        (),
+        {"xgb_n_estimators": 2, "xgb_max_depth": 2, "xgb_learning_rate": 0.1, "seed": 42},
+    )()
+    path = tmp_path / "trust-score-model.pkl"
+    model = train_model([_freelancer_features(), _freelancer_features()], ["low", "high"], config)
+    save_model_artifact(path, {"freelancer": model, "client": model}, {}, config)
+    import pickle
+
+    artifact = pickle.loads(path.read_bytes())
+    artifact["feature_columns"] = ["drifted"]
+    path.write_bytes(pickle.dumps(artifact))
+
+    with pytest.raises(ValueError, match="feature columns"):
+        load_model_artifact(path, config)
