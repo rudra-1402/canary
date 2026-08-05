@@ -4,17 +4,17 @@ import { useSession } from './session/SessionContext.jsx';
 import Button from '../components/ui/Button.jsx';
 
 const navLinkClass = ({ isActive }) =>
-  `text-sm font-medium ${isActive ? 'text-ink' : 'text-muted hover:text-ink'}`;
+  `text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`;
 
 export default function AppShell({ children }) {
   const { identity, logout } = useSession();
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-line bg-surface">
+      <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-8">
-            <span className="text-lg font-semibold tracking-tight text-ink">Canary</span>
+            <span className="text-lg font-semibold tracking-tight text-foreground">Canary</span>
             <nav className="flex items-center gap-6">
               <NavLink to="/" className={navLinkClass} end>
                 Find Work
@@ -30,7 +30,9 @@ export default function AppShell({ children }) {
             </nav>
           </div>
           <div className="flex items-center gap-4">
-            {identity?.email && <span className="text-sm text-muted">{identity.email}</span>}
+            {identity?.email && (
+              <span className="text-sm text-muted-foreground">{identity.email}</span>
+            )}
             <Button variant="ghost" onClick={logout}>
               Log out
             </Button>

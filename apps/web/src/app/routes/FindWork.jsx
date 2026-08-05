@@ -69,13 +69,13 @@ export default function FindWork() {
   return (
     <div>
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold tracking-tight text-ink">Find Work</h1>
-        <label className="flex items-center gap-2 text-sm text-muted">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Find Work</h1>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             type="checkbox"
             checked={trackRecordOnly}
             onChange={(event) => setTrackRecordOnly(event.target.checked)}
-            className="size-4 rounded border-line accent-current"
+            className="size-4 rounded border-border accent-current"
           />
           Clients with a track record
         </label>
@@ -104,17 +104,17 @@ export default function FindWork() {
 
       {state.status === 'ready' && state.posts.length > 0 && (
         <>
-          <p className="mt-1 text-sm text-muted">{state.posts.length} open job posts.</p>
-          <ul className="mt-6 divide-y divide-line rounded-md border border-line bg-surface">
+          <p className="mt-1 text-sm text-muted-foreground">{state.posts.length} open job posts.</p>
+          <ul className="mt-6 divide-y divide-border rounded-md border border-border bg-card">
             {state.posts.map((post) => (
               <li key={post.id}>
                 <Link
                   to={`/jobs/${post.id}`}
-                  className="flex items-start justify-between gap-4 px-5 py-4 hover:bg-paper"
+                  className="flex items-start justify-between gap-4 px-5 py-4 hover:bg-background"
                 >
                   <div>
-                    <p className="font-medium text-ink">{post.title}</p>
-                    <p className="mt-1 text-sm text-muted">
+                    <p className="font-medium text-foreground">{post.title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {budgetLabel(post)} · {post.experienceLevel}
                       {post.createdAt &&
                         ` · Posted ${dateFormatter.format(new Date(post.createdAt))}`}
@@ -126,7 +126,7 @@ export default function FindWork() {
                         {post.skills.map((skill) => (
                           <li
                             key={skill}
-                            className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted"
+                            className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground"
                           >
                             {skill}
                           </li>

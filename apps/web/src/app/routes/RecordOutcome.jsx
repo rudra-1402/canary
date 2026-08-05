@@ -157,24 +157,26 @@ export default function RecordOutcome() {
 
   const header = (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight text-ink">Record outcome & review</h1>
-      <p className="mt-1 text-sm text-muted">
-        With <span className="font-medium text-ink">{counterparty}</span>
+      <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        Record outcome & review
+      </h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        With <span className="font-medium text-foreground">{counterparty}</span>
         {role && ` — you are recording this as the ${role} on this contract.`}
       </p>
       {terms && (
-        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-line bg-surface p-4 text-sm sm:grid-cols-3">
+        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-border bg-card p-4 text-sm sm:grid-cols-3">
           <div>
-            <dt className="text-muted">Price</dt>
-            <dd className="text-ink">{budgetFormatter.format(terms.price)}</dd>
+            <dt className="text-muted-foreground">Price</dt>
+            <dd className="text-foreground">{budgetFormatter.format(terms.price)}</dd>
           </div>
           <div>
-            <dt className="text-muted">Payment terms</dt>
-            <dd className="text-ink">{terms.paymentTerms}</dd>
+            <dt className="text-muted-foreground">Payment terms</dt>
+            <dd className="text-foreground">{terms.paymentTerms}</dd>
           </div>
           <div>
-            <dt className="text-muted">Timeline</dt>
-            <dd className="text-ink">{terms.timeline}</dd>
+            <dt className="text-muted-foreground">Timeline</dt>
+            <dd className="text-foreground">{terms.timeline}</dd>
           </div>
         </dl>
       )}
@@ -185,8 +187,8 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8 rounded-md border-2 border-ink bg-surface p-6">
-          <p className="text-sm font-medium text-ink">
+        <div className="mt-8 rounded-md border-2 border-foreground bg-card p-6">
+          <p className="text-sm font-medium text-foreground">
             Both sides have submitted. This engagement is concluded, and reviews are now visible.
           </p>
         </div>
@@ -212,11 +214,11 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8 rounded-md border border-line bg-surface p-6">
-          <p className="text-sm font-medium text-ink">
+        <div className="mt-8 rounded-md border border-border bg-card p-6">
+          <p className="text-sm font-medium text-foreground">
             You&apos;ve already submitted an outcome and review for this engagement.
           </p>
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-sm text-muted-foreground">
             It stays hidden — the double-blind rule — until {counterparty} submits theirs too. Once
             both sides are in, both reviews unlock at once.
           </p>
@@ -230,8 +232,8 @@ export default function RecordOutcome() {
       return (
         <div>
           {header}
-          <div className="mt-8 rounded-md border-2 border-ink bg-surface p-6">
-            <p className="text-sm font-medium text-ink">
+          <div className="mt-8 rounded-md border-2 border-foreground bg-card p-6">
+            <p className="text-sm font-medium text-foreground">
               Both sides have submitted. This engagement is concluded, and reviews are now visible.
             </p>
           </div>
@@ -241,11 +243,11 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8 rounded-md border border-line bg-surface p-6">
-          <p className="text-sm font-medium text-ink">
+        <div className="mt-8 rounded-md border border-border bg-card p-6">
+          <p className="text-sm font-medium text-foreground">
             Your side is recorded. Waiting on {counterparty} to submit their outcome and review.
           </p>
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-sm text-muted-foreground">
             Double-blind: your review stays hidden until {counterparty} submits theirs too. Once
             both sides are in, both reviews unlock at once.
           </p>
@@ -258,9 +260,9 @@ export default function RecordOutcome() {
     <div>
       {header}
 
-      <div className="mt-6 rounded-md border-2 border-ink bg-surface p-4 text-sm text-ink">
+      <div className="mt-6 rounded-md border-2 border-foreground bg-card p-4 text-sm text-foreground">
         <p className="font-medium">Double-blind rule</p>
-        <p className="mt-1 text-muted">
+        <p className="mt-1 text-muted-foreground">
           Your review stays hidden until {counterparty} submits theirs too. Once both sides are in,
           both reviews unlock at once and this engagement concludes.
         </p>
@@ -268,14 +270,14 @@ export default function RecordOutcome() {
 
       <form onSubmit={handleSubmit} className="mt-6 max-w-md space-y-4">
         <div>
-          <label htmlFor="endedAs" className="block text-sm font-medium text-ink">
+          <label htmlFor="endedAs" className="block text-sm font-medium text-foreground">
             How did this engagement end?
           </label>
           <select
             id="endedAs"
             value={form.endedAs}
             onChange={(event) => setForm({ ...form, endedAs: event.target.value })}
-            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
           >
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
@@ -289,16 +291,16 @@ export default function RecordOutcome() {
             type="checkbox"
             checked={form.ghosted}
             onChange={(event) => setForm({ ...form, ghosted: event.target.checked })}
-            className="size-4 rounded border-line accent-current"
+            className="size-4 rounded border-border accent-current"
           />
-          <label htmlFor="ghosted" className="text-sm text-ink">
+          <label htmlFor="ghosted" className="text-sm text-foreground">
             The other party stopped responding (ghosted)
           </label>
         </div>
 
         {!form.ghosted && role === 'client' && (
           <div>
-            <label htmlFor="daysLate" className="block text-sm font-medium text-ink">
+            <label htmlFor="daysLate" className="block text-sm font-medium text-foreground">
               Days late for the other party (leave blank if delivered on time)
             </label>
             <input
@@ -308,7 +310,7 @@ export default function RecordOutcome() {
               step="1"
               value={form.daysLate}
               onChange={(event) => setForm({ ...form, daysLate: event.target.value })}
-              className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             />
           </div>
         )}
@@ -316,14 +318,14 @@ export default function RecordOutcome() {
         {!form.ghosted && role === 'freelancer' && (
           <>
             <div>
-              <label htmlFor="paidInFull" className="block text-sm font-medium text-ink">
+              <label htmlFor="paidInFull" className="block text-sm font-medium text-foreground">
                 Paid in full by the other party?
               </label>
               <select
                 id="paidInFull"
                 value={form.paidInFull}
                 onChange={(event) => setForm({ ...form, paidInFull: event.target.value })}
-                className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
               >
                 {TRISTATE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -333,7 +335,10 @@ export default function RecordOutcome() {
               </select>
             </div>
             <div>
-              <label htmlFor="revisionsRequested" className="block text-sm font-medium text-ink">
+              <label
+                htmlFor="revisionsRequested"
+                className="block text-sm font-medium text-foreground"
+              >
                 Revisions requested by the other party
               </label>
               <input
@@ -343,18 +348,21 @@ export default function RecordOutcome() {
                 step="1"
                 value={form.revisionsRequested}
                 onChange={(event) => setForm({ ...form, revisionsRequested: event.target.value })}
-                className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label htmlFor="scopeCreepOccurred" className="block text-sm font-medium text-ink">
+              <label
+                htmlFor="scopeCreepOccurred"
+                className="block text-sm font-medium text-foreground"
+              >
                 Scope creep caused by the other party?
               </label>
               <select
                 id="scopeCreepOccurred"
                 value={form.scopeCreepOccurred}
                 onChange={(event) => setForm({ ...form, scopeCreepOccurred: event.target.value })}
-                className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
               >
                 {TRISTATE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -367,14 +375,14 @@ export default function RecordOutcome() {
         )}
 
         <div>
-          <label htmlFor="rating" className="block text-sm font-medium text-ink">
+          <label htmlFor="rating" className="block text-sm font-medium text-foreground">
             Rating
           </label>
           <select
             id="rating"
             value={form.rating}
             onChange={(event) => setForm({ ...form, rating: event.target.value })}
-            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
           >
             {[5, 4, 3, 2, 1].map((n) => (
               <option key={n} value={n}>
@@ -385,7 +393,7 @@ export default function RecordOutcome() {
         </div>
 
         <div>
-          <label htmlFor="reviewText" className="block text-sm font-medium text-ink">
+          <label htmlFor="reviewText" className="block text-sm font-medium text-foreground">
             Review (optional)
           </label>
           <textarea
@@ -393,7 +401,7 @@ export default function RecordOutcome() {
             value={form.reviewText}
             onChange={(event) => setForm({ ...form, reviewText: event.target.value })}
             rows={4}
-            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
           />
         </div>
 

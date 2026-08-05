@@ -35,12 +35,12 @@ export default function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Canary</h1>
-        <p className="mt-1 text-sm text-muted">Sign in to your account.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Canary</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-ink">
+            <label htmlFor="email" className="block text-sm font-medium text-foreground">
               Email
             </label>
             <input
@@ -50,11 +50,11 @@ export default function Login() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-ring focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-ink">
+            <label htmlFor="password" className="block text-sm font-medium text-foreground">
               Password
             </label>
             <input
@@ -64,7 +64,7 @@ export default function Login() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-ring focus:outline-none"
             />
           </div>
 
