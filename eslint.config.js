@@ -4,7 +4,18 @@ import importX from 'eslint-plugin-import-x';
 
 export default [
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/venv/**', '**/.pytest_cache/**'],
+    // The pytest temp dirs are permission-locked on Windows; without them here, eslint's
+    // glob walk dies with EPERM before it lints a single file. Mirrors .gitignore.
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/venv/**',
+      '**/.pytest_cache/**',
+      '**/.pytest-*/**',
+      '**/.codex-pytest-*/**',
+      '**/.tmp-pytest/**',
+      '**/.test-tmp/**',
+    ],
   },
   ...baseConfig,
   {

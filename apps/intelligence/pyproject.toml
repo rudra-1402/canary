@@ -6,14 +6,17 @@ target-version = ["py313"]
 # so the local check "passes" by never running, and a real formatting error only
 # surfaces in CI, where those dirs do not exist. That happened once; excluding
 # them keeps the local command equivalent to the CI one.
+# Matched by prefix, not by exact name: each sandbox run coins a fresh suffix
+# (.pytest-outcome-semantics, .codex-pytest-a4, ...), and naming them one at a
+# time means the next run reintroduces the crash.
 force-exclude = '''
 /(
     venv
   | \.venv
-  | \.pytest-tmp
-  | \.pytest-task6
+  | \.pytest-[^/]*
+  | \.codex-pytest-[^/]*
+  | \.tmp-pytest
   | \.test-tmp
-  | \.codex-pytest-tmp
 )/
 '''
 
@@ -22,10 +25,10 @@ line-length = 110
 target-version = "py313"
 extend-exclude = [
     "venv",
-    ".pytest-tmp",
-    ".pytest-task6",
+    ".pytest-*",
+    ".codex-pytest-*",
+    ".tmp-pytest",
     ".test-tmp",
-    ".codex-pytest-tmp",
 ]
 
 [tool.ruff.lint]
