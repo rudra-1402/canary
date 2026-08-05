@@ -1,29 +1,57 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+/*
+ ---break---
+ */
+@custom-variant dark (&:is(.dark *));
 
 /*
- * Design tokens — first pass, deliberately restrained (PLAN-UI Part D).
- * Near-monochrome, cool neutrals (not warm ivory), one accent, one alarm hue.
- * The alarm hue is reserved exclusively for risk / low-trust states — never
- * used decoratively (buttons, links, focus rings all use --color-accent).
+ * Design tokens — shadcn's vocabulary carrying Canary's palette (PLAN-UI Part D).
+ * Near-monochrome, cool neutrals (not warm ivory), one brand hue, one alarm hue.
+ *
+ * The names are shadcn's on purpose: every registry component and every AI agent
+ * already knows what --primary/--muted/--border mean without being told, so
+ * pulled components inherit the brand instead of shipping their own defaults.
+ *
+ * NOTE the shadcn distinction, which is not the obvious one: --primary is the
+ * brand action colour; --accent is a *subtle hover surface*. Canary's blue is
+ * --primary. Reaching for --accent to get brand blue gives you pale wash.
  */
 @theme {
-  /* Neutrals — cool gray, deliberately not warm/ivory */
-  --color-ink: #14161a;
-  --color-ink-soft: #3a3f47;
-  --color-muted: #6b7280;
-  --color-line: #dde1e6;
-  --color-paper: #f3f4f6;
-  --color-surface: #ffffff;
+  /* Surfaces */
+  --color-background: #f3f4f6;
+  --color-foreground: #14161a;
+  --color-card: #ffffff;
+  --color-card-foreground: #14161a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #14161a;
 
-  /* One accent — used for primary actions, links, focus */
-  --color-accent: #2b57c4;
-  --color-accent-soft: #e7edfb;
+  /* Brand action colour — buttons, links, focus rings */
+  --color-primary: #2b57c4;
+  --color-primary-foreground: #ffffff;
 
-  /* One alarm hue — reserved for risk / low-trust states only */
-  --color-alarm: #a3352a;
-  --color-alarm-soft: #f6e6e4;
+  /* Neutral secondary + muted text */
+  --color-secondary: #eceef1;
+  --color-secondary-foreground: #3a3f47;
+  --color-muted: #eceef1;
+  --color-muted-foreground: #6b7280;
 
-  /* Trust bands — med reuses ink-soft, not a second colour family */
+  /* Subtle hover/selected surface — NOT the brand colour, see note above */
+  --color-accent: #e7edfb;
+  --color-accent-foreground: #2b57c4;
+
+  /* Reserved exclusively for risk / low-trust states — never decorative */
+  --color-destructive: #a3352a;
+  --color-destructive-foreground: #ffffff;
+  --color-destructive-soft: #f6e6e4;
+
+  /* Lines */
+  --color-border: #dde1e6;
+  --color-input: #dde1e6;
+  --color-ring: #2b57c4;
+
+  /* Canary-specific: trust bands have no shadcn equivalent.
+     Med reuses the ink-soft neutral, not a second colour family. */
   --color-band-high: #1f6f4a;
   --color-band-high-soft: #e4f1ea;
   --color-band-med: #3a3f47;
@@ -43,10 +71,41 @@
   /* Spacing rhythm (beyond Tailwind's default 4px scale) */
   --spacing-section: 3rem;
   --spacing-gutter: 1.5rem;
+
+  /* Corner radius — registry components read this */
+  --radius: 0.5rem;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-paper);
-  color: var(--color-ink);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+/*
+ ---break---
+ */
+@theme inline {
+  --animate-shimmer-slide: shimmer-slide var(--speed) ease-in-out infinite alternate;
+  --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
+  @keyframes shimmer-slide {
+    to {
+      transform: translate(calc(100cqw - 100%), 0);
+    }
+  }
+  @keyframes spin-around {
+    0% {
+      transform: translateZ(0) rotate(0);
+    }
+    15%,
+    35% {
+      transform: translateZ(0) rotate(90deg);
+    }
+    65%,
+    85% {
+      transform: translateZ(0) rotate(270deg);
+    }
+    100% {
+      transform: translateZ(0) rotate(360deg);
+    }
+  }
 }

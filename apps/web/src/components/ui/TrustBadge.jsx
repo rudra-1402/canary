@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 const BAND_STYLE = {
   BAND_HIGH: 'bg-band-high-soft text-band-high',
   BAND_MED: 'bg-band-med-soft text-band-med',
-  BAND_LOW: 'bg-alarm-soft text-alarm',
+  BAND_LOW: 'bg-destructive-soft text-destructive',
 };
 
 const BAND_LABEL = {
@@ -27,7 +27,7 @@ export default function TrustBadge({ entry, clientName }) {
         {BAND_LABEL[entry.band]} · {Math.round(entry.score)}
       </span>
     ) : (
-      <span className="inline-flex items-center rounded-full bg-paper px-2.5 py-0.5 text-xs font-medium text-muted">
+      <span className="inline-flex items-center rounded-full bg-background px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
         No score yet
       </span>
     );
@@ -35,7 +35,7 @@ export default function TrustBadge({ entry, clientName }) {
   return (
     <div className="flex flex-col items-end gap-1 text-right">
       {clientName && (
-        <span className="max-w-40 truncate text-xs text-muted" title={clientName}>
+        <span className="max-w-40 truncate text-xs text-muted-foreground" title={clientName}>
           {clientName}
         </span>
       )}

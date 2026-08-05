@@ -16,7 +16,7 @@ const BAND_LABEL = { BAND_HIGH: 'High trust', BAND_MED: 'Med trust', BAND_LOW: '
 const BAND_STYLE = {
   BAND_HIGH: 'bg-band-high-soft text-band-high',
   BAND_MED: 'bg-band-med-soft text-band-med',
-  BAND_LOW: 'bg-alarm-soft text-alarm',
+  BAND_LOW: 'bg-destructive-soft text-destructive',
 };
 const STRENGTH_LABEL = {
   STRENGTH_STRONG: 'Strong',
@@ -72,7 +72,7 @@ function ProposalForm({ jobPostId }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div>
-        <label htmlFor="bid" className="block text-sm font-medium text-ink">
+        <label htmlFor="bid" className="block text-sm font-medium text-foreground">
           Your bid (USD)
         </label>
         <input
@@ -82,25 +82,25 @@ function ProposalForm({ jobPostId }) {
           required
           value={form.bid}
           onChange={(event) => setForm({ ...form, bid: event.target.value })}
-          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
         />
       </div>
       <div>
-        <label htmlFor="payModel" className="block text-sm font-medium text-ink">
+        <label htmlFor="payModel" className="block text-sm font-medium text-foreground">
           Pay model
         </label>
         <select
           id="payModel"
           value={form.payModel}
           onChange={(event) => setForm({ ...form, payModel: event.target.value })}
-          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
         >
           <option value="project">Project</option>
           <option value="milestone">Milestone</option>
         </select>
       </div>
       <div>
-        <label htmlFor="proposedDurationDays" className="block text-sm font-medium text-ink">
+        <label htmlFor="proposedDurationDays" className="block text-sm font-medium text-foreground">
           Estimated duration (days)
         </label>
         <input
@@ -111,11 +111,11 @@ function ProposalForm({ jobPostId }) {
           required
           value={form.proposedDurationDays}
           onChange={(event) => setForm({ ...form, proposedDurationDays: event.target.value })}
-          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
         />
       </div>
       <div>
-        <label htmlFor="coverLetter" className="block text-sm font-medium text-ink">
+        <label htmlFor="coverLetter" className="block text-sm font-medium text-foreground">
           Cover letter (optional)
         </label>
         <textarea
@@ -123,7 +123,7 @@ function ProposalForm({ jobPostId }) {
           value={form.coverLetter}
           onChange={(event) => setForm({ ...form, coverLetter: event.target.value })}
           rows={4}
-          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
         />
       </div>
       {status === 'error' && <ErrorNotice message={error} />}
@@ -227,37 +227,40 @@ export default function JobDetail() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight text-ink">{job.title}</h1>
-      <p className="mt-1 text-sm text-muted">
+      <h1 className="text-xl font-semibold tracking-tight text-foreground">{job.title}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
         {job.category}
         {job.createdAt && ` · Posted ${dateFormatter.format(new Date(job.createdAt))}`}
         {` · ${job.proposalCount ?? 0} proposal${job.proposalCount === 1 ? '' : 's'}`}
       </p>
 
-      <section className="mt-6 rounded-md border border-line bg-surface p-6">
-        <p className="text-sm whitespace-pre-wrap text-ink">{job.description}</p>
+      <section className="mt-6 rounded-md border border-border bg-card p-6">
+        <p className="text-sm whitespace-pre-wrap text-foreground">{job.description}</p>
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
           <div>
-            <dt className="text-muted">Type</dt>
-            <dd className="text-ink">{job.jobType}</dd>
+            <dt className="text-muted-foreground">Type</dt>
+            <dd className="text-foreground">{job.jobType}</dd>
           </div>
           <div>
-            <dt className="text-muted">Budget/rate</dt>
-            <dd className="text-ink">{budgetLabel(job)}</dd>
+            <dt className="text-muted-foreground">Budget/rate</dt>
+            <dd className="text-foreground">{budgetLabel(job)}</dd>
           </div>
           <div>
-            <dt className="text-muted">Experience level</dt>
-            <dd className="text-ink">{job.experienceLevel}</dd>
+            <dt className="text-muted-foreground">Experience level</dt>
+            <dd className="text-foreground">{job.experienceLevel}</dd>
           </div>
           <div>
-            <dt className="text-muted">Project length</dt>
-            <dd className="text-ink">{job.projectLength}</dd>
+            <dt className="text-muted-foreground">Project length</dt>
+            <dd className="text-foreground">{job.projectLength}</dd>
           </div>
         </dl>
         {job.skills.length > 0 && (
           <ul className="mt-4 flex flex-wrap gap-1.5">
             {job.skills.map((skill) => (
-              <li key={skill} className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">
+              <li
+                key={skill}
+                className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground"
+              >
                 {skill}
               </li>
             ))}
@@ -266,53 +269,53 @@ export default function JobDetail() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-medium text-ink">Posted by</h2>
+        <h2 className="text-lg font-medium text-foreground">Posted by</h2>
         {clientError && (
           <div className="mt-2">
             <ErrorNotice message={clientError} onRetry={load} />
           </div>
         )}
         {!clientError && client && (
-          <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-line bg-surface p-4 text-sm sm:grid-cols-4">
+          <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-border bg-card p-4 text-sm sm:grid-cols-4">
             <div>
-              <dt className="text-muted">Client</dt>
-              <dd className="text-ink">{client.displayName}</dd>
+              <dt className="text-muted-foreground">Client</dt>
+              <dd className="text-foreground">{client.displayName}</dd>
             </div>
             <div>
-              <dt className="text-muted">Verification</dt>
-              <dd className="text-ink">
+              <dt className="text-muted-foreground">Verification</dt>
+              <dd className="text-foreground">
                 {client.verificationStatus === 'id-verified' ? 'ID verified' : 'Not verified'}
               </dd>
             </div>
             <div>
-              <dt className="text-muted">Member since</dt>
-              <dd className="text-ink">
+              <dt className="text-muted-foreground">Member since</dt>
+              <dd className="text-foreground">
                 {client.createdAt ? dateFormatter.format(new Date(client.createdAt)) : 'Unknown'}
               </dd>
             </div>
             {client.industry && (
               <div>
-                <dt className="text-muted">Industry</dt>
-                <dd className="text-ink">{client.industry}</dd>
+                <dt className="text-muted-foreground">Industry</dt>
+                <dd className="text-foreground">{client.industry}</dd>
               </div>
             )}
             {client.typicalBudget != null && (
               <div>
-                <dt className="text-muted">Typical budget</dt>
-                <dd className="text-ink">{budgetFormatter.format(client.typicalBudget)}</dd>
+                <dt className="text-muted-foreground">Typical budget</dt>
+                <dd className="text-foreground">{budgetFormatter.format(client.typicalBudget)}</dd>
               </div>
             )}
           </dl>
         )}
       </section>
 
-      <section className="mt-8 rounded-md border-2 border-ink bg-surface p-6">
-        <h2 className="text-lg font-medium text-ink">Client trust score</h2>
+      <section className="mt-8 rounded-md border-2 border-foreground bg-card p-6">
+        <h2 className="text-lg font-medium text-foreground">Client trust score</h2>
         {trustScoreError && <ErrorNotice message={trustScoreError} onRetry={load} />}
         {!trustScoreError && trustScore && hasScore && (
           <>
             <div className="mt-3 flex items-center gap-4">
-              <span className="text-3xl font-semibold text-ink">
+              <span className="text-3xl font-semibold text-foreground">
                 {Math.round(trustScore.score)}
               </span>
               <span
@@ -326,11 +329,13 @@ export default function JobDetail() {
                 {trustScore.signals.map((signal) => (
                   <li
                     key={signal.name}
-                    className="flex items-center justify-between gap-4 border-t border-line pt-2 text-sm first:border-t-0 first:pt-0"
+                    className="flex items-center justify-between gap-4 border-t border-border pt-2 text-sm first:border-t-0 first:pt-0"
                   >
-                    <span className="text-ink">{signal.name}</span>
+                    <span className="text-foreground">{signal.name}</span>
                     <span
-                      className={signal.direction === 'favorable' ? 'text-band-high' : 'text-alarm'}
+                      className={
+                        signal.direction === 'favorable' ? 'text-band-high' : 'text-destructive'
+                      }
                     >
                       {signal.direction === 'favorable' ? 'Favorable' : 'Unfavorable'} ·{' '}
                       {STRENGTH_LABEL[signal.strength]}
@@ -341,19 +346,19 @@ export default function JobDetail() {
             )}
             <Link
               to={`/trust/${job.clientProfileId}`}
-              className="mt-4 inline-block text-sm font-medium text-accent underline underline-offset-2"
+              className="mt-4 inline-block text-sm font-medium text-primary underline underline-offset-2"
             >
               View full trust score detail
             </Link>
           </>
         )}
         {!trustScoreError && trustScore && !hasScore && (
-          <p className="mt-3 text-sm text-muted">No score yet.</p>
+          <p className="mt-3 text-sm text-muted-foreground">No score yet.</p>
         )}
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-medium text-ink">Client reviews</h2>
+        <h2 className="text-lg font-medium text-foreground">Client reviews</h2>
         {reviewsError && (
           <div className="mt-2">
             <ErrorNotice message={reviewsError} onRetry={load} />
@@ -365,11 +370,11 @@ export default function JobDetail() {
           </div>
         )}
         {!reviewsError && reviews.length > 0 && (
-          <ul className="mt-2 divide-y divide-line rounded-md border border-line bg-surface">
+          <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-card">
             {reviews.map((review) => (
               <li key={review.id} className="px-4 py-3 text-sm">
-                <p className="font-medium text-ink">{review.rating} / 5</p>
-                {review.text && <p className="mt-1 text-muted">{review.text}</p>}
+                <p className="font-medium text-foreground">{review.rating} / 5</p>
+                {review.text && <p className="mt-1 text-muted-foreground">{review.text}</p>}
               </li>
             ))}
           </ul>
@@ -377,13 +382,13 @@ export default function JobDetail() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-medium text-ink">Submit a proposal</h2>
+        <h2 className="text-lg font-medium text-foreground">Submit a proposal</h2>
         {canPropose ? (
           <div className="mt-3 max-w-md">
             <ProposalForm jobPostId={job.id} />
           </div>
         ) : (
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-sm text-muted-foreground">
             {job.status !== 'open'
               ? 'This job post is not accepting proposals.'
               : 'Only freelancers can submit proposals.'}

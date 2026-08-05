@@ -12,7 +12,7 @@ const BAND_LABEL = { BAND_HIGH: 'High trust', BAND_MED: 'Med trust', BAND_LOW: '
 const BAND_STYLE = {
   BAND_HIGH: 'bg-band-high-soft text-band-high',
   BAND_MED: 'bg-band-med-soft text-band-med',
-  BAND_LOW: 'bg-alarm-soft text-alarm',
+  BAND_LOW: 'bg-destructive-soft text-destructive',
 };
 const STRENGTH_LABEL = {
   STRENGTH_STRONG: 'Strong',
@@ -128,27 +128,29 @@ export default function TrustScoreDetail() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight text-ink">
+      <h1 className="text-xl font-semibold tracking-tight text-foreground">
         Trust score · {profile.displayName}
       </h1>
 
-      <section className="mt-6 rounded-md border border-line bg-surface p-6">
+      <section className="mt-6 rounded-md border border-border bg-card p-6">
         {hasScore ? (
           <div className="flex items-center gap-4">
-            <span className="text-3xl font-semibold text-ink">{Math.round(trustScore.score)}</span>
+            <span className="text-3xl font-semibold text-foreground">
+              {Math.round(trustScore.score)}
+            </span>
             <span
               className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${BAND_STYLE[trustScore.band]}`}
             >
               {BAND_LABEL[trustScore.band]}
             </span>
             {trustScore.status === 'stale' && (
-              <span className="text-xs text-muted">
+              <span className="text-xs text-muted-foreground">
                 {trustScore.outcomesSince} outcome(s) since this snapshot
               </span>
             )}
           </div>
         ) : (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-muted-foreground">
             {trustScore.status === 'insufficient-history'
               ? `No score yet — ${trustScore.outcomeCount} of ${trustScore.outcomesNeeded} outcomes needed.`
               : 'No score yet — scoring is pending.'}
@@ -160,11 +162,13 @@ export default function TrustScoreDetail() {
             {signals.map((signal) => (
               <li
                 key={signal.name}
-                className="flex items-center justify-between gap-4 border-t border-line pt-2 text-sm first:border-t-0 first:pt-0"
+                className="flex items-center justify-between gap-4 border-t border-border pt-2 text-sm first:border-t-0 first:pt-0"
               >
-                <span className="text-ink">{signal.name}</span>
+                <span className="text-foreground">{signal.name}</span>
                 <span
-                  className={signal.direction === 'favorable' ? 'text-band-high' : 'text-alarm'}
+                  className={
+                    signal.direction === 'favorable' ? 'text-band-high' : 'text-destructive'
+                  }
                 >
                   {signal.direction === 'favorable' ? 'Favorable' : 'Unfavorable'} ·{' '}
                   {STRENGTH_LABEL[signal.strength]}
@@ -176,9 +180,9 @@ export default function TrustScoreDetail() {
       </section>
 
       {isOwnProfile && unfavorableSignals.length > 0 && (
-        <section className="mt-6 rounded-md border border-line bg-paper p-4">
-          <h2 className="text-sm font-medium text-ink">How to improve</h2>
-          <p className="mt-1 text-sm text-muted">
+        <section className="mt-6 rounded-md border border-border bg-background p-4">
+          <h2 className="text-sm font-medium text-foreground">How to improve</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             These signals are currently working against your score:{' '}
             {unfavorableSignals.map((s) => s.name).join(', ')}.
           </p>
@@ -186,7 +190,7 @@ export default function TrustScoreDetail() {
       )}
 
       <section className="mt-8">
-        <h2 className="text-lg font-medium text-ink">Outcome history</h2>
+        <h2 className="text-lg font-medium text-foreground">Outcome history</h2>
         {outcomesError && (
           <div className="mt-2">
             <ErrorNotice message={outcomesError} onRetry={load} />
@@ -198,11 +202,13 @@ export default function TrustScoreDetail() {
           </div>
         )}
         {!outcomesError && outcomes.length > 0 && (
-          <ul className="mt-2 divide-y divide-line rounded-md border border-line bg-surface">
+          <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-card">
             {outcomes.map((outcome) => (
-              <li key={outcome.id} className="px-4 py-3 text-sm text-ink">
+              <li key={outcome.id} className="px-4 py-3 text-sm text-foreground">
                 {outcomeSummary(outcome)}
-                <span className="ml-2 text-xs text-muted">{formatDate(outcome.recordedAt)}</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {formatDate(outcome.recordedAt)}
+                </span>
               </li>
             ))}
           </ul>
@@ -210,7 +216,7 @@ export default function TrustScoreDetail() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-medium text-ink">Reviews</h2>
+        <h2 className="text-lg font-medium text-foreground">Reviews</h2>
         {reviewsError && (
           <div className="mt-2">
             <ErrorNotice message={reviewsError} onRetry={load} />
@@ -222,12 +228,12 @@ export default function TrustScoreDetail() {
           </div>
         )}
         {!reviewsError && reviews.length > 0 && (
-          <ul className="mt-2 divide-y divide-line rounded-md border border-line bg-surface">
+          <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-card">
             {reviews.map((review) => (
               <li key={review.id} className="px-4 py-3 text-sm">
-                <p className="font-medium text-ink">{review.rating} / 5</p>
-                {review.text && <p className="mt-1 text-muted">{review.text}</p>}
-                <p className="mt-1 text-xs text-muted">{formatDate(review.visibleAt)}</p>
+                <p className="font-medium text-foreground">{review.rating} / 5</p>
+                {review.text && <p className="mt-1 text-muted-foreground">{review.text}</p>}
+                <p className="mt-1 text-xs text-muted-foreground">{formatDate(review.visibleAt)}</p>
               </li>
             ))}
           </ul>

@@ -27,6 +27,19 @@ export default [
   },
   ...reactConfig.slice(1).map((c) => ({ ...c, files: ['apps/web/**/*.{js,jsx}'] })),
   {
+    // Registry-vendored components (shadcn CLI output). These are copied-in source we own
+    // but do not hand-write: shadcn emits kebab-case filenames, spreads props rather than
+    // declaring them, and documents its API on the registry site instead of via PropTypes.
+    // Without this, every `shadcn add` breaks CI on react/prop-types — which would make the
+    // registry model unusable. Hand-written primitives keep full checking: they are
+    // PascalCase (Button.jsx, TrustBadge.jsx) and are not matched here.
+    files: ['apps/web/src/components/ui/*-*.jsx', 'apps/web/src/components/ui/[a-z]*.jsx'],
+    rules: {
+      'react/prop-types': 'off',
+      'no-unused-vars': 'warn',
+    },
+  },
+  {
     files: ['apps/web/src/**/*.{js,jsx}'],
     plugins: { 'import-x': importX },
     rules: {

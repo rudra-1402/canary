@@ -68,8 +68,8 @@ export default function Engagements() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight text-ink">Active engagements</h1>
-      <p className="mt-1 text-sm text-muted">
+      <h1 className="text-xl font-semibold tracking-tight text-foreground">Active engagements</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
         Record an outcome and review once the work is done — reviews stay hidden until both sides
         have submitted.
       </p>
@@ -84,7 +84,7 @@ export default function Engagements() {
       )}
 
       {state.engagements.length > 0 && (
-        <ul className="mt-6 divide-y divide-line rounded-md border border-line bg-surface">
+        <ul className="mt-6 divide-y divide-border rounded-md border border-border bg-card">
           {state.engagements.map((engagement) => {
             const counterpartyName =
               state.names[engagement.counterpartyProfileId] || 'Unknown counterparty';
@@ -92,19 +92,19 @@ export default function Engagements() {
               <li key={engagement.id}>
                 <Link
                   to={`/engagements/${engagement.id}/review`}
-                  className="flex items-start justify-between gap-4 px-5 py-4 hover:bg-paper"
+                  className="flex items-start justify-between gap-4 px-5 py-4 hover:bg-background"
                 >
                   <div>
-                    <p className="font-medium text-ink">{counterpartyName}</p>
+                    <p className="font-medium text-foreground">{counterpartyName}</p>
                     {engagement.agreedTerms && (
-                      <p className="mt-1 text-sm text-muted">
+                      <p className="mt-1 text-sm text-muted-foreground">
                         {engagement.agreedTerms.scope} ·{' '}
                         {budgetFormatter.format(engagement.agreedTerms.price)} ·{' '}
                         {engagement.agreedTerms.timeline}
                       </p>
                     )}
                   </div>
-                  <span className="text-sm font-medium text-accent">Record outcome</span>
+                  <span className="text-sm font-medium text-primary">Record outcome</span>
                 </Link>
               </li>
             );
