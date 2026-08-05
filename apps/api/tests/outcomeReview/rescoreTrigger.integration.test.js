@@ -17,9 +17,15 @@ import {
   startMemoryDb,
   stopMemoryDb,
 } from '../helpers/memoryDb.js';
+import {
+  INTELLIGENCE_DIRECTORY,
+  RESCORE_ARTIFACT_PATH,
+  RESCORE_INTEGRATION_READY,
+  RESCORE_PYTHON_PATH,
+} from '../helpers/seedGate.js';
 
 const originalEnv = { ...process.env };
-const intelligenceDirectory = path.resolve(process.cwd(), '../intelligence');
+const intelligenceDirectory = INTELLIGENCE_DIRECTORY;
 
 async function profile(role) {
   const identity = await Identity.create({
@@ -145,16 +151,15 @@ afterEach(async () => {
   await clearCollections();
 });
 
-describe('rescore trigger integration', () => {
+// Needs the trained model artifact and the intelligence venv — neither is in git, so this skips
+// in CI rather than failing on a missing file. See helpers/seedGate.js.
+describe.skipIf(!RESCORE_INTEGRATION_READY)('rescore trigger integration', () => {
   it('uses the real subprocess to score both Profiles after mutual conclusion', async () => {
     const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'canary-rescore-'));
     const temporaryArtifact = path.join(temporaryDirectory, 'model.joblib');
-    await copyFile(
-      path.join(intelligenceDirectory, 'trust-score-model.b4.joblib'),
-      temporaryArtifact,
-    );
+    await copyFile(RESCORE_ARTIFACT_PATH, temporaryArtifact);
     process.env.RESCORE_ON_CONCLUSION_ENABLED = 'true';
-    process.env.RESCORE_PYTHON = path.join(intelligenceDirectory, 'venv', 'Scripts', 'python.exe');
+    process.env.RESCORE_PYTHON = RESCORE_PYTHON_PATH;
     process.env.RESCORE_WORKING_DIRECTORY = intelligenceDirectory;
     process.env.RESCORE_ARTIFACT = temporaryArtifact;
     process.env.MONGODB_URI = getMemoryDbUri();
