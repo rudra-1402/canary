@@ -13,7 +13,12 @@ You are working in the Canary repo on ONE task: building demo UI screens for a d
 STEP 0 — SETUP (the human runs these; confirm they are done before coding)
 ═══════════════════════════════════════════════════════════════════════
 
-Prerequisites: Node 22, MongoDB running locally, Git. Python is NOT needed.
+Prerequisites: Node 22, MongoDB running locally, Git, and the MongoDB Database Tools
+(a SEPARATE download from the MongoDB server — the server does not include mongorestore):
+
+  winget install MongoDB.DatabaseTools
+
+Reopen your terminal afterwards so it lands on PATH. Python is NOT needed.
 
   git clone https://github.com/rudra-1402/canary.git
   cd canary
@@ -37,7 +42,14 @@ Do not fill in the Google or SMTP values — the app runs fine without them.
 
 Load the seeded database from the dump Rudra sent (unzip it first):
 
-  mongorestore --db canary_demo ./canary-dump/canary_b4
+  mongorestore --db canary_demo --gzip ./canary-dump/canary_b4
+
+Sanity-check it landed — this should print a number in the tens of thousands, not 0:
+
+  mongosh canary_demo --quiet --eval "db.trustscores.countDocuments()"
+
+If it prints 0, the Trust Score panels will be empty and there is no point building
+against it. Stop and tell Rudra.
 
 Run the app in two terminals:
 
