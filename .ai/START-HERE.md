@@ -63,9 +63,16 @@ above cover everything you'll touch before Slice 1 exists).
   HTTP adapters; **services own business logic**; models are data access only.
 - **Foundations are frozen.** Auth, the data model, and API style are decided once and wrapped
   behind interfaces. Changing one mid-build is a deliberate, announced PR — never a casual rewrite.
-- **UI component system:** Slice 7 is in progress. Hand-written Tailwind primitives and a design
-  tokens layer (CSS variables for colour/type/spacing) are now in scope in `apps/web`. shadcn/Radix
-  and any component registry remain out — plain Tailwind primitives only, per `PLAN-UI.md` A4.
+- **UI component system:** shadcn + the locked registries are **in** (2026-08-05, reversing
+  `PLAN-UI.md` A4). Components are pulled via the CLI into `apps/web/src/components/ui/` as source
+  we own. Registries configured in `components.json`: `@magicui`, `@cult`, `@animate-ui`,
+  `@motion-primitives`, `@kokonutui`. **Motion** is the app-wide animation engine; GSAP is allowed
+  only scoped to a single page, never mixed into the same component tree.
+- **Design tokens use shadcn's vocabulary** (`--primary`, `--muted`, `--border`, …) carrying
+  Canary's palette, defined in `apps/web/src/index.css`. Chosen so every AI tool and teammate reads
+  them without being taught. **Never hardcode a colour** — no hex, no `text-blue-600`. Note that
+  `--primary` is the brand action colour and `--accent` is a subtle hover surface, not the brand.
+  Trust bands (`band-high`, `band-med`) are Canary-specific; shadcn has no equivalent.
 
 ## Hard don'ts
 

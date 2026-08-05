@@ -59,9 +59,9 @@ These aren't style preferences. Breaking one of these is the difference between 
   change (a field the API doesn't return, a new endpoint)? Ask — don't add it yourself.
 - **Never build the AI briefing's actual model-calling / citation-validation logic** — see step 1.
   UI shell against a mock, full stop.
-- **No new dependencies** (npm packages, component libraries, icon sets, anything) without asking
-  first. In particular: **no shadcn, no Radix, no component registry** — this repo uses hand-written
-  Tailwind primitives only, that's already decided.
+- **No new dependencies without asking.** Everything you need is already installed — see section 3.
+  Pulling components from the configured shadcn registries is expected and encouraged; running
+  `npm install <something-else>` is not.
 - **Never bypass the pre-commit hook** (`--no-verify` is banned). If it blocks your commit, fix the
   formatting/lint issue it's pointing at.
 - **If you're stuck more than ~30 minutes, ask** — team WhatsApp, tag me. Don't silently work around
@@ -69,7 +69,113 @@ These aren't style preferences. Breaking one of these is the difference between 
 
 ---
 
-## 3. How to actually build the UI (not "ask ChatGPT for a page")
+## 3. Your stack — all installed, nothing for you to set up
+
+Run `npm install` at the repo root once. That's it. Everything below is already wired:
+
+| Purpose                       | Use                                                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Components                    | **shadcn** + registries (see below)                                                                         |
+| Animation                     | **Motion** (`motion/react`) — the app-wide default                                                          |
+| Scroll / SVG morph animation  | **GSAP** — only if scoped to one page, never mixed into the same component tree as Motion                   |
+| Server data                   | **TanStack Query**                                                                                          |
+| Global state                  | **Zustand**                                                                                                 |
+| Forms                         | **React Hook Form** + `@hookform/resolvers` + **Zod**                                                       |
+| Icons                         | **lucide-react**                                                                                            |
+| Toasts                        | **sonner**                                                                                                  |
+| Dates / currency              | **date-fns** + `Intl`                                                                                       |
+| Tables                        | **TanStack Table**                                                                                          |
+| Charts                        | **Recharts**                                                                                                |
+| Multi-state flows (3+ states) | **XState** (`@xstate/react`) — only for genuinely multi-state flows; a hover or a toast stays on `useState` |
+| Routing                       | React Router 7                                                                                              |
+| Styling                       | Tailwind 4                                                                                                  |
+| Tests                         | Vitest + Testing Library                                                                                    |
+
+### Pulling components
+
+Use the CLI from `apps/web/` — never hand-copy code off a website:
+
+```bash
+npx shadcn@latest add button              # core primitives
+npx shadcn@latest add @magicui/marquee    # a registry component
+```
+
+Configured registries: `@magicui` · `@cult` · `@animate-ui` · `@motion-primitives` · `@kokonutui`.
+Components land in `src/components/ui/` as source you own and can edit freely.
+
+Two already pulled as working examples: `card.jsx` (core) and `shimmer-button.jsx` (@magicui).
+
+---
+
+## 4. Design tokens — the one rule that saves me the most rework
+
+**Never hardcode a colour.** Not `#2b57c4`, not `text-blue-600`, not `bg-slate-100`. Use the tokens
+defined in `src/index.css` — they're shadcn's standard names, so any AI tool already knows them:
+
+`bg-background` · `text-foreground` · `bg-card` · `text-muted-foreground` · `border-border` ·
+`bg-primary` · `text-primary` · `ring-ring` · `bg-destructive` · `bg-accent`
+
+Plus Canary's own, for trust levels: `text-band-high` · `bg-band-high-soft` · `text-band-med` ·
+`bg-band-med-soft` · `bg-destructive-soft`.
+
+**Why this matters more than anything else in this file:** I'm doing the real brand pass after the
+demo — new colours, new type. If you used tokens, that's me editing one file. If you hardcoded
+colours, it's me hunting through every screen you touched. This single rule is most of the reason
+you're getting a brief instead of a one-line message.
+
+**One trap.** In shadcn's vocabulary `--primary` is the brand action colour and `--accent` is a
+_subtle hover surface_ — not what the word suggests. Brand blue is `bg-primary`. If something looks
+washed out, you probably reached for `accent`.
+
+Two more: `destructive` (red) is reserved for risk and low-trust states — never decorative. And the
+type scale is `text-xs` → `text-3xl` as defined in `index.css`; don't invent sizes with arbitrary
+values.
+
+---
+
+## 5. React conventions — so I can pick this up without a rewrite
+
+Match what's already in `src/app/routes/JobDetail.jsx`; it's the reference.
+
+- **Reuse the existing primitives** before building your own: `Button`, `Spinner`, `ErrorNotice`,
+  `EmptyState`, `TrustBadge` in `src/components/ui/`. A new shared primitive goes in that same
+  folder.
+- **All data goes through `src/lib/api/*.js`**, which wraps `apiClient.js` (it handles CSRF and
+  throws a typed `ApiError`). Never call `fetch` directly in a component — you'll bypass both.
+  The wrappers already exist: `jobPosts.js`, `profiles.js`, `trustScores.js`, `proposals.js`,
+  `outcomeReviews.js`, `engagements.js`, `auth.js`.
+- **Every screen handles three states: loading, error, empty.** Not optional — the demo runs on real
+  data and something will be slow or missing on stage. `Spinner`, `ErrorNotice`, and `EmptyState`
+  exist precisely for this.
+- **PropTypes on every component that takes props.** This repo is plain JavaScript, no TypeScript —
+  PropTypes is the substitute, and it's used consistently. (Components you pull from a registry are
+  exempt; the lint config already knows.)
+- **Where files go:** screens in `src/app/routes/`, shared UI in `src/components/ui/`, API wrappers
+  in `src/lib/api/`. **Don't create a `features/` folder** — an ESLint boundary rule guards it and
+  it'll block your commit for no benefit on a one-day task.
+- **Default export for components, named exports for helpers.**
+- **Import with `@/`** (e.g. `import { cn } from '@/lib/utils'`) or a relative path — both work.
+
+---
+
+## 6. What the data actually holds — read before you design
+
+You can't design around data that doesn't exist. Measured, not guessed:
+
+- **Trust Scores are real** — score, band, and ranked risk signals, on ~80% of clients. This is the
+  product; give it the visual weight on any screen it appears.
+- **There are exactly four risk signals**, the same four for everyone: ghost rate, on-time rate,
+  paid-in-full rate, scope-creep rate. Don't design a rich signal taxonomy — there isn't one.
+- **Job titles, descriptions, cover letters and review text are placeholder text.** Ratings and
+  dates are real; the words are filler. Design around the _structure_, and don't give a
+  description block half the screen.
+- **No data at all for:** review authenticity / fake-review flags, notifications, messages, saved
+  jobs, client spend history, hire rates. Don't build UI for them.
+- Reviews, outcomes, engagements and proposals are all real, with real lifecycle states.
+
+---
+
+## 7. How to actually build the UI (not "ask ChatGPT for a page")
 
 You'll likely reach for an AI tool to generate markup. That's fine — but a raw "create me a UI for
 X" prompt produces generic, templated output, and this project is explicitly trying not to look
@@ -98,7 +204,7 @@ If it looks like ten other AI-generated dashboards, redo it — don't ship the f
 
 ---
 
-## 4. Testing — yes, still required, and here's why it actually matters this time
+## 8. Testing — yes, still required, and here's why it actually matters this time
 
 We're building UI on **parallel branches** — you on yours, me on mine, same backend underneath.
 There's a real chance something you build (a layout choice, an interaction, a piece of motion) is
@@ -113,7 +219,7 @@ proposal", clicking a star rating). Red before green, like everywhere else in th
 
 ---
 
-## 5. Workflow
+## 9. Workflow
 
 ```bash
 git checkout main && git pull
