@@ -13,10 +13,61 @@ describe('Proposal schema', () => {
       bid: 1200,
       payModel: 'milestone',
       proposedMilestones: [{ description: 'Design', amount: 400 }],
+      proposedDurationDays: 21,
       durationEstimate: '3 weeks',
       coverLetter: 'I can do this.',
     });
     expect(doc.validateSync()).toBeUndefined();
+    expect(doc.proposedDurationDays).toBe(21);
+  });
+
+  it('rejects a zero proposedDurationDays value', () => {
+    const doc = new Proposal({
+      jobPostId,
+      freelancerProfileId,
+      bid: 1200,
+      payModel: 'project',
+      proposedDurationDays: 0,
+    });
+    const err = doc.validateSync();
+    expect(err.errors.proposedDurationDays).toBeDefined();
+  });
+
+  it('rejects a negative proposedDurationDays value', () => {
+    const doc = new Proposal({
+      jobPostId,
+      freelancerProfileId,
+      bid: 1200,
+      payModel: 'project',
+      proposedDurationDays: -1,
+    });
+    const err = doc.validateSync();
+    expect(err.errors.proposedDurationDays).toBeDefined();
+  });
+
+  it('rejects a fractional proposedDurationDays value', () => {
+    const doc = new Proposal({
+      jobPostId,
+      freelancerProfileId,
+      bid: 1200,
+      payModel: 'project',
+      proposedDurationDays: 2.5,
+    });
+    const err = doc.validateSync();
+    expect(err.errors.proposedDurationDays).toBeDefined();
+  });
+
+  it('keeps durationEstimate as a String', () => {
+    const doc = new Proposal({
+      jobPostId,
+      freelancerProfileId,
+      bid: 1200,
+      payModel: 'project',
+      proposedDurationDays: 21,
+      durationEstimate: '3 weeks',
+    });
+    expect(doc.durationEstimate).toBe('3 weeks');
+    expect(typeof doc.durationEstimate).toBe('string');
   });
 
   it('rejects an invalid status', () => {

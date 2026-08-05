@@ -1,10 +1,35 @@
 [tool.black]
 line-length = 110
 target-version = ["py313"]
+# Agent sandboxes leave permission-locked pytest temp dirs in this tree. Without
+# this, `black --check .` CRASHES on them before reaching a single source file —
+# so the local check "passes" by never running, and a real formatting error only
+# surfaces in CI, where those dirs do not exist. That happened once; excluding
+# them keeps the local command equivalent to the CI one.
+# Matched by prefix, not by exact name: each sandbox run coins a fresh suffix
+# (.pytest-outcome-semantics, .codex-pytest-a4, ...), and naming them one at a
+# time means the next run reintroduces the crash.
+force-exclude = '''
+/(
+    venv
+  | \.venv
+  | \.pytest-[^/]*
+  | \.codex-pytest-[^/]*
+  | \.tmp-pytest
+  | \.test-tmp
+)/
+'''
 
 [tool.ruff]
 line-length = 110
 target-version = "py313"
+extend-exclude = [
+    "venv",
+    ".pytest-*",
+    ".codex-pytest-*",
+    ".tmp-pytest",
+    ".test-tmp",
+]
 
 [tool.ruff.lint]
 # "I" = import sorting. Ruff's own isort-equivalent replaces standalone isort —

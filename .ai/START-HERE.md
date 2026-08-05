@@ -63,9 +63,9 @@ above cover everything you'll touch before Slice 1 exists).
   HTTP adapters; **services own business logic**; models are data access only.
 - **Foundations are frozen.** Auth, the data model, and API style are decided once and wrapped
   behind interfaces. Changing one mid-build is a deliberate, announced PR — never a casual rewrite.
-- **UI component system (shadcn/Radix + Tailwind + design tokens) is deliberately deferred** until
-  Slice 7. `apps/web` right now is a genuinely bare walking skeleton — don't add `components.json`,
-  install a registry, or invent tokens before then. This is not an oversight; it's locked.
+- **UI component system:** Slice 7 is in progress. Hand-written Tailwind primitives and a design
+  tokens layer (CSS variables for colour/type/spacing) are now in scope in `apps/web`. shadcn/Radix
+  and any component registry remain out — plain Tailwind primitives only, per `PLAN-UI.md` A4.
 
 ## Hard don'ts
 

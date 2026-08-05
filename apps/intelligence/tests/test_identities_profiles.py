@@ -1,7 +1,14 @@
 from datetime import datetime
 
+import pytest
+
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
-from generator.identities_profiles import generate_identities_and_profiles
+from generator.identities_profiles import (
+    SEED_DEV_PASSWORD_HASH,
+    VERIFIED_RATE_BY_ARCHETYPE,
+    generate_identities_and_profiles,
+)
 
 
 def test_generates_one_profile_per_identity_with_archetype():
@@ -39,13 +46,21 @@ def test_verification_status_correlates_with_bad_actor_archetype():
     reliable_verified = sum(p["verificationStatus"] == "id-verified" for p in reliable)
     bad_actor_verified_rate = bad_actor_verified / len(bad_actors)
     reliable_verified_rate = reliable_verified / len(reliable)
-    assert bad_actor_verified_rate < reliable_verified_rate
+
+    # Magnitude, not direction. `bad < reliable` passes at 0.84 vs 0.85 and at
+    # 0.0001 vs 0.00001 — immune to degeneracy by construction, which is how a
+    # feature reached 98.7% degenerate with 76 tests green. Asserted against the
+    # generator's own declared constants so the test tracks them if they change.
+    assert bad_actor_verified_rate == pytest.approx(VERIFIED_RATE_BY_ARCHETYPE["bad-actor"], abs=0.15)
+    assert reliable_verified_rate == pytest.approx(VERIFIED_RATE_BY_ARCHETYPE["reliable"], abs=0.15)
+    designed_gap = VERIFIED_RATE_BY_ARCHETYPE["reliable"] - VERIFIED_RATE_BY_ARCHETYPE["bad-actor"]
+    assert reliable_verified_rate - bad_actor_verified_rate >= designed_gap * 0.6
 
 
 def test_profiles_carry_a_trait_trajectory_and_join_date():
     config = GeneratorConfig(seed=42, num_profiles=100, timeline_months=18)
     _, profiles = generate_identities_and_profiles(config)
-    now = datetime.utcnow()
+    now = resolve_now(config)
     for profile in profiles:
         assert len(profile["_traitTrajectory"]) == 19
         assert isinstance(profile["createdAt"], datetime)
@@ -55,7 +70,7 @@ def test_profiles_carry_a_trait_trajectory_and_join_date():
 def test_cold_start_profiles_joined_recently():
     config = GeneratorConfig(seed=42, num_profiles=500, timeline_months=18)
     _, profiles = generate_identities_and_profiles(config)
-    now = datetime.utcnow()
+    now = resolve_now(config)
     cold_start = [p for p in profiles if p["trueArchetype"] == "cold-start"]
     assert cold_start, "expected at least one cold-start profile in this seed"
     for profile in cold_start:
@@ -67,9 +82,20 @@ def test_identities_carry_a_created_at_matching_their_profile():
     config = GeneratorConfig(seed=42, num_profiles=100, timeline_months=18)
     identities, profiles = generate_identities_and_profiles(config)
     identities_by_local_id = {i["_localId"]: i for i in identities}
-    now = datetime.utcnow()
+    now = resolve_now(config)
     for profile in profiles:
         identity = identities_by_local_id[profile["identityLocalId"]]
         assert isinstance(identity["createdAt"], datetime)
         assert identity["createdAt"] <= now
         assert identity["createdAt"] == profile["createdAt"]
+
+
+def test_seeded_identities_are_provisioned_for_local_login_with_an_owned_active_profile():
+    config = GeneratorConfig(seed=42, num_profiles=100)
+    identities, profiles = generate_identities_and_profiles(config)
+    profile_by_identity = {profile["identityLocalId"]: profile for profile in profiles}
+
+    for identity in identities:
+        assert identity["passwordHash"] == SEED_DEV_PASSWORD_HASH
+        assert identity["emailVerified"] is True
+        assert identity["activeProfileLocalId"] == profile_by_identity[identity["_localId"]]["_localId"]

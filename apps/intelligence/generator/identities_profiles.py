@@ -9,6 +9,7 @@ from generator.archetypes import (
     derive_archetype,
     simulate_trait_drift,
 )
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 
 VERIFIED_RATE_BY_ARCHETYPE = {
@@ -20,6 +21,12 @@ VERIFIED_RATE_BY_ARCHETYPE = {
     "saboteur": 0.4,
 }
 
+# bcryptjs generated this once with the API's 12-round verifier for the known
+# development password `canary-demo-password`. Raw pymongo seed writes bypass
+# the registration path, so every synthetic Identity needs this local-login
+# provision explicitly rather than a placeholder OAuth provider id.
+SEED_DEV_PASSWORD_HASH = "$2b$12$XT.ISsDwePIbMP.KWFjc2uTK6w25hbfpVzFj0.MJS5PPzIXJWM36m"
+
 
 def _assign_join_month_index(rng: random.Random, config: GeneratorConfig) -> int:
     if rng.random() < config.cold_start_join_rate:
@@ -29,7 +36,9 @@ def _assign_join_month_index(rng: random.Random, config: GeneratorConfig) -> int
     return rng.randint(0, max(0, config.timeline_months - config.cold_start_recent_months - 1))
 
 
-def generate_identities_and_profiles(config: GeneratorConfig) -> tuple[list[dict], list[dict]]:
+def generate_identities_and_profiles(
+    config: GeneratorConfig, *, now: datetime | None = None
+) -> tuple[list[dict], list[dict]]:
     rng = random.Random(config.seed)
     fake = Faker()
     Faker.seed(config.seed)
@@ -38,7 +47,7 @@ def generate_identities_and_profiles(config: GeneratorConfig) -> tuple[list[dict
     trajectories = simulate_trait_drift(config, initial_traits)
     special_roles = assign_special_roles(config)
 
-    now = datetime.utcnow()
+    now = resolve_now(config, now)
     identities = []
     profiles = []
 
@@ -62,7 +71,9 @@ def generate_identities_and_profiles(config: GeneratorConfig) -> tuple[list[dict
         identity = {
             "_localId": f"identity-{i}",
             "email": fake.unique.email(),
-            "authProviderId": f"seed-provider|{i}",
+            "passwordHash": SEED_DEV_PASSWORD_HASH,
+            "emailVerified": True,
+            "activeProfileLocalId": f"profile-{i}",
             # Reuses the same created_at as the profile below — an Identity and
             # its first Profile are created at the same signup moment. Needed
             # explicitly because the orchestrator writes via raw pymongo, which

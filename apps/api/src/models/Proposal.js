@@ -14,6 +14,12 @@ const proposalSchema = new Schema(
     payModel: { type: String, enum: ['project', 'milestone'], required: true },
     proposedMilestones: { type: [milestoneSchema], default: [] },
     durationEstimate: String,
+    proposedDurationDays: {
+      type: Number,
+      required: true,
+      min: 1,
+      validate: { validator: Number.isInteger, message: 'proposedDurationDays must be an integer' },
+    },
     coverLetter: { type: String, maxlength: 5000 },
     screeningAnswers: { type: [String], default: [] },
     status: {
@@ -24,5 +30,9 @@ const proposalSchema = new Schema(
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
+
+// The database is the concurrent-submit guard. The dense-data preflight recorded no
+// existing duplicate pairs before this index was introduced.
+proposalSchema.index({ jobPostId: 1, freelancerProfileId: 1 }, { unique: true });
 
 export default model('Proposal', proposalSchema);

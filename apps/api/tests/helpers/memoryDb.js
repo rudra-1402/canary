@@ -2,15 +2,22 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 
 let mongod;
+let memoryDbUri;
 
 export async function startMemoryDb() {
   mongod = await MongoMemoryServer.create();
-  await mongoose.connect(mongod.getUri());
+  memoryDbUri = mongod.getUri('canary_test');
+  await mongoose.connect(memoryDbUri);
+}
+
+export function getMemoryDbUri() {
+  return memoryDbUri;
 }
 
 export async function stopMemoryDb() {
   await mongoose.disconnect();
   if (mongod) await mongod.stop();
+  memoryDbUri = undefined;
 }
 
 export async function clearCollections() {

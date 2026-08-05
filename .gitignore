@@ -20,8 +20,25 @@ apps/intelligence/.env
 ground-truth-manifest.json
 profile-id-map.json
 
+# Trained model artifacts (regeneratable from the pipeline)
+*.joblib
+
 # Editor / OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Codex sandbox pytest temp dirs (permission-locked, cannot be removed by the agent).
+# Globbed rather than listed: each sandbox run coins a new suffix, and an unignored one
+# breaks `eslint .` with EPERM before it reaches any source file.
+.pytest-tmp/
+.pytest-task6/
+apps/intelligence/.pytest-tmp/
+.test-tmp/
+apps/intelligence/.test-tmp/
+.codex-pytest-*/
+.tmp-pytest/
+.pytest-*/
+apps/intelligence/.codex-pytest-*/
+apps/intelligence/.pytest-*/

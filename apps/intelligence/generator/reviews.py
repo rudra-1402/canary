@@ -1,10 +1,13 @@
 import random
+from collections import defaultdict
+from datetime import datetime, timedelta
 
-from faker import Faker
-
+from generator import corpus
+from generator.clock import resolve_now
 from generator.config import GeneratorConfig
 
 RATING_WEIGHTS = {5: 0.55, 4: 0.25, 3: 0.1, 2: 0.05, 1: 0.05}
+REVIEW_TIMEOUT_DAYS = 14
 
 
 def _sample_rating(rng: random.Random, ghosted: bool) -> int:
@@ -13,33 +16,176 @@ def _sample_rating(rng: random.Random, ghosted: bool) -> int:
     return rng.choices(list(RATING_WEIGHTS.keys()), weights=list(RATING_WEIGHTS.values()))[0]
 
 
+def _subject_conduct_is_good(outcome: dict) -> bool:
+    if not outcome["observed"] or outcome["ghosted"]:
+        return False
+    if outcome["subjectRole"] == "freelancer":
+        return outcome["daysLate"] is not None and outcome["daysLate"] <= 0
+    return outcome["paidInFull"] is True and outcome["scopeCreepOccurred"] is False
+
+
+def _apply_review_timing(
+    reviews: list[dict], timelines: dict[str, dict], now: datetime, rng: random.Random
+) -> list[dict]:
+    """Resolve review authorship and visibility from the shared conclusion event.
+
+    A pair becomes visible when the second party submits. A lone review becomes
+    visible after the 14-day double-blind timeout. Reviews that could not yet
+    become visible at the run's `now` are not generated, so the seeded data
+    contains no future review timestamps.
+    """
+    reviews_by_engagement = defaultdict(list)
+    for review in reviews:
+        reviews_by_engagement[review["engagementLocalId"]].append(review)
+
+    timed_reviews = []
+    for engagement_id, engagement_reviews in reviews_by_engagement.items():
+        timeline = timelines.get(engagement_id)
+        if timeline is None:
+            continue
+        conclusion_at = timeline["recordedAt"]
+        first_possible_at = conclusion_at + timedelta(days=1)
+        if first_possible_at > now:
+            continue
+
+        if len(engagement_reviews) == 2:
+            for review in engagement_reviews:
+                review["createdAt"] = first_possible_at + timedelta(
+                    days=rng.randint(0, (now - first_possible_at).days)
+                )
+            visible_at = max(review["createdAt"] for review in engagement_reviews)
+            for review in engagement_reviews:
+                review["visibleAt"] = visible_at
+            timed_reviews.extend(engagement_reviews)
+            continue
+
+        latest_created_at = now - timedelta(days=REVIEW_TIMEOUT_DAYS)
+        if first_possible_at > latest_created_at:
+            continue
+        review = engagement_reviews[0]
+        review["createdAt"] = first_possible_at + timedelta(
+            days=rng.randint(0, (latest_created_at - first_possible_at).days)
+        )
+        review["visibleAt"] = review["createdAt"] + timedelta(days=REVIEW_TIMEOUT_DAYS)
+        timed_reviews.append(review)
+
+    return timed_reviews
+
+
 def generate_reviews(
     config: GeneratorConfig,
     profiles: list[dict],
     engagements: list[dict],
     outcomes: list[dict],
     rings: list[dict],
+    *,
+    timelines: dict[str, dict] | None = None,
+    now: datetime | None = None,
 ) -> list[dict]:
     rng = random.Random(config.seed + 6)
-    fake = Faker()
-    Faker.seed(config.seed + 6)
+    timing_rng = random.Random(config.seed + 13)
+    # Dedicated stream for review text -- see generator/jobposts.py for why
+    # composed text must not share the structural rng that drives which
+    # candidates get selected, sampled, and rated; that selection logic is
+    # exactly what the ring-detectability and sabotage-population tests
+    # depend on being unperturbed by adding a text field.
+    text_rng = random.Random(f"review-corpus:{config.seed}")
+    now = resolve_now(config, now)
+    # Older direct callers already pass resolved Outcomes. Their recordedAt is
+    # the timeline's conclusion event; run.py passes the shared timeline
+    # explicitly so review timing has one source of truth in the seed path.
+    if timelines is None:
+        timelines = {
+            outcome["engagementLocalId"]: {"recordedAt": outcome["recordedAt"]}
+            for outcome in outcomes
+            if "recordedAt" in outcome
+        }
 
-    outcomes_by_engagement = {o["engagementLocalId"]: o for o in outcomes}
+    outcomes_by_engagement_and_subject = {
+        (outcome["engagementLocalId"], outcome["subjectProfileLocalId"]): outcome for outcome in outcomes
+    }
     ring_member_ids = {m for ring in rings for m in ring["memberLocalIds"]}
 
     reviews = []
+    review_counts: dict[str, int] = {}
+    review_authors = set()
+
+    saboteurs = [p for p in profiles if p["trueArchetype"] == "saboteur"]
+    for saboteur in saboteurs:
+        saboteur_id = saboteur["_localId"]
+        candidates = []
+        for engagement in engagements:
+            freelancer_id = engagement["freelancerProfileLocalId"]
+            client_id = engagement["clientProfileLocalId"]
+            if saboteur_id not in (freelancer_id, client_id):
+                continue
+            subject_id = client_id if saboteur_id == freelancer_id else freelancer_id
+            outcome = outcomes_by_engagement_and_subject.get((engagement["_localId"], subject_id))
+            if (
+                outcome is not None
+                and _subject_conduct_is_good(outcome)
+                and review_counts.get(engagement["_localId"], 0) < 2
+                and (engagement["_localId"], saboteur_id) not in review_authors
+            ):
+                candidates.append((engagement, subject_id))
+
+        rng.shuffle(candidates)
+        for matching_engagement, subject_id in candidates[:2]:
+            engagement_id = matching_engagement["_localId"]
+            if review_counts.get(engagement_id, 0) >= 2 or (engagement_id, saboteur_id) in review_authors:
+                continue
+            sabotage_rating = rng.choice([1, 2, 3])
+            reviews.append(
+                {
+                    "_localId": f"review-sabotage-{engagement_id}-{saboteur_id}",
+                    "engagementLocalId": engagement_id,
+                    "authorProfileLocalId": saboteur_id,
+                    "subjectProfileLocalId": subject_id,
+                    "rating": sabotage_rating,
+                    # A sabotage review is fake negative feedback grafted onto
+                    # observed *good* conduct -- deriving its text from the
+                    # real outcome would erase the plant. Text follows the
+                    # fabricated rating instead, same as a real bad-faith
+                    # reviewer would write.
+                    "text": corpus.compose_review_text(text_rng, sabotage_rating, None),
+                    "isPlantedCollusion": False,
+                    "isPlantedSabotage": True,
+                }
+            )
+            review_counts[engagement_id] = review_counts.get(engagement_id, 0) + 1
+            review_authors.add((engagement_id, saboteur_id))
 
     for engagement in engagements:
-        outcome = outcomes_by_engagement.get(engagement["_localId"])
-        if outcome is None or rng.random() > 0.85:
-            continue
-
         freelancer_id = engagement["freelancerProfileLocalId"]
         client_id = engagement["clientProfileLocalId"]
         both_ring_members = freelancer_id in ring_member_ids and client_id in ring_member_ids
 
+        if (engagement["_localId"], freelancer_id) not in outcomes_by_engagement_and_subject:
+            continue
+        # The 0.85 skip below models ordinary organic non-response -- a real
+        # marketplace where most engagements never get reviewed at all. A
+        # ring-internal engagement is a planted transaction whose entire
+        # purpose is to leave a reciprocal collusion fingerprint, so it must
+        # not be subject to the same non-response modelling or the plant
+        # would depend on luck rather than the mechanism meant to produce it.
+        if not both_ring_members and rng.random() > 0.85:
+            continue
+
         for author_id, subject_id in ((freelancer_id, client_id), (client_id, freelancer_id)):
-            if rng.random() > 0.9:
+            if (
+                review_counts.get(engagement["_localId"], 0) >= 2
+                or (
+                    engagement["_localId"],
+                    author_id,
+                )
+                in review_authors
+            ):
+                continue
+            if not both_ring_members and rng.random() > 0.9:
+                continue
+
+            outcome = outcomes_by_engagement_and_subject.get((engagement["_localId"], subject_id))
+            if outcome is None:
                 continue
 
             is_planted_collusion = both_ring_members
@@ -52,48 +198,16 @@ def generate_reviews(
                     "authorProfileLocalId": author_id,
                     "subjectProfileLocalId": subject_id,
                     "rating": rating,
-                    "text": fake.sentence(),
+                    # Collusion fabricates praise regardless of the underlying
+                    # conduct, so its prose must follow the forced rating too.
+                    "text": corpus.compose_review_text(
+                        text_rng, rating, None if is_planted_collusion else outcome
+                    ),
                     "isPlantedCollusion": is_planted_collusion,
                     "isPlantedSabotage": False,
                 }
             )
+            review_counts[engagement["_localId"]] = review_counts.get(engagement["_localId"], 0) + 1
+            review_authors.add((engagement["_localId"], author_id))
 
-    saboteurs = [p for p in profiles if p["trueArchetype"] == "saboteur"]
-    reliable_targets = [p for p in profiles if p["trueArchetype"] == "reliable"]
-    for saboteur in saboteurs:
-        if not reliable_targets:
-            break
-        victim = rng.choice(reliable_targets)
-        # Re-tally per-engagement review counts each iteration (cheap — saboteurs
-        # are a small fraction of profiles) so neither this nor a prior sabotage
-        # review can push an engagement past the 2-review cap. A saboteur who's
-        # also an organic party to an engagement that already has 2 reviews
-        # (from the loop above) must not add a 3rd.
-        review_counts: dict[str, int] = {}
-        for r in reviews:
-            review_counts[r["engagementLocalId"]] = review_counts.get(r["engagementLocalId"], 0) + 1
-        matching_engagement = next(
-            (
-                e
-                for e in engagements
-                if saboteur["_localId"] in (e["freelancerProfileLocalId"], e["clientProfileLocalId"])
-                and review_counts.get(e["_localId"], 0) < 2
-            ),
-            None,
-        )
-        if matching_engagement is None:
-            continue
-        reviews.append(
-            {
-                "_localId": f"review-sabotage-{saboteur['_localId']}-{victim['_localId']}",
-                "engagementLocalId": matching_engagement["_localId"],
-                "authorProfileLocalId": saboteur["_localId"],
-                "subjectProfileLocalId": victim["_localId"],
-                "rating": 1,
-                "text": fake.sentence(),
-                "isPlantedCollusion": False,
-                "isPlantedSabotage": True,
-            }
-        )
-
-    return reviews
+    return _apply_review_timing(reviews, timelines, now, timing_rng)

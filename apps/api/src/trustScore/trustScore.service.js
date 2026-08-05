@@ -3,8 +3,14 @@ import Profile from '../models/Profile.js';
 import TrustScore from '../models/TrustScore.js';
 import RiskSignal from '../models/RiskSignal.js';
 import Engagement from '../models/Engagement.js';
+import Outcome from '../models/Outcome.js';
 import { NotFoundError } from '../lib/errors.js';
-import { TrustScoreResponseSchema, TrustScoreBatchResponseSchema } from '@canary/shared';
+import {
+  TrustScoreResponseSchema,
+  TrustScoreBatchResponseSchema,
+  TrustScoreOutcomeSchema,
+  TrustScoreOutcomeListResponseSchema,
+} from '@canary/shared';
 import { MIN_ENGAGEMENTS_FOR_SCORING } from './scoringConfig.js';
 import { bandForScore, strengthForSignal } from './bands.js';
 
@@ -24,6 +30,7 @@ export function projectSignals(signals) {
       magnitude: Math.abs(signal.value),
     }))
     .sort((a, b) => b.magnitude - a.magnitude || a.name.localeCompare(b.name))
+    .slice(0, 5)
     .map(({ magnitude, ...signal }) => signal);
 }
 
@@ -55,7 +62,9 @@ export function projectTrustScore({ profile, snapshot, counts, signals, identity
     generatedAt: new Date(snapshot.generatedAt).toISOString(),
     ...(counts.outcomesSince > 0 ? { outcomesSince: counts.outcomesSince } : {}),
   };
-  if (viewerRelation(profile, identityId) === 'self') result.signals = projectSignals(signals);
+  // This public projection exposes only the safe explanation contract, regardless of whether the
+  // authenticated viewer owns the Profile or is evaluating a counterparty.
+  if (viewerRelation(profile, identityId) !== 'anonymous') result.signals = projectSignals(signals);
   return result;
 }
 
@@ -70,8 +79,8 @@ async function latestSnapshots(profileIds) {
 }
 
 // One aggregate proves all three facts: the Engagement is concluded, belongs to the Profile,
-// and has an Outcome. Counts are calculated in JS against each selected snapshot timestamp.
-async function outcomeRows(profileIds) {
+// and its Outcome describes that Profile. Counts are calculated in JS against each selected snapshot timestamp.
+export async function outcomeRows(profileIds) {
   const ids = profileIds.map((id) => new mongoose.Types.ObjectId(id));
   const rows = await Engagement.aggregate([
     {
@@ -87,7 +96,9 @@ async function outcomeRows(profileIds) {
     {
       $project: {
         engagementId: '$_id',
+        outcomeId: '$outcome._id',
         recordedAt: '$outcome.recordedAt',
+        subjectProfileId: '$outcome.subjectProfileId',
         profileIds: {
           $filter: {
             input: ['$freelancerProfileId', '$clientProfileId'],
@@ -99,12 +110,20 @@ async function outcomeRows(profileIds) {
     },
     { $unwind: '$profileIds' },
     {
+      $match: { $expr: { $eq: ['$subjectProfileId', '$profileIds'] } },
+    },
+    {
       $group: {
-        _id: { profileId: '$profileIds', engagementId: '$engagementId' },
-        recordedAt: { $first: '$recordedAt' },
+        _id: '$profileIds',
+        outcomes: {
+          $push: {
+            outcomeId: '$outcomeId',
+            subjectProfileId: '$subjectProfileId',
+            recordedAt: '$recordedAt',
+          },
+        },
       },
     },
-    { $group: { _id: '$_id.profileId', outcomes: { $push: { recordedAt: '$recordedAt' } } } },
   ]);
   return new Map(rows.map((row) => [String(row._id), row.outcomes]));
 }
@@ -190,5 +209,59 @@ export async function getTrustScore(profileId, identityId) {
 export async function getTrustScoreBatch(profileIds, identityId) {
   return TrustScoreBatchResponseSchema.parse({
     data: await getTrustScores(profileIds, identityId),
+  });
+}
+
+// The safe public projection of an Outcome: no engagementId, no counterparty identity,
+// no labelSource. Same fields the Trust Score panel's evidence view is allowed to show.
+function toTrustScoreOutcomeContract(doc) {
+  return {
+    id: doc._id.toString(),
+    subjectRole: doc.subjectRole,
+    endedAs: doc.endedAs,
+    ghosted: Boolean(doc.ghosted),
+    daysLate: doc.daysLate ?? null,
+    paidInFull: doc.paidInFull ?? null,
+    scopeCreepOccurred: doc.scopeCreepOccurred ?? null,
+    recordedAt: new Date(doc.recordedAt).toISOString(),
+  };
+}
+
+// GET /api/trust-scores/:profileId/outcomes. Same discoverability gate as the score
+// itself: a non-owning viewer looking at a non-discoverable Profile gets NotFound, not
+// an empty-but-revealing 200.
+export async function getTrustScoreOutcomes(profileId, identityId, query) {
+  const profile = await Profile.findById(profileId).lean();
+  if (!profile) throw new NotFoundError('Profile', profileId);
+  if (viewerRelation(profile, identityId) === 'member' && !profile.discoverable) {
+    throw new NotFoundError('Profile', profileId);
+  }
+
+  const { page, pageSize } = query;
+  const [result] = await Outcome.aggregate([
+    { $match: { subjectProfileId: profile._id } },
+    {
+      $lookup: {
+        from: 'engagements',
+        localField: 'engagementId',
+        foreignField: '_id',
+        as: 'engagement',
+      },
+    },
+    { $unwind: '$engagement' },
+    { $match: { 'engagement.status': 'concluded' } },
+    { $sort: { recordedAt: -1, _id: -1 } },
+    {
+      $facet: {
+        docs: [{ $skip: (page - 1) * pageSize }, { $limit: pageSize }],
+        total: [{ $count: 'value' }],
+      },
+    },
+  ]);
+  const docs = result.docs;
+  const total = result.total[0]?.value ?? 0;
+  return TrustScoreOutcomeListResponseSchema.parse({
+    data: docs.map((doc) => TrustScoreOutcomeSchema.parse(toTrustScoreOutcomeContract(doc))),
+    pagination: { page, pageSize, total },
   });
 }

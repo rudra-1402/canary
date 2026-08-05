@@ -1,38 +1,122 @@
-import pytest
-
-from trust_score.labels import INT_TO_LABEL, LABEL_TO_INT, bucket_label, compute_reliability_index
-
-
-def _features(paid_in_full_rate=1.0, on_time_rate=1.0, ghost_rate=0.0, scope_creep_rate=0.0):
-    return {
-        "paid_in_full_rate": paid_in_full_rate,
-        "on_time_rate": on_time_rate,
-        "ghost_rate": ghost_rate,
-        "scope_creep_rate": scope_creep_rate,
-    }
+from trust_score.labels import (
+    ROLE_LABEL_TERMS,
+    LabelDegeneracyError,
+    LabelThresholds,
+    assert_label_distribution,
+    bucket_label,
+    compute_label_terms,
+    compute_reliability_index,
+    derive_bucket_thresholds,
+)
 
 
-def test_perfect_history_scores_index_of_one():
-    assert compute_reliability_index(_features()) == pytest.approx(1.0)
-
-
-def test_worst_history_scores_index_of_zero():
-    index = compute_reliability_index(
-        _features(paid_in_full_rate=0.0, on_time_rate=0.0, ghost_rate=1.0, scope_creep_rate=1.0)
+def test_each_role_label_components_use_only_its_own_fixed_terms():
+    freelancer = compute_label_terms(
+        {"subject_role": 0, "ghost_rate": 0.25, "on_time_rate": 0.8, "scope_creep_rate": 0.0}
     )
-    assert index == 0.0
+    client = compute_label_terms(
+        {
+            "subject_role": 1,
+            "ghost_rate": 0.25,
+            "paid_in_full_rate": 0.7,
+            "scope_creep_rate": 0.4,
+            "on_time_rate": 0.0,
+        }
+    )
+
+    assert tuple(freelancer) == ROLE_LABEL_TERMS["freelancer"]
+    assert freelancer == {"ghost": 0.75, "on_time_delivery": 0.8}
+    assert tuple(client) == ROLE_LABEL_TERMS["client"]
+    assert client == {"ghost": 0.75, "paid_in_full": 0.7, "revision_restraint": 0.6}
 
 
-def test_bucket_label_thresholds():
-    assert bucket_label(0.9) == "high"
-    assert bucket_label(0.75) == "high"
-    assert bucket_label(0.6) == "med"
-    assert bucket_label(0.5) == "med"
-    assert bucket_label(0.3) == "low"
+def test_equal_weighting_is_applied_without_fitting_label_weights():
+    features = {"subject_role": 0, "ghost_rate": 0.0, "on_time_rate": 0.5}
+    assert compute_reliability_index(features) == 0.75
 
 
-def test_label_int_mapping_is_a_bijection():
-    assert set(LABEL_TO_INT.keys()) == {"low", "med", "high"}
-    assert set(LABEL_TO_INT.values()) == {0, 1, 2}
-    for label, i in LABEL_TO_INT.items():
-        assert INT_TO_LABEL[i] == label
+def test_bucket_thresholds_are_derived_from_label_distribution_not_hardcoded():
+    thresholds = derive_bucket_thresholds([0.0, 0.1, 0.2, 0.8, 0.9, 1.0])
+    assert thresholds != LabelThresholds(0.33, 0.67)
+    assert bucket_label(0.0, thresholds) == "low"
+    assert bucket_label(1.0, thresholds) == "high"
+
+
+def test_label_distribution_refuses_to_force_a_degenerate_label_through_gate_4b():
+    try:
+        assert_label_distribution([1.0] * 20)
+    except LabelDegeneracyError as error:
+        assert "Gate 4b" in str(error)
+    else:
+        raise AssertionError("expected degenerate labels to fail Gate 4b")
+
+
+# Gate 4b tests what banding requires, not how concentrated raw values are.  A
+# population where most parties behave well is a population fact; it only matters
+# if it stops the three bands forming.  See pending-decisions P7 (2026-08-02).
+
+
+def test_gate_4b_accepts_a_top_heavy_label_whose_bands_still_form():
+    # 44% share a perfect record -- the real freelancer shape at 8x fan-out. Repeated
+    # 9x (proportions, thresholds and shares are unchanged by repeating a multiset)
+    # so every band also clears the 200-example minimum trainable size.
+    values = ([1.0] * 44 + [value / 100 for value in range(30, 86)]) * 9
+
+    stats = assert_label_distribution(values)
+
+    assert stats["largest_share"] > 0.4
+    assert stats["bands"] == {"low": 297, "med": 207, "high": 396}
+
+
+def test_gate_4b_refuses_a_label_whose_tertiles_cannot_separate():
+    # 80% on one value: both tertile boundaries land inside the same atom.
+    values = [1.0] * 80 + [value / 100 for value in range(50, 70)]
+
+    try:
+        assert_label_distribution(values)
+    except LabelDegeneracyError as error:
+        assert "Gate 4b" in str(error)
+    else:
+        raise AssertionError("expected collapsed tertiles to fail Gate 4b")
+
+
+def test_gate_4b_refuses_a_label_that_leaves_a_band_empty():
+    # Bottom-heavy: tertiles are strictly increasing, but nothing sorts below
+    # low_to_med, so "low" is unreachable.  Not caught by the tertile check alone.
+    values = [0.0] * 40 + [0.5 + value / 100 for value in range(0, 60)]
+
+    try:
+        assert_label_distribution(values)
+    except LabelDegeneracyError as error:
+        assert "low" in str(error)
+    else:
+        raise AssertionError("expected an empty band to fail Gate 4b")
+
+
+def test_gate_4b_refuses_a_two_example_band_even_with_distinct_values_and_full_bands():
+    # The exact counterexample the pre-A.1 gate let through: 36 distinct values,
+    # tertiles 0.33/1.00, bands low=33 med=2 high=65 -- all non-empty, but "med"
+    # carries only 2 examples.  A two-example training class is not scoreable.
+    values = [value / 100 for value in range(0, 35)] + [1.0] * 65
+
+    try:
+        assert_label_distribution(values)
+    except LabelDegeneracyError as error:
+        assert "Gate 4b" in str(error)
+    else:
+        raise AssertionError("expected an under-200 band to fail Gate 4b")
+
+
+def test_gate_4b_refuses_a_label_whose_spread_is_too_narrow():
+    # 900 distinct values, 300 per band, but every value sits within 0.05 of the
+    # next: no floor above catches this, yet the label is unusable at the 0-100
+    # reporting resolution the score is actually shown at.
+    values = [0.50 + (index / 900) * 0.05 for index in range(900)]
+
+    try:
+        assert_label_distribution(values)
+    except LabelDegeneracyError as error:
+        assert "Gate 4b" in str(error)
+        assert "spread" in str(error)
+    else:
+        raise AssertionError("expected a narrow-spread label to fail Gate 4b")

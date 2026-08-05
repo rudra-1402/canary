@@ -64,6 +64,27 @@ describe('cross-language config alignment', () => {
     expect(match, 'min_engagements_for_scoring declaration was not found').not.toBeNull();
     expect(Number(match[1])).toBe(MIN_ENGAGEMENTS_FOR_SCORING);
   });
+
+  // auth.routes.test.js hardcodes the seed dev password hash to prove a seeded Identity can log in
+  // through the real route. If the Python constant changes and that one does not, the login test
+  // keeps passing against a stale value while every real seeded login breaks — green suite, dead
+  // demo. Same drift class as the threshold check above.
+  it('the seed dev password hash stays aligned with the Python generator', async () => {
+    const srcUrl = new URL('../../intelligence/generator/identities_profiles.py', import.meta.url);
+    const src = await (await import('node:fs/promises')).readFile(srcUrl, 'utf8');
+    const pyMatch = src.match(/SEED_DEV_PASSWORD_HASH\s*=\s*"([^"]+)"/);
+    expect(
+      pyMatch,
+      'SEED_DEV_PASSWORD_HASH was not found in identities_profiles.py',
+    ).not.toBeNull();
+
+    const testUrl = new URL('./auth/auth.routes.test.js', import.meta.url);
+    const testSrc = await (await import('node:fs/promises')).readFile(testUrl, 'utf8');
+    const jsMatch = testSrc.match(/SEED_DEV_PASSWORD_HASH\s*=\s*'([^']+)'/);
+    expect(jsMatch, 'SEED_DEV_PASSWORD_HASH was not found in auth.routes.test.js').not.toBeNull();
+
+    expect(jsMatch[1], 'JS login test hash has drifted from the Python generator').toBe(pyMatch[1]);
+  });
 });
 
 describe.skipIf(!SEED_TESTS_ENABLED)(
@@ -193,13 +214,9 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // KNOWN BROKEN — each of these caught a real defect. Promote to `it()` when fixed.
-    // ─────────────────────────────────────────────────────────────────────────────
-
-    // Fixed by TS-C. "seed-provider|N" is a placeholder, not a real Google `sub`, so asserting the
-    // field merely EXISTS would pass while login stays impossible for all 20 000 identities.
-    it.fails(
+    // Seeded identities use the shared development credential; a placeholder OAuth sub alone is not
+    // loginable, so this asserts a real local-password path is present.
+    it(
       'every Identity has a usable credential (TS-C)',
       async () => {
         const unusable = await db()
@@ -216,9 +233,9 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // Fixed by TS-C. Written by createProfileForIdentity in the app path only; the generator never
-    // runs it, so active-profile resolution sees null for every seeded user.
-    it.fails(
+    // Raw pymongo writes bypass createProfileForIdentity, so the generator resolves the owned
+    // active Profile itself before persistence.
+    it(
       'every Identity has activeProfileId pointing at a Profile it owns (TS-C)',
       async () => {
         const bad = await db()
@@ -359,22 +376,25 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       );
     });
 
-    // Fixed by TS-C. Review.js declares visibleAt with default null; raw pymongo writes skip Mongoose
-    // defaults, so the field is absent entirely and double-blind has nowhere to live.
-    it.fails(
-      'every Review carries a visibleAt field (TS-C)',
+    // RESOLVED by A1 Task 20 — promoted from it.fails to a real assertion. Review.js declares
+    // visibleAt with default null and raw pymongo writes skip Mongoose defaults, so the field was
+    // absent on all 17111 rows and the double-blind rule had nowhere to live. reviews.py now derives
+    // it from the shared conclusion timeline, so the marker inverted ("Expect test to fail").
+    it(
+      'every Review carries a populated visibleAt',
       async () => {
         const total = await db().collection('reviews').countDocuments();
-        const withField = await db()
+        expect(total, 'no reviews seeded — this invariant would pass vacuously').toBeGreaterThan(0);
+        const populated = await db()
           .collection('reviews')
-          .countDocuments({ visibleAt: { $exists: true } });
-        expect(withField, `${withField}/${total} reviews have visibleAt`).toBe(total);
+          .countDocuments({ visibleAt: { $exists: true, $ne: null } });
+        expect(populated, `${populated}/${total} reviews have a populated visibleAt`).toBe(total);
       },
       TIMEOUT,
     );
 
-    // Fixed by TS-C. An accepted proposal that became an Engagement still reads "submitted".
-    it.fails(
+    // An accepted proposal that became an Engagement must no longer read "submitted".
+    it(
       'no Proposal referenced by an Engagement is still "submitted" (TS-C)',
       async () => {
         const stale = await db()
@@ -401,8 +421,8 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // Fixed by TS-C. Find Work is the demo's primary browse screen and would list finished jobs.
-    it.fails(
+    // Find Work must not list a concluded JobPost as open.
+    it(
       'no JobPost with a concluded Engagement is still "open" (TS-C)',
       async () => {
         const stale = await db()
@@ -430,9 +450,8 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // Fixed by TS-C. The generalisation of the three defects above: the generator only ever writes
-    // the initial state of any lifecycle, so no state machine is exercised by the seed.
-    it.fails(
+    // The seed exercises every marketplace lifecycle rather than emitting only initial states.
+    it(
       'every lifecycle actually transitions — statuses show more than one value (TS-C)',
       async () => {
         for (const c of ['jobposts', 'proposals', 'engagements']) {
@@ -445,16 +464,142 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       TIMEOUT,
     );
 
-    // Fixed by TS-D. Outcome has no attribution field, and fetch.py credits the identical row to both
-    // parties — so a freelancer is scored down for their client's non-payment.
-    it.fails(
-      'every Outcome records which party was responsible (TS-D)',
+    // RESOLVED by A1 Tasks 4/7/13 — promoted from it.fails, and REWRITTEN rather than adjusted.
+    // The old marker asserted `responsibleParty`, a field the shipped fix never creates: attribution
+    // is expressed by splitting one shared row into one row per party, not by naming a culprit on a
+    // shared row. Left as-is it would have "expected-failed" forever for the wrong reason — passing
+    // as a marker while the defect it described was already gone.
+    it(
+      'every Outcome is attributed to exactly one party',
       async () => {
         const total = await db().collection('outcomes').countDocuments();
+        expect(total, 'no outcomes seeded — this invariant would pass vacuously').toBeGreaterThan(
+          0,
+        );
+
         const attributed = await db()
           .collection('outcomes')
-          .countDocuments({ responsibleParty: { $exists: true, $ne: null } });
-        expect(attributed, `${attributed}/${total} outcomes carry attribution`).toBe(total);
+          .countDocuments({
+            subjectProfileId: { $exists: true, $ne: null },
+            counterpartyProfileId: { $exists: true, $ne: null },
+            subjectRole: { $in: ['freelancer', 'client'] },
+          });
+        expect(attributed, `${attributed}/${total} outcomes carry per-party attribution`).toBe(
+          total,
+        );
+
+        const selfAttributed = await db()
+          .collection('outcomes')
+          .countDocuments({ $expr: { $eq: ['$subjectProfileId', '$counterpartyProfileId'] } });
+        expect(selfAttributed, 'outcomes where subject and counterparty are the same profile').toBe(
+          0,
+        );
+      },
+      TIMEOUT,
+    );
+
+    // A1's cardinality guarantee. Asserts the MAPPING, not just presence: a swapped subject and
+    // counterparty satisfies every "field exists" check while attributing conduct to the wrong party,
+    // which is the exact defect this segment exists to remove.
+    it(
+      'every concluded Engagement has exactly two Outcomes, one per correctly-roled party',
+      async () => {
+        const concluded = await db()
+          .collection('engagements')
+          .countDocuments({ status: 'concluded' });
+        expect(concluded, 'no concluded engagements seeded').toBeGreaterThan(0);
+
+        const wrongCardinality = await db()
+          .collection('outcomes')
+          .aggregate(
+            [
+              { $group: { _id: '$engagementId', n: { $sum: 1 } } },
+              { $match: { n: { $ne: 2 } } },
+              { $count: 'bad' },
+            ],
+            { allowDiskUse: true },
+          )
+          .toArray();
+        expect(wrongCardinality[0]?.bad ?? 0, 'engagements without exactly 2 Outcomes').toBe(0);
+
+        const misMapped = await db()
+          .collection('outcomes')
+          .aggregate(
+            [
+              {
+                $lookup: {
+                  from: 'engagements',
+                  localField: 'engagementId',
+                  foreignField: '_id',
+                  as: 'e',
+                },
+              },
+              { $unwind: '$e' },
+              {
+                $match: {
+                  $expr: {
+                    $not: {
+                      $or: [
+                        {
+                          $and: [
+                            { $eq: ['$subjectRole', 'freelancer'] },
+                            { $eq: ['$subjectProfileId', '$e.freelancerProfileId'] },
+                            { $eq: ['$counterpartyProfileId', '$e.clientProfileId'] },
+                          ],
+                        },
+                        {
+                          $and: [
+                            { $eq: ['$subjectRole', 'client'] },
+                            { $eq: ['$subjectProfileId', '$e.clientProfileId'] },
+                            { $eq: ['$counterpartyProfileId', '$e.freelancerProfileId'] },
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+              { $count: 'bad' },
+            ],
+            { allowDiskUse: true },
+          )
+          .toArray();
+        expect(
+          misMapped[0]?.bad ?? 0,
+          'Outcomes whose role/party mapping is wrong or swapped',
+        ).toBe(0);
+      },
+      TIMEOUT,
+    );
+
+    // A1 Task 20. Outcome timestamps were fixed in Task 11 and reviews were initially left behind,
+    // which would put a review written after the fact inside a historical feature window — future
+    // information in a past feature vector, the same defect class as the target leakage.
+    it(
+      'no Outcome or Review is timestamped at its Engagement creation',
+      async () => {
+        for (const collection of ['outcomes', 'reviews']) {
+          const stale = await db()
+            .collection(collection)
+            .aggregate(
+              [
+                {
+                  $lookup: {
+                    from: 'engagements',
+                    localField: 'engagementId',
+                    foreignField: '_id',
+                    as: 'e',
+                  },
+                },
+                { $unwind: '$e' },
+                { $match: { $expr: { $eq: ['$createdAt', '$e.createdAt'] } } },
+                { $count: 'bad' },
+              ],
+              { allowDiskUse: true },
+            )
+            .toArray();
+          expect(stale[0]?.bad ?? 0, `${collection} stamped at engagement creation`).toBe(0);
+        }
       },
       TIMEOUT,
     );

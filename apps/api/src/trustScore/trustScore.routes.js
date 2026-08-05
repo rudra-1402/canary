@@ -48,6 +48,13 @@ router.get(
   trustScoreController.list,
 );
 router.get(
+  '/:profileId/outcomes',
+  requireAuth,
+  requireMarketplaceParticipant,
+  trustScoreSingleLimiter,
+  trustScoreController.listOutcomes,
+);
+router.get(
   '/:profileId',
   requireAuth,
   requireMarketplaceParticipant,

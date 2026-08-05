@@ -1,1 +1,52 @@
 @import 'tailwindcss';
+
+/*
+ * Design tokens — first pass, deliberately restrained (PLAN-UI Part D).
+ * Near-monochrome, cool neutrals (not warm ivory), one accent, one alarm hue.
+ * The alarm hue is reserved exclusively for risk / low-trust states — never
+ * used decoratively (buttons, links, focus rings all use --color-accent).
+ */
+@theme {
+  /* Neutrals — cool gray, deliberately not warm/ivory */
+  --color-ink: #14161a;
+  --color-ink-soft: #3a3f47;
+  --color-muted: #6b7280;
+  --color-line: #dde1e6;
+  --color-paper: #f3f4f6;
+  --color-surface: #ffffff;
+
+  /* One accent — used for primary actions, links, focus */
+  --color-accent: #2b57c4;
+  --color-accent-soft: #e7edfb;
+
+  /* One alarm hue — reserved for risk / low-trust states only */
+  --color-alarm: #a3352a;
+  --color-alarm-soft: #f6e6e4;
+
+  /* Trust bands — med reuses ink-soft, not a second colour family */
+  --color-band-high: #1f6f4a;
+  --color-band-high-soft: #e4f1ea;
+  --color-band-med: #3a3f47;
+  --color-band-med-soft: #eceef1;
+
+  /* Type scale */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+
+  /* Spacing rhythm (beyond Tailwind's default 4px scale) */
+  --spacing-section: 3rem;
+  --spacing-gutter: 1.5rem;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+}
