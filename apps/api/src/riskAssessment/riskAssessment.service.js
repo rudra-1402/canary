@@ -5,7 +5,12 @@ import Proposal from '../models/Proposal.js';
 import RiskAssessment from '../models/RiskAssessment.js';
 import RiskSignal from '../models/RiskSignal.js';
 import TrustScore from '../models/TrustScore.js';
-import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+  RiskAssessmentNotFoundError,
+} from '../lib/errors.js';
 import { assessRisk } from './riskAssessment.scoring.js';
 
 function proposedTerms(jobPost, proposal) {
@@ -210,4 +215,77 @@ export async function getAssessmentSignals(assessmentId) {
   })
     .sort({ direction: 1, name: 1, _id: 1 })
     .lean();
+}
+
+function iso(value) {
+  return value ? new Date(value).toISOString() : null;
+}
+
+export function toEngagementCommandContract(engagement) {
+  const terms = engagement.agreedTerms;
+  return {
+    id: engagement._id.toString(),
+    status: engagement.status,
+    freelancerProfileId: engagement.freelancerProfileId.toString(),
+    clientProfileId: engagement.clientProfileId.toString(),
+    jobPostId: engagement.jobPostId.toString(),
+    proposalId: engagement.proposalId.toString(),
+    agreedTerms: {
+      scope: terms.scope,
+      price: terms.price,
+      paymentTerms: terms.paymentTerms,
+      timeline: terms.timeline,
+      dueAt: iso(terms.dueAt),
+      revisionsIncluded: terms.revisionsIncluded ?? 0,
+    },
+    createdAt: iso(engagement.createdAt),
+    acceptedAt: iso(engagement.acceptedAt),
+  };
+}
+
+export async function toRiskAssessmentSummaryContract(assessment) {
+  const signals = await getAssessmentSignals(assessment._id);
+  return {
+    id: assessment._id.toString(),
+    engagementId: assessment.engagementId.toString(),
+    score: assessment.score,
+    level: assessment.level,
+    verdict: assessment.verdict,
+    confidence: assessment.confidence,
+    explanation: assessment.explanation ?? '',
+    signals: signals.map((item) => ({
+      code: item.name,
+      severity: item.direction === 'favorable' ? 'positive' : 'warning',
+      label: item.label,
+      evidence: item.evidence,
+    })),
+    generatedAt: iso(assessment.generatedAt),
+    inputVersion: assessment.inputVersion,
+    modelVersion: assessment.modelVersion,
+  };
+}
+
+export async function toRiskAssessmentCommandContract(result) {
+  return {
+    engagement: toEngagementCommandContract(result.engagement),
+    riskAssessment: await toRiskAssessmentSummaryContract(result.riskAssessment),
+  };
+}
+
+export async function getEngagementRiskAssessment(engagementId, activeProfileId) {
+  const engagement = await Engagement.findById(engagementId);
+  if (!engagement) throw new NotFoundError('Engagement', engagementId);
+  const partyIds = [
+    engagement.clientProfileId.toString(),
+    engagement.freelancerProfileId.toString(),
+  ];
+  if (!partyIds.includes(activeProfileId.toString())) {
+    throw new ForbiddenError('Only an Engagement Party may read its RiskAssessment');
+  }
+  const riskAssessment = await RiskAssessment.findOne({ engagementId: engagement._id }).sort({
+    generatedAt: -1,
+    _id: -1,
+  });
+  if (!riskAssessment) throw new RiskAssessmentNotFoundError();
+  return toRiskAssessmentSummaryContract(riskAssessment);
 }

@@ -56,6 +56,8 @@ export {
   RiskAssessmentSignalSchema,
   RiskAssessmentSummarySchema,
   RequestRiskAssessmentSchema,
+  ProposalRiskAssessmentParamSchema,
+  EngagementRiskAssessmentParamSchema,
   RiskAssessmentResponseSchema,
 } from './contracts/riskAssessment.js';
 export {

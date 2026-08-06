@@ -31,3 +31,10 @@ export class BadRequestError extends AppError {
     super(message, 400);
   }
 }
+
+export class RiskAssessmentNotFoundError extends AppError {
+  constructor() {
+    super('RiskAssessment not found', 404);
+    this.name = 'RISK_ASSESSMENT_NOT_FOUND';
+  }
+}

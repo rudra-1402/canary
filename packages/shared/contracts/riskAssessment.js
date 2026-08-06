@@ -31,6 +31,14 @@ export const RequestRiskAssessmentSchema = z
   .object({ recompute: z.boolean().default(false) })
   .strict();
 
+export const ProposalRiskAssessmentParamSchema = z
+  .object({ proposalId: objectId })
+  .strict();
+
+export const EngagementRiskAssessmentParamSchema = z
+  .object({ engagementId: objectId })
+  .strict();
+
 export const RiskAssessmentResponseSchema = z
   .object({ data: z.object({ riskAssessment: RiskAssessmentSummarySchema }).strict() })
   .strict();
