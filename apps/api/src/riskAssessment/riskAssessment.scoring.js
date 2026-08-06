@@ -32,7 +32,7 @@ function signal(name, value, direction, label, evidence) {
   return { name, value, direction, source: 'structured-data', label, evidence };
 }
 
-function standingFeature(trustScores) {
+function standingContribution(trustScores) {
   const parties = [trustScores?.client, trustScores?.freelancer];
   const scored = parties.filter(
     (standing) => standing?.status === 'scored' && Number.isFinite(standing.score),
@@ -80,7 +80,7 @@ function standingFeature(trustScores) {
   return { risk, missingCount, signals };
 }
 
-function priceFeature(jobPost, proposal) {
+function priceContribution(jobPost, proposal) {
   const ratio = proposal.bid / jobPost.budgetOrRate;
   let risk = 0;
   if (ratio > 1) {
@@ -115,7 +115,7 @@ function priceFeature(jobPost, proposal) {
   };
 }
 
-function scopeFeature(jobPost) {
+function scopeContribution(jobPost) {
   const shortDescription = (jobPost.description?.trim().length ?? 0) < 120;
   const fewSkills = (jobPost.skills?.length ?? 0) < 2;
   const noScreeningContext = (jobPost.screeningQuestions?.length ?? 0) === 0;
@@ -160,7 +160,7 @@ const projectLengthDays = {
   'more-than-6-months': 365,
 };
 
-function scheduleFeature(jobPost, proposal) {
+function scheduleContribution(jobPost, proposal) {
   const expectedMax = projectLengthDays[jobPost.projectLength] ?? 365;
   const durationRatio = proposal.proposedDurationDays / expectedMax;
   const durationRisk = durationRatio > 1 ? clamp((durationRatio - 1) * 10, 0, 10) : 0;
@@ -196,7 +196,7 @@ function scheduleFeature(jobPost, proposal) {
   };
 }
 
-function paymentFeature(proposal) {
+function paymentContribution(proposal) {
   if (proposal.payModel !== 'milestone') {
     return {
       risk: 0,
@@ -256,22 +256,22 @@ function explanationFor(verdict, signals) {
 }
 
 export function assessRisk(input) {
-  const standing = standingFeature(input.trustScores);
-  const features = [
+  const standing = standingContribution(input.trustScores);
+  const contributions = [
     standing,
-    priceFeature(input.jobPost, input.proposal),
-    scopeFeature(input.jobPost),
-    scheduleFeature(input.jobPost, input.proposal),
-    paymentFeature(input.proposal),
+    priceContribution(input.jobPost, input.proposal),
+    scopeContribution(input.jobPost),
+    scheduleContribution(input.jobPost, input.proposal),
+    paymentContribution(input.proposal),
   ];
   const score = Math.round(
     clamp(
-      features.reduce((sum, feature) => sum + feature.risk, 0),
+      contributions.reduce((sum, contribution) => sum + contribution.risk, 0),
       0,
       100,
     ),
   );
-  const signals = features.flatMap((feature) => feature.signals);
+  const signals = contributions.flatMap((contribution) => contribution.signals);
   const screeningGap =
     (input.jobPost.screeningQuestions?.length ?? 0) >
     (input.proposal.screeningAnswers?.length ?? 0);

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   RISK_MODEL_VERSION,
@@ -35,6 +36,36 @@ const baseInput = () => ({
 });
 
 describe('deterministic RiskAssessment scoring', () => {
+  it('uses the canonical RiskSignal vocabulary in the scoring component', () => {
+    const source = readFileSync(
+      new URL('../src/riskAssessment/riskAssessment.scoring.js', import.meta.url),
+      'utf8',
+    );
+    const forbiddenRiskSignalSynonym =
+      /(?:(?:\b|_)(?:features?|factors?)(?=[A-Z0-9_$]|\b|_)|(?:Features?|Factors?)(?=[A-Z0-9_$]|\b|_)|(?:\b|_)(?:FEATURES?|FACTORS?)(?=_|\b))/;
+
+    for (const forbiddenIdentifier of [
+      'standingFeature',
+      'priceFactor',
+      'featureContribution',
+      'factorWeight',
+      'riskFeatureScore',
+      'riskFactorWeight',
+      'riskFeatures',
+      'riskFactors',
+      'Features',
+      'Factors',
+      'standing_feature',
+      'factor_weight',
+      'RISK_FEATURE_SCORE',
+      'RISK_FACTOR_WEIGHT',
+    ]) {
+      expect(forbiddenIdentifier).toMatch(forbiddenRiskSignalSynonym);
+    }
+    expect('refactorAssessment').not.toMatch(forbiddenRiskSignalSynonym);
+    expect(source).not.toMatch(forbiddenRiskSignalSynonym);
+  });
+
   it.each([
     [0, 'low', 'proceed'],
     [34, 'low', 'proceed'],
