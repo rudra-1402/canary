@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { PublicProfileSchema } from './profile.js';
+import { TrustScoreResponseSchema } from './trustScore.js';
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character hex ObjectId');
 const payModel = z.enum(['project', 'milestone']);
@@ -60,3 +62,43 @@ export const MyProposalSchema = z
   .strict();
 
 export const MyProposalsResponseSchema = z.object({ data: z.array(MyProposalSchema) }).strict();
+
+export const JobPostProposalListQuerySchema = z
+  .object({
+    status: status.optional(),
+    sort: z.enum(['newest', 'bid_low', 'bid_high']).default('newest'),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+
+export const JobPostProposalSchema = z
+  .object({
+    id: objectId,
+    jobPostId: objectId,
+    bid: z.number(),
+    payModel,
+    proposedMilestones: z.array(MilestoneSchema),
+    durationEstimate: z.string().optional(),
+    proposedDurationDays: z.number().int().min(1),
+    coverLetter: z.string().max(5000).optional(),
+    screeningAnswers: z.array(z.string()),
+    status,
+    createdAt: z.string().datetime().nullable(),
+    freelancer: PublicProfileSchema,
+    trustScore: TrustScoreResponseSchema,
+  })
+  .strict();
+
+export const JobPostProposalListResponseSchema = z
+  .object({
+    data: z.array(JobPostProposalSchema),
+    pagination: z
+      .object({
+        page: z.number().int(),
+        pageSize: z.number().int(),
+        total: z.number().int(),
+      })
+      .strict(),
+  })
+  .strict();

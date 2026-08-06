@@ -5,6 +5,11 @@ export {
   JobPostIdParamSchema,
   JobPostSchema,
   JobPostListResponseSchema,
+  CreateJobPostRequestSchema,
+  UpdateJobPostRequestSchema,
+  MyJobPostListQuerySchema,
+  MyJobPostSchema,
+  MyJobPostListResponseSchema,
 } from './contracts/jobPost.js';
 export { RegisterRequestSchema, LoginRequestSchema, MeResponseSchema } from './contracts/auth.js';
 export {
@@ -34,6 +39,9 @@ export {
   CreateProposalResponseSchema,
   MyProposalSchema,
   MyProposalsResponseSchema,
+  JobPostProposalListQuerySchema,
+  JobPostProposalSchema,
+  JobPostProposalListResponseSchema,
 } from './contracts/proposal.js';
 export {
   OutcomeSchema,

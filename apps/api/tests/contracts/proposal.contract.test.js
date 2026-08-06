@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { CreateProposalRequestSchema, ProposalSchema } from '@canary/shared';
+import {
+  CreateProposalRequestSchema,
+  ProposalSchema,
+  JobPostProposalListQuerySchema,
+  JobPostProposalListResponseSchema,
+} from '@canary/shared';
 
 describe('Proposal contracts', () => {
   const proposal = {
@@ -35,5 +40,51 @@ describe('Proposal contracts', () => {
     const { freelancerProfileId, status, ...request } = proposal;
     expect(CreateProposalRequestSchema.parse(request)).not.toHaveProperty('freelancerProfileId');
     expect(() => CreateProposalRequestSchema.parse(proposal)).toThrow();
+  });
+
+  it('parses Client inbox filters and applicant public data with TrustScore', () => {
+    expect(
+      JobPostProposalListQuerySchema.parse({ status: 'submitted', sort: 'bid_low', page: '2' }),
+    ).toMatchObject({ status: 'submitted', sort: 'bid_low', page: 2, pageSize: 20 });
+
+    expect(() =>
+      JobPostProposalListResponseSchema.parse({
+        data: [
+          {
+            id: 'c'.repeat(24),
+            jobPostId: proposal.jobPostId,
+            bid: proposal.bid,
+            payModel: proposal.payModel,
+            proposedMilestones: proposal.proposedMilestones,
+            proposedDurationDays: proposal.proposedDurationDays,
+            durationEstimate: proposal.durationEstimate,
+            coverLetter: proposal.coverLetter,
+            screeningAnswers: proposal.screeningAnswers,
+            status: proposal.status,
+            createdAt: null,
+            freelancer: {
+              id: proposal.freelancerProfileId,
+              role: 'freelancer',
+              displayName: 'Ava Freelancer',
+              paymentVerified: true,
+              verificationStatus: 'id-verified',
+              skills: ['react'],
+              portfolio: [],
+              workHistory: [],
+              certifications: [],
+              languages: ['English'],
+              createdAt: null,
+            },
+            trustScore: {
+              status: 'insufficient-history',
+              profileId: proposal.freelancerProfileId,
+              outcomeCount: 1,
+              outcomesNeeded: 3,
+            },
+          },
+        ],
+        pagination: { page: 1, pageSize: 20, total: 1 },
+      }),
+    ).not.toThrow();
   });
 });
