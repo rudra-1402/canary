@@ -4,6 +4,7 @@ import {
   DeclineProposalRequestSchema,
   EngagementDetailResponseSchema,
   ProposalDecisionResponseSchema,
+  ProposalDeclineResponseSchema,
   RequestRiskAssessmentSchema,
   RiskAssessmentCommandResponseSchema,
   RiskAssessmentResponseSchema,
@@ -103,11 +104,59 @@ describe('RiskAssessment and Proposal-decision contracts', () => {
             jobPost: { id, title: 'Dashboard build' },
             proposal: { id: otherId, status: 'submitted', bid: 1200 },
             parties: {
-              freelancer: { id, role: 'freelancer', displayName: 'Mina' },
-              client: { id: otherId, role: 'client', displayName: 'Aster Labs' },
+              freelancer: {
+                id,
+                role: 'freelancer',
+                displayName: 'Mina',
+                paymentVerified: false,
+                verificationStatus: 'none',
+                skills: ['React'],
+                portfolio: [],
+                workHistory: [],
+                certifications: [],
+                languages: [],
+                createdAt: generatedAt,
+              },
+              client: {
+                id: otherId,
+                role: 'client',
+                displayName: 'Aster Labs',
+                paymentVerified: true,
+                verificationStatus: 'id-verified',
+                skills: [],
+                portfolio: [],
+                workHistory: [],
+                certifications: [],
+                languages: [],
+                createdAt: generatedAt,
+              },
             },
+            trustByParty: {
+              freelancer: { status: 'pending-score', profileId: id, outcomeCount: 2 },
+              client: {
+                status: 'insufficient-history',
+                profileId: otherId,
+                outcomeCount: 0,
+                outcomesNeeded: 3,
+              },
+            },
+            proposedTerms: {
+              ...engagement.agreedTerms,
+              jobPostBudgetOrRate: 1500,
+              jobType: 'fixed',
+              skills: ['React'],
+              projectLength: 'less-than-1-month',
+              hoursPerWeek: null,
+              proposedDurationDays: 14,
+              proposedMilestones: [{ description: 'Delivery', amount: 1200 }],
+              screeningQuestions: ['How will you test it?'],
+              screeningAnswers: ['With contract tests.'],
+            },
+            agreedTerms: null,
             riskAssessment,
             outcomeEligibility: false,
+            allowedActions: ['request-risk-assessment'],
+            concludedAt: null,
             timeline: [{ event: 'prospective-created', at: generatedAt }],
           },
         },
@@ -130,5 +179,31 @@ describe('RiskAssessment and Proposal-decision contracts', () => {
         },
       }),
     ).not.toThrow();
+
+    expect(() =>
+      ProposalDecisionResponseSchema.parse({
+        data: {
+          proposal: { id, status: 'declined' },
+          engagement: {
+            ...engagement,
+            status: 'active',
+            agreedTerms: { ...engagement.agreedTerms, dueAt: '2026-08-20T12:00:00.000Z' },
+            acceptedAt: generatedAt,
+          },
+          riskAssessment,
+        },
+      }),
+    ).toThrow();
+
+    expect(
+      ProposalDeclineResponseSchema.parse({
+        data: { proposal: { id, status: 'declined' } },
+      }).data.proposal.status,
+    ).toBe('declined');
+    expect(() =>
+      ProposalDeclineResponseSchema.parse({
+        data: { proposal: { id, status: 'accepted' } },
+      }),
+    ).toThrow();
   });
 });

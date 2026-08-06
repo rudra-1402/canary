@@ -48,7 +48,8 @@ export {
   JobPostProposalListResponseSchema,
   AcceptProposalRequestSchema,
   DeclineProposalRequestSchema,
-  ProposalCommandSummarySchema,
+  AcceptedProposalCommandSummarySchema,
+  DeclinedProposalCommandSummarySchema,
   ProposalDecisionResponseSchema,
   ProposalDeclineResponseSchema,
 } from './contracts/proposal.js';

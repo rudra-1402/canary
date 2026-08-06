@@ -23,3 +23,26 @@ export function toEngagementCommandContract(engagement) {
     acceptedAt: iso(engagement.acceptedAt),
   };
 }
+
+export function toCompleteTermsContract(terms) {
+  return {
+    scope: terms.scope,
+    price: terms.price,
+    paymentTerms: terms.paymentTerms,
+    timeline: terms.timeline,
+    dueAt: iso(terms.dueAt),
+    revisionsIncluded: terms.revisionsIncluded ?? 0,
+    jobPostBudgetOrRate: terms.jobPostBudgetOrRate,
+    jobType: terms.jobType,
+    skills: terms.skills,
+    projectLength: terms.projectLength,
+    hoursPerWeek: terms.hoursPerWeek,
+    proposedDurationDays: terms.proposedDurationDays,
+    proposedMilestones: terms.proposedMilestones?.map((milestone) => ({
+      description: milestone.description,
+      amount: milestone.amount,
+    })),
+    screeningQuestions: terms.screeningQuestions,
+    screeningAnswers: terms.screeningAnswers,
+  };
+}

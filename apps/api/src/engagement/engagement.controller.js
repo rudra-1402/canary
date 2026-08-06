@@ -8,8 +8,13 @@ import * as engagementService from './engagement.service.js';
 
 export async function getById(req, res) {
   const { engagementId } = EngagementRiskAssessmentParamSchema.parse(req.params);
-  const activeProfile = getCurrentUser(req)?.activeProfile;
+  const currentUser = getCurrentUser(req);
+  const activeProfile = currentUser?.activeProfile;
   if (!activeProfile) throw new ForbiddenError('Requires an active Profile');
-  const engagement = await engagementService.getEngagementDetail(engagementId, activeProfile.id);
+  const engagement = await engagementService.getEngagementDetail(
+    engagementId,
+    activeProfile.id,
+    currentUser.identityId,
+  );
   res.json(EngagementDetailResponseSchema.parse({ data: { engagement } }));
 }

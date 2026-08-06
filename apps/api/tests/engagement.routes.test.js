@@ -61,6 +61,7 @@ async function fixture(activeRole = 'client') {
     budgetOrRate: 1200,
     experienceLevel: 'intermediate',
     projectLength: 'less-than-1-month',
+    screeningQuestions: ['How will you test it?'],
     status: 'open',
   });
   const proposal = await Proposal.create({
@@ -69,6 +70,8 @@ async function fixture(activeRole = 'client') {
     bid: 1100,
     payModel: 'project',
     proposedDurationDays: 14,
+    proposedMilestones: [{ description: 'Accessible delivery', amount: 1100 }],
+    screeningAnswers: ['With automated accessibility checks.'],
     status: 'submitted',
   });
   return { ...active, activeRole, client, freelancer, jobPost, proposal };
@@ -94,9 +97,50 @@ describe('GET /api/engagements/:engagementId', () => {
       jobPost: { id: String(data.jobPost._id), title: data.jobPost.title },
       proposal: { id: String(data.proposal._id), status: 'accepted', bid: 1100 },
       outcomeEligibility: true,
+      allowedActions: ['submit-outcome-review'],
+      concludedAt: null,
     });
-    expect(response.body.data.engagement.parties.client.role).toBe('client');
-    expect(response.body.data.engagement.parties.freelancer.role).toBe('freelancer');
+    expect(response.body.data.engagement.parties.client).toMatchObject({
+      role: 'client',
+      displayName: expect.any(String),
+      paymentVerified: false,
+      verificationStatus: 'none',
+      skills: [],
+      portfolio: [],
+      workHistory: [],
+      certifications: [],
+      languages: [],
+    });
+    expect(response.body.data.engagement.parties.freelancer).toMatchObject({
+      role: 'freelancer',
+      displayName: expect.any(String),
+      paymentVerified: false,
+      verificationStatus: 'none',
+      skills: [],
+      portfolio: [],
+      workHistory: [],
+      certifications: [],
+      languages: [],
+    });
+    expect(response.body.data.engagement.trustByParty).toMatchObject({
+      client: { status: 'insufficient-history', profileId: String(data.client._id) },
+      freelancer: { status: 'insufficient-history', profileId: String(data.freelancer._id) },
+    });
+    expect(response.body.data.engagement.proposedTerms).toMatchObject({
+      price: 1100,
+      jobPostBudgetOrRate: 1200,
+      jobType: 'fixed',
+      skills: ['React', 'Accessibility'],
+      projectLength: 'less-than-1-month',
+      hoursPerWeek: null,
+      proposedDurationDays: 14,
+      proposedMilestones: [{ description: 'Accessible delivery', amount: 1100 }],
+      screeningQuestions: ['How will you test it?'],
+      screeningAnswers: ['With automated accessibility checks.'],
+    });
+    expect(response.body.data.engagement.agreedTerms).toEqual(
+      response.body.data.engagement.proposedTerms,
+    );
     expect(response.body.data.engagement.riskAssessment.modelVersion).toBe('risk-deterministic-v1');
     expect(response.body.data.engagement.riskAssessment.status).toBe('current');
     expect(response.body.data.engagement.timeline.map((event) => event.event)).toEqual([
@@ -106,20 +150,38 @@ describe('GET /api/engagements/:engagementId', () => {
     expect(response.body.data.engagement).not.toHaveProperty('_id');
   });
 
-  it('makes outcome eligibility viewer-specific after that Party reviews', async () => {
+  it.each(['client', 'freelancer'])(
+    'removes the outcome action after the %s Party reviews',
+    async (role) => {
+      const data = await fixture(role);
+      const accepted = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+      await Review.create({
+        engagementId: accepted.engagement._id,
+        authorProfileId: role === 'client' ? data.client._id : data.freelancer._id,
+        subjectProfileId: role === 'client' ? data.freelancer._id : data.client._id,
+        rating: 4,
+        text: 'Solid work.',
+        visibleAt: null,
+      });
+      const response = await data.agent.get(`/api/engagements/${accepted.engagement._id}`);
+      expect(response.status).toBe(200);
+      expect(response.body.data.engagement.outcomeEligibility).toBe(false);
+      expect(response.body.data.engagement.allowedActions).toEqual([]);
+    },
+  );
+
+  it('returns relationship-safe TrustScore state for a non-discoverable counterparty', async () => {
     const data = await fixture('client');
+    await Profile.updateOne({ _id: data.freelancer._id }, { $set: { discoverable: false } });
     const accepted = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
-    await Review.create({
-      engagementId: accepted.engagement._id,
-      authorProfileId: data.client._id,
-      subjectProfileId: data.freelancer._id,
-      rating: 4,
-      text: 'Solid work.',
-      visibleAt: null,
-    });
+
     const response = await data.agent.get(`/api/engagements/${accepted.engagement._id}`);
+
     expect(response.status).toBe(200);
-    expect(response.body.data.engagement.outcomeEligibility).toBe(false);
+    expect(response.body.data.engagement.trustByParty.freelancer).toMatchObject({
+      status: 'insufficient-history',
+      profileId: String(data.freelancer._id),
+    });
   });
 
   it('enforces authentication and Party relationship', async () => {
@@ -139,8 +201,11 @@ describe('GET /api/engagements/:engagementId', () => {
     );
   });
 
-  it('returns a nullable assessment and no outcome action for a prospective Engagement', async () => {
-    const data = await fixture('client');
+  it.each([
+    ['client', ['request-risk-assessment', 'accept-proposal', 'decline-proposal']],
+    ['freelancer', ['request-risk-assessment']],
+  ])('returns the server action matrix for a prospective %s Party', async (role, actions) => {
+    const data = await fixture(role);
     const engagement = await Engagement.create({
       freelancerProfileId: data.freelancer._id,
       clientProfileId: data.client._id,
@@ -152,11 +217,51 @@ describe('GET /api/engagements/:engagementId', () => {
         price: data.proposal.bid,
         paymentTerms: data.proposal.payModel,
         timeline: '14 days',
+        jobPostBudgetOrRate: data.jobPost.budgetOrRate,
+        jobType: data.jobPost.jobType,
+        skills: data.jobPost.skills,
+        projectLength: data.jobPost.projectLength,
+        hoursPerWeek: data.jobPost.hoursPerWeek,
+        proposedDurationDays: data.proposal.proposedDurationDays,
+        proposedMilestones: data.proposal.proposedMilestones,
+        screeningQuestions: data.jobPost.screeningQuestions,
+        screeningAnswers: data.proposal.screeningAnswers,
       },
     });
     const response = await data.agent.get(`/api/engagements/${engagement._id}`);
     expect(response.status).toBe(200);
     expect(response.body.data.engagement.riskAssessment).toBeNull();
     expect(response.body.data.engagement.outcomeEligibility).toBe(false);
+    expect(response.body.data.engagement.allowedActions).toEqual(actions);
+    expect(response.body.data.engagement.agreedTerms).toBeNull();
+    expect(response.body.data.engagement.proposedTerms).toMatchObject({
+      price: 1100,
+      jobPostBudgetOrRate: 1200,
+      proposedDurationDays: 14,
+    });
+  });
+
+  it('returns no actions and the persisted conclusion event after conclusion', async () => {
+    const data = await fixture('client');
+    const accepted = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+    const concludedAt = new Date('2026-08-06T18:00:00.000Z');
+    await Engagement.updateOne(
+      { _id: accepted.engagement._id },
+      { $set: { status: 'concluded', concludedAt } },
+    );
+
+    const response = await data.agent.get(`/api/engagements/${accepted.engagement._id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.engagement).toMatchObject({
+      status: 'concluded',
+      outcomeEligibility: false,
+      allowedActions: [],
+      concludedAt: concludedAt.toISOString(),
+    });
+    expect(response.body.data.engagement.timeline.at(-1)).toEqual({
+      event: 'concluded',
+      at: concludedAt.toISOString(),
+    });
   });
 });

@@ -113,13 +113,19 @@ export const DeclineProposalRequestSchema = z
   .object({ reasonCode: z.string().trim().min(1).max(100).optional() })
   .strict();
 
-export const ProposalCommandSummarySchema = z.object({ id: objectId, status }).strict();
+export const AcceptedProposalCommandSummarySchema = z
+  .object({ id: objectId, status: z.literal('accepted') })
+  .strict();
+
+export const DeclinedProposalCommandSummarySchema = z
+  .object({ id: objectId, status: z.literal('declined') })
+  .strict();
 
 export const ProposalDecisionResponseSchema = z
   .object({
     data: z
       .object({
-        proposal: ProposalCommandSummarySchema,
+        proposal: AcceptedProposalCommandSummarySchema,
         engagement: EngagementCommandSchema,
         riskAssessment: RiskAssessmentSummarySchema,
       })
@@ -128,5 +134,5 @@ export const ProposalDecisionResponseSchema = z
   .strict();
 
 export const ProposalDeclineResponseSchema = z
-  .object({ data: z.object({ proposal: ProposalCommandSummarySchema }).strict() })
+  .object({ data: z.object({ proposal: DeclinedProposalCommandSummarySchema }).strict() })
   .strict();

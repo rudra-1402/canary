@@ -5,7 +5,9 @@ import Proposal from '../models/Proposal.js';
 import Review from '../models/Review.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
 import { findRiskAssessmentSummaryForEngagement } from '../riskAssessment/riskAssessment.service.js';
-import { toEngagementCommandContract } from './engagement.serializer.js';
+import { getTrustScores } from '../trustScore/trustScore.service.js';
+import { toPublicProfileContract } from '../profile/profile.service.js';
+import { toCompleteTermsContract, toEngagementCommandContract } from './engagement.serializer.js';
 
 function timelineFor(engagement) {
   return [
@@ -18,7 +20,18 @@ function timelineFor(engagement) {
   ].filter(Boolean);
 }
 
-export async function getEngagementDetail(engagementId, activeProfileId) {
+function allowedActionsFor(engagement, activeProfileId, existingReview) {
+  if (engagement.status === 'prospective') {
+    if (String(activeProfileId) === String(engagement.clientProfileId)) {
+      return ['request-risk-assessment', 'accept-proposal', 'decline-proposal'];
+    }
+    return ['request-risk-assessment'];
+  }
+  if (engagement.status === 'active' && !existingReview) return ['submit-outcome-review'];
+  return [];
+}
+
+export async function getEngagementDetail(engagementId, activeProfileId, viewerIdentityId) {
   const engagement = await Engagement.findById(engagementId);
   if (!engagement) throw new NotFoundError('Engagement', engagementId);
   const partyIds = [
@@ -32,15 +45,14 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
     throw new BadRequestError('Engagement detail requires linked proposed terms');
   }
 
-  const [jobPost, proposal, profiles, existingReview] = await Promise.all([
+  const [jobPost, proposal, profiles, existingReview, trustScores] = await Promise.all([
     JobPost.findById(engagement.jobPostId).select('title').lean(),
     Proposal.findById(engagement.proposalId).select('status bid').lean(),
     Profile.find({
       _id: { $in: [engagement.clientProfileId, engagement.freelancerProfileId] },
-    })
-      .select('role displayName')
-      .lean(),
+    }).lean(),
     Review.exists({ engagementId: engagement._id, authorProfileId: activeProfileId }),
+    getTrustScores(partyIds, viewerIdentityId, { visibilityGrantedProfileIds: partyIds }),
   ]);
   if (!jobPost) throw new NotFoundError('JobPost', engagement.jobPostId);
   if (!proposal) throw new NotFoundError('Proposal', engagement.proposalId);
@@ -49,9 +61,20 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
   const freelancer = profilesByRole.get('freelancer');
   if (!client || !freelancer)
     throw new BadRequestError('Engagement Party profiles are unavailable');
+  const trustByProfileId = new Map(trustScores.map((score) => [score.profileId, score]));
+  const freelancerTrust = trustByProfileId.get(String(freelancer._id));
+  const clientTrust = trustByProfileId.get(String(client._id));
+  if (!freelancerTrust || !clientTrust) {
+    throw new BadRequestError('Engagement Party TrustScore states are unavailable');
+  }
+  const proposedTerms = toCompleteTermsContract(engagement.agreedTerms);
+  const outcomeEligibility = engagement.status === 'active' && !existingReview;
 
   return {
     ...toEngagementCommandContract(engagement),
+    proposedTerms,
+    agreedTerms: engagement.status === 'prospective' ? null : proposedTerms,
+    concludedAt: engagement.concludedAt ? engagement.concludedAt.toISOString() : null,
     jobPost: { id: jobPost._id.toString(), title: jobPost.title },
     proposal: {
       id: proposal._id.toString(),
@@ -59,19 +82,16 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
       bid: proposal.bid,
     },
     parties: {
-      freelancer: {
-        id: freelancer._id.toString(),
-        role: 'freelancer',
-        displayName: freelancer.displayName,
-      },
-      client: {
-        id: client._id.toString(),
-        role: 'client',
-        displayName: client.displayName,
-      },
+      freelancer: toPublicProfileContract(freelancer),
+      client: toPublicProfileContract(client),
+    },
+    trustByParty: {
+      freelancer: freelancerTrust,
+      client: clientTrust,
     },
     riskAssessment: await findRiskAssessmentSummaryForEngagement(engagement, activeProfileId),
-    outcomeEligibility: engagement.status === 'active' && !existingReview,
+    outcomeEligibility,
+    allowedActions: allowedActionsFor(engagement, activeProfileId, existingReview),
     timeline: timelineFor(engagement),
   };
 }
