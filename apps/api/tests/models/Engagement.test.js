@@ -102,4 +102,9 @@ describe('Engagement schema', () => {
     const err = doc.validateSync();
     expect(err.errors['agreedTerms.revisionsIncluded']).toBeDefined();
   });
+
+  it('declares the active Freelancer lookup index', () => {
+    const indexKeys = Engagement.schema.indexes().map(([keys]) => keys);
+    expect(indexKeys).toContainEqual({ status: 1, freelancerProfileId: 1 });
+  });
 });

@@ -13,7 +13,17 @@ export {
   ResetPasswordRequestSchema,
 } from './contracts/auth.js';
 export { CreateProfileRequestSchema, SwitchProfileRequestSchema } from './contracts/auth.js';
-export { ProfileIdParamSchema, PublicProfileSchema } from './contracts/profile.js';
+export {
+  ProfileIdParamSchema,
+  PublicProfileSchema,
+  FreelancerProfilePatchSchema,
+  ClientProfilePatchSchema,
+  OwnerProfileSchema,
+  ProfileUpdateResponseSchema,
+  FreelancerGalleryQuerySchema,
+  FreelancerGalleryItemSchema,
+  FreelancerGalleryResponseSchema,
+} from './contracts/profile.js';
 export {
   TrustScoreIdParamSchema,
   TrustScoreBatchQuerySchema,

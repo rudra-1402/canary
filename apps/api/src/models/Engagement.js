@@ -40,4 +40,6 @@ const engagementSchema = new Schema(
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 
+engagementSchema.index({ status: 1, freelancerProfileId: 1 });
+
 export default model('Engagement', engagementSchema);
