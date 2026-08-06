@@ -30,6 +30,7 @@ const engagementSchema = new Schema(
     jobPostId: { type: Schema.Types.ObjectId, ref: 'JobPost', default: null },
     proposalId: { type: Schema.Types.ObjectId, ref: 'Proposal', default: null },
     status: { type: String, enum: ['prospective', 'active', 'concluded'], required: true },
+    acceptedAt: { type: Date, default: null },
     agreedTerms: {
       type: agreedTermsSchema,
       required: function () {
@@ -38,6 +39,14 @@ const engagementSchema = new Schema(
     },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
+);
+
+engagementSchema.index(
+  { proposalId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { proposalId: { $type: 'objectId' } },
+  },
 );
 
 export default model('Engagement', engagementSchema);

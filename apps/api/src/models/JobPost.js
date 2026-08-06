@@ -35,6 +35,7 @@ const jobPostSchema = new Schema(
       },
     },
     status: { type: String, enum: ['draft', 'open', 'closed'], default: 'draft' },
+    acceptedProposalId: { type: Schema.Types.ObjectId, ref: 'Proposal', default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
