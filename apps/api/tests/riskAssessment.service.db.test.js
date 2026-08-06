@@ -153,6 +153,15 @@ describe('RiskAssessment service', () => {
         price: data.proposal.bid,
         paymentTerms: data.proposal.payModel,
         timeline: '14 days',
+        jobPostBudgetOrRate: data.jobPost.budgetOrRate,
+        jobType: data.jobPost.jobType,
+        skills: data.jobPost.skills,
+        projectLength: data.jobPost.projectLength,
+        hoursPerWeek: null,
+        proposedDurationDays: data.proposal.proposedDurationDays,
+        proposedMilestones: [],
+        screeningQuestions: data.jobPost.screeningQuestions,
+        screeningAnswers: data.proposal.screeningAnswers,
       });
       expect(result.riskAssessment.modelVersion).toBe('risk-deterministic-v1');
       expect(result.riskAssessmentStatus).toBe('current');
@@ -252,6 +261,31 @@ describe('RiskAssessment service', () => {
     expect(reused.riskAssessmentStatus).toBe('current');
     expect(await RiskSignal.countDocuments({ parentId: first.riskAssessment._id })).toBeGreaterThan(
       0,
+    );
+  });
+
+  it('repairs an incomplete new term snapshot when the same input version is retried', async () => {
+    const data = await fixture();
+    const first = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    await Engagement.updateOne(
+      { _id: first.engagement._id },
+      {
+        $unset: {
+          'agreedTerms.skills': 1,
+          'agreedTerms.proposedDurationDays': 1,
+          'agreedTerms.screeningAnswers': 1,
+        },
+      },
+    );
+
+    const repaired = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+
+    expect(repaired.engagement.agreedTerms.skills).toEqual(data.jobPost.skills);
+    expect(repaired.engagement.agreedTerms.proposedDurationDays).toBe(
+      data.proposal.proposedDurationDays,
+    );
+    expect(repaired.engagement.agreedTerms.screeningAnswers).toEqual(
+      data.proposal.screeningAnswers,
     );
   });
 

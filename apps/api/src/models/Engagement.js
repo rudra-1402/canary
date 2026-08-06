@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 const { Schema, model } = mongoose;
 
+const proposedMilestoneSchema = new Schema(
+  { description: { type: String, required: true }, amount: { type: Number, required: true } },
+  { _id: false },
+);
+
 const agreedTermsSchema = new Schema(
   {
     scope: { type: String, required: true },
@@ -20,6 +25,22 @@ const agreedTermsSchema = new Schema(
       default: 0,
       validate: { validator: Number.isInteger, message: 'revisionsIncluded must be an integer' },
     },
+    jobPostBudgetOrRate: { type: Number, min: Number.MIN_VALUE },
+    jobType: { type: String, enum: ['hourly', 'fixed'] },
+    skills: { type: [String], default: undefined },
+    projectLength: {
+      type: String,
+      enum: ['less-than-1-month', '1-to-3-months', '3-to-6-months', 'more-than-6-months'],
+    },
+    hoursPerWeek: { type: Number, min: 1, max: 168, default: null },
+    proposedDurationDays: {
+      type: Number,
+      min: 1,
+      validate: { validator: Number.isInteger, message: 'proposedDurationDays must be an integer' },
+    },
+    proposedMilestones: { type: [proposedMilestoneSchema], default: undefined },
+    screeningQuestions: { type: [String], default: undefined },
+    screeningAnswers: { type: [String], default: undefined },
   },
   { _id: false },
 );

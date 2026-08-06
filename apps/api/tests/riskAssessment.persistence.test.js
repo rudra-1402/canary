@@ -129,6 +129,22 @@ describe('RiskAssessment persistence invariants', () => {
     expect(signal.evidence).toContain('detailed description');
   });
 
+  it('keeps complete snapshot fields optional for historical Engagement compatibility', () => {
+    const historical = new Engagement({
+      ...ids(),
+      status: 'active',
+      agreedTerms: {
+        scope: 'Historical scope.',
+        price: 500,
+        paymentTerms: 'project',
+        timeline: '7 days',
+        dueAt: new Date('2026-08-20T12:00:00.000Z'),
+      },
+    });
+
+    expect(historical.validateSync()).toBeUndefined();
+  });
+
   it('stores the accepted Proposal winner on a JobPost', () => {
     const doc = new JobPost({
       ...ids(),

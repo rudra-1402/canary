@@ -21,6 +21,18 @@ function proposedTerms(jobPost, proposal) {
     paymentTerms: proposal.payModel,
     timeline: proposal.durationEstimate || `${proposal.proposedDurationDays} days`,
     revisionsIncluded: 0,
+    jobPostBudgetOrRate: jobPost.budgetOrRate,
+    jobType: jobPost.jobType,
+    skills: jobPost.skills ?? [],
+    projectLength: jobPost.projectLength,
+    hoursPerWeek: jobPost.hoursPerWeek ?? null,
+    proposedDurationDays: proposal.proposedDurationDays,
+    proposedMilestones: (proposal.proposedMilestones ?? []).map((milestone) => ({
+      description: milestone.description,
+      amount: milestone.amount,
+    })),
+    screeningQuestions: jobPost.screeningQuestions ?? [],
+    screeningAnswers: proposal.screeningAnswers ?? [],
   };
 }
 
@@ -213,10 +225,8 @@ export async function requestProposalRiskAssessment(
   });
   if (matching) {
     await ensureSignals(matching._id, result.signals);
-    if (!latest || latest.inputVersion !== result.inputVersion) {
-      engagement.agreedTerms = proposedTerms(jobPost, proposal);
-      await engagement.save();
-    }
+    engagement.agreedTerms = proposedTerms(jobPost, proposal);
+    await engagement.save();
     return { engagement, riskAssessment: matching, riskAssessmentStatus: 'current' };
   }
   if (latest && latest.inputVersion !== result.inputVersion && !recompute) {
