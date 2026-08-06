@@ -1,4 +1,10 @@
-import { JobPostListQuerySchema, JobPostIdParamSchema } from '@canary/shared';
+import {
+  CreateJobPostRequestSchema,
+  JobPostListQuerySchema,
+  JobPostIdParamSchema,
+  UpdateJobPostRequestSchema,
+} from '@canary/shared';
+import { getCurrentUser } from '../auth/getCurrentUser.js';
 import * as jobPostService from './jobPost.service.js';
 
 // Thin HTTP adapters: parse the request against the contract, call the service, respond.
@@ -12,5 +18,20 @@ export async function list(req, res) {
 export async function getById(req, res) {
   const { id } = JobPostIdParamSchema.parse(req.params);
   const jobPost = await jobPostService.getJobPostById(id);
+  res.json(jobPost);
+}
+
+export async function create(req, res) {
+  const input = CreateJobPostRequestSchema.parse(req.body);
+  const { activeProfile } = getCurrentUser(req);
+  const jobPost = await jobPostService.createJobPost(input, activeProfile.id);
+  res.status(201).json(jobPost);
+}
+
+export async function update(req, res) {
+  const { id } = JobPostIdParamSchema.parse(req.params);
+  const input = UpdateJobPostRequestSchema.parse(req.body);
+  const { activeProfile } = getCurrentUser(req);
+  const jobPost = await jobPostService.updateOwnedJobPost(id, activeProfile.id, input);
   res.json(jobPost);
 }

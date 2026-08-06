@@ -5,7 +5,12 @@ import TrustScore from '../../src/models/TrustScore.js';
 import Proposal from '../../src/models/Proposal.js';
 import Profile from '../../src/models/Profile.js';
 import Identity from '../../src/models/Identity.js';
-import { listJobPosts, getJobPostById } from '../../src/jobPost/jobPost.service.js';
+import {
+  listJobPosts,
+  getJobPostById,
+  createJobPost,
+  updateOwnedJobPost,
+} from '../../src/jobPost/jobPost.service.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from '../helpers/memoryDb.js';
 
 async function makeClientProfile(displayName) {
@@ -374,3 +379,36 @@ describe('getJobPostById', () => {
     expect((await getJobPostById(withoutProposals._id.toString())).proposalCount).toBe(0);
   });
 });
+
+describe('JobPost authoring service', () => {
+  it('derives owner/status and enforces owner lifecycle transitions', async () => {
+    const ownerId = new mongoose.Types.ObjectId();
+    const created = await createJobPost(authoringInput('save_draft'), ownerId);
+    expect(created).toMatchObject({ clientProfileId: ownerId.toString(), status: 'draft' });
+
+    await expect(
+      updateOwnedJobPost(created.id, new mongoose.Types.ObjectId(), { title: 'No' }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    const published = await updateOwnedJobPost(created.id, ownerId, { action: 'publish' });
+    expect(published.status).toBe('open');
+    await expect(
+      updateOwnedJobPost(created.id, ownerId, { action: 'save_draft' }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+});
+
+function authoringInput(action) {
+  return {
+    title: 'Build a dashboard',
+    category: 'web-development',
+    description: 'Implement the approved Client flow.',
+    skills: ['node'],
+    jobType: 'fixed',
+    budgetOrRate: 1500,
+    experienceLevel: 'intermediate',
+    projectLength: '1-to-3-months',
+    screeningQuestions: [],
+    action,
+  };
+}

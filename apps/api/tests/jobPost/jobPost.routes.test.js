@@ -3,7 +3,37 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import { createApp } from '../../src/app.js';
 import JobPost from '../../src/models/JobPost.js';
-import { startMemoryDb, stopMemoryDb, clearCollections } from '../helpers/memoryDb.js';
+import { clearCollections, startMemoryDb, stopMemoryDb } from '../helpers/memoryDb.js';
+
+async function activeProfileAgent(app, role) {
+  const agent = request.agent(app);
+  const csrf = (await agent.get('/api/auth/csrf-token')).body.csrfToken;
+  await agent
+    .post('/api/auth/register')
+    .set('x-csrf-token', csrf)
+    .send({ email: `${new mongoose.Types.ObjectId()}@test.invalid`, password: 'longenough1' });
+  const created = await agent
+    .post('/api/auth/profiles')
+    .set('x-csrf-token', csrf)
+    .send({ role, displayName: `${role} owner` });
+  return { agent, csrf, profileId: created.body.id };
+}
+
+function authoringBody(overrides = {}) {
+  return {
+    title: 'Build a Client dashboard',
+    category: 'web-development',
+    description: 'Build the JobPost management and proposal inbox screens.',
+    skills: ['react', 'node'],
+    jobType: 'fixed',
+    budgetOrRate: 2500,
+    experienceLevel: 'intermediate',
+    projectLength: '1-to-3-months',
+    screeningQuestions: ['How will you test it?'],
+    action: 'save_draft',
+    ...overrides,
+  };
+}
 
 function makeJobPost(overrides = {}) {
   return {
@@ -66,5 +96,99 @@ describe('GET /api/jobposts', () => {
     const res = await request(app).get('/api/jobposts/not-an-objectid');
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('ValidationError');
+  });
+});
+
+describe('Client JobPost authoring', () => {
+  let app;
+  beforeAll(async () => {
+    await startMemoryDb();
+    app = createApp();
+  }, 60000);
+  afterAll(stopMemoryDb);
+  afterEach(clearCollections);
+
+  it('creates a draft or open JobPost owned by the active Client Profile', async () => {
+    const { agent, csrf, profileId } = await activeProfileAgent(app, 'client');
+    const draft = await agent.post('/api/jobposts').set('x-csrf-token', csrf).send(authoringBody());
+    expect(draft.status).toBe(201);
+    expect(draft.body).toMatchObject({ clientProfileId: profileId, status: 'draft' });
+
+    const published = await agent
+      .post('/api/jobposts')
+      .set('x-csrf-token', csrf)
+      .send(authoringBody({ title: 'Published', action: 'publish' }));
+    expect(published.status).toBe(201);
+    expect(published.body.status).toBe('open');
+  });
+
+  it('enforces CSRF, Client role, and server-owned identity/status', async () => {
+    const client = await activeProfileAgent(app, 'client');
+    expect((await client.agent.post('/api/jobposts').send(authoringBody())).status).toBe(403);
+
+    const freelancer = await activeProfileAgent(app, 'freelancer');
+    expect(
+      (
+        await freelancer.agent
+          .post('/api/jobposts')
+          .set('x-csrf-token', freelancer.csrf)
+          .send(authoringBody())
+      ).status,
+    ).toBe(403);
+
+    const injected = await client.agent
+      .post('/api/jobposts')
+      .set('x-csrf-token', client.csrf)
+      .send(authoringBody({ clientProfileId: new mongoose.Types.ObjectId(), status: 'open' }));
+    expect(injected.status).toBe(400);
+    expect(await JobPost.countDocuments()).toBe(0);
+  });
+
+  it('allows only the owner to publish and close through valid lifecycle actions', async () => {
+    const owner = await activeProfileAgent(app, 'client');
+    const stranger = await activeProfileAgent(app, 'client');
+    const created = await owner.agent
+      .post('/api/jobposts')
+      .set('x-csrf-token', owner.csrf)
+      .send(authoringBody());
+
+    expect(
+      (
+        await stranger.agent
+          .patch(`/api/jobposts/${created.body.id}`)
+          .set('x-csrf-token', stranger.csrf)
+          .send({ title: 'Hijacked' })
+      ).status,
+    ).toBe(403);
+
+    const published = await owner.agent
+      .patch(`/api/jobposts/${created.body.id}`)
+      .set('x-csrf-token', owner.csrf)
+      .send({ title: 'Ready to hire', action: 'publish' });
+    expect(published.status).toBe(200);
+    expect(published.body).toMatchObject({ title: 'Ready to hire', status: 'open' });
+
+    expect(
+      (
+        await owner.agent
+          .patch(`/api/jobposts/${created.body.id}`)
+          .set('x-csrf-token', owner.csrf)
+          .send({ action: 'save_draft' })
+      ).status,
+    ).toBe(400);
+
+    const closed = await owner.agent
+      .patch(`/api/jobposts/${created.body.id}`)
+      .set('x-csrf-token', owner.csrf)
+      .send({ action: 'close' });
+    expect(closed.body.status).toBe('closed');
+    expect(
+      (
+        await owner.agent
+          .patch(`/api/jobposts/${created.body.id}`)
+          .set('x-csrf-token', owner.csrf)
+          .send({ title: 'Too late' })
+      ).status,
+    ).toBe(400);
   });
 });

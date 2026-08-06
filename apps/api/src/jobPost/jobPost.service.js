@@ -2,7 +2,7 @@ import JobPost from '../models/JobPost.js';
 import TrustScore from '../models/TrustScore.js';
 import Proposal from '../models/Proposal.js';
 import Profile from '../models/Profile.js';
-import { NotFoundError } from '../lib/errors.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
 import { JobPostSchema, JobPostListResponseSchema } from '@canary/shared';
 
 // Build the Mongo filter from an already-parsed query (status always present via the default).
@@ -106,4 +106,43 @@ export async function getJobPostById(id) {
   if (!doc) throw new NotFoundError('JobPost', id);
   const proposalCount = await Proposal.countDocuments({ jobPostId: doc._id });
   return JobPostSchema.parse(toJobPostContract(doc, { proposalCount }));
+}
+
+export async function createJobPost(input, clientProfileId) {
+  const { action, ...fields } = input;
+  const doc = await JobPost.create({
+    ...fields,
+    clientProfileId,
+    status: action === 'publish' ? 'open' : 'draft',
+  });
+  return JobPostSchema.parse(toJobPostContract(doc));
+}
+
+function nextStatus(currentStatus, action) {
+  if (currentStatus === 'closed') throw new BadRequestError('Closed JobPosts are immutable');
+  if (!action) return currentStatus;
+  if (currentStatus === 'draft') {
+    if (action === 'save_draft') return 'draft';
+    if (action === 'publish') return 'open';
+    throw new BadRequestError('A draft JobPost cannot be closed');
+  }
+  if (action === 'close') return 'closed';
+  throw new BadRequestError('An open JobPost can only be edited or closed');
+}
+
+export async function updateOwnedJobPost(id, clientProfileId, input) {
+  const doc = await JobPost.findById(id);
+  if (!doc) throw new NotFoundError('JobPost', id);
+  if (String(doc.clientProfileId) !== String(clientProfileId)) {
+    throw new ForbiddenError('Only the owning Client may update this JobPost');
+  }
+
+  const { action, ...fields } = input;
+  const status = nextStatus(doc.status, action);
+  for (const [key, value] of Object.entries(fields)) {
+    doc[key] = value === null ? undefined : value;
+  }
+  doc.status = status;
+  await doc.save();
+  return JobPostSchema.parse(toJobPostContract(doc));
 }
