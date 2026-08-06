@@ -159,6 +159,135 @@ describe('Proposal decision service', () => {
     expect(second.engagement.acceptedAt).toEqual(first.engagement.acceptedAt);
   });
 
+  it('reconciles a standalone partial acceptance and preserves established dates', async () => {
+    const data = await fixture();
+    const assessed = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    const acceptedAt = new Date('2026-08-06T12:00:00.000Z');
+    const dueAt = new Date('2026-08-20T12:00:00.000Z');
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { status: 'accepted' } });
+    await Engagement.updateOne(
+      { _id: assessed.engagement._id },
+      {
+        $set: {
+          acceptedAt,
+          'agreedTerms.dueAt': dueAt,
+        },
+      },
+    );
+
+    const repaired = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+    const [jobPost, competitor] = await Promise.all([
+      JobPost.findById(data.jobPost._id),
+      Proposal.findById(data.competingProposal._id),
+    ]);
+
+    expect(repaired.engagement.status).toBe('active');
+    expect(repaired.engagement.acceptedAt).toEqual(acceptedAt);
+    expect(repaired.engagement.agreedTerms.dueAt).toEqual(dueAt);
+    expect(jobPost.status).toBe('closed');
+    expect(String(jobPost.acceptedProposalId)).toBe(String(data.proposal._id));
+    expect(competitor.status).toBe('declined');
+  });
+
+  it('repairs competitors that reopened after the winner was accepted', async () => {
+    const data = await fixture();
+    const first = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+    await Proposal.updateOne(
+      { _id: data.competingProposal._id },
+      { $set: { status: 'submitted' } },
+    );
+
+    const retried = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+
+    expect((await Proposal.findById(data.competingProposal._id)).status).toBe('declined');
+    expect(retried.engagement.acceptedAt).toEqual(first.engagement.acceptedAt);
+    expect(retried.engagement.agreedTerms.dueAt).toEqual(first.engagement.agreedTerms.dueAt);
+  });
+
+  it('continues after only the JobPost winner claim was saved', async () => {
+    const data = await fixture();
+    await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    await JobPost.updateOne(
+      { _id: data.jobPost._id },
+      { $set: { status: 'closed', acceptedProposalId: data.proposal._id } },
+    );
+
+    const repaired = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+
+    expect(repaired.proposal.status).toBe('accepted');
+    expect(repaired.engagement.status).toBe('active');
+    expect((await Proposal.findById(data.competingProposal._id)).status).toBe('declined');
+  });
+
+  it('continues after only the Engagement activation was saved', async () => {
+    const data = await fixture();
+    const assessed = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    const acceptedAt = new Date('2026-08-06T12:00:00.000Z');
+    const dueAt = new Date('2026-08-20T12:00:00.000Z');
+    await Engagement.updateOne(
+      { _id: assessed.engagement._id },
+      {
+        $set: {
+          status: 'active',
+          acceptedAt,
+          'agreedTerms.dueAt': dueAt,
+        },
+      },
+    );
+
+    const repaired = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+
+    expect(repaired.proposal.status).toBe('accepted');
+    expect(repaired.engagement.acceptedAt).toEqual(acceptedAt);
+    expect(repaired.engagement.agreedTerms.dueAt).toEqual(dueAt);
+    expect((await JobPost.findById(data.jobPost._id)).status).toBe('closed');
+    expect((await Proposal.findById(data.competingProposal._id)).status).toBe('declined');
+  });
+
+  it('repairs an active Engagement whose acceptance dates were not saved', async () => {
+    const data = await fixture();
+    const assessed = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    await Engagement.updateOne(
+      { _id: assessed.engagement._id },
+      { $set: { status: 'active' }, $unset: { acceptedAt: 1, 'agreedTerms.dueAt': 1 } },
+    );
+
+    const repaired = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+
+    expect(repaired.engagement.acceptedAt).toBeInstanceOf(Date);
+    expect(repaired.engagement.agreedTerms.dueAt).toBeInstanceOf(Date);
+  });
+
+  it('preserves one timestamp pair under concurrent same-winner retries', async () => {
+    const data = await fixture();
+    const [left, right] = await Promise.all([
+      acceptProposal(data.proposal._id, data.client._id, { confirm: true }),
+      acceptProposal(data.proposal._id, data.client._id, { confirm: true }),
+    ]);
+
+    expect(left.engagement.acceptedAt).toEqual(right.engagement.acceptedAt);
+    expect(left.engagement.agreedTerms.dueAt).toEqual(right.engagement.agreedTerms.dueAt);
+  });
+
+  it('rejects reconciliation when another Proposal owns the JobPost winner claim', async () => {
+    const data = await fixture();
+    await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { status: 'accepted' } });
+    await JobPost.updateOne(
+      { _id: data.jobPost._id },
+      {
+        $set: {
+          status: 'closed',
+          acceptedProposalId: data.competingProposal._id,
+        },
+      },
+    );
+
+    await expect(
+      acceptProposal(data.proposal._id, data.client._id, { confirm: true }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
   it('cannot accept a competing Proposal after a winner is claimed', async () => {
     const data = await fixture();
     await acceptProposal(data.proposal._id, data.client._id, { confirm: true });

@@ -38,14 +38,12 @@ async function decisionContext(proposalId, clientProfileId) {
   return { proposal, jobPost };
 }
 
-async function acceptedResult(proposal, activeProfileId) {
+async function existingAcceptanceAssessment(proposal, activeProfileId) {
   const engagement = await Engagement.findOne({ proposalId: proposal._id });
-  if (!engagement || engagement.status !== 'active') {
-    throw new BadRequestError('Accepted Proposal has no active Engagement');
-  }
+  if (!engagement) throw new BadRequestError('Accepted Proposal has no Engagement');
   const assessment = await findRiskAssessmentForEngagement(engagement, activeProfileId);
   if (!assessment) throw new BadRequestError('Accepted Proposal has no RiskAssessment');
-  return { proposal, engagement, riskAssessment: assessment.assessment };
+  return { engagement, riskAssessment: assessment.assessment };
 }
 
 function withSession(query, session) {
@@ -66,8 +64,7 @@ async function completeAcceptance(
   if (String(jobPost.clientProfileId) !== String(clientProfileId)) {
     throw new ForbiddenError('Only the owning Client may accept this Proposal');
   }
-  if (proposal.status === 'accepted') return acceptedResult(proposal, clientProfileId);
-  if (!['submitted', 'shortlisted'].includes(proposal.status)) {
+  if (!['submitted', 'shortlisted', 'accepted'].includes(proposal.status)) {
     throw new BadRequestError('Only a submitted Proposal may be accepted');
   }
 
@@ -84,15 +81,38 @@ async function completeAcceptance(
     throw new BadRequestError('This JobPost already has a different accepted Proposal');
   }
 
-  const engagement = await withSession(Engagement.findOne({ proposalId: proposal._id }), session);
+  let engagement = await withSession(Engagement.findOne({ proposalId: proposal._id }), session);
   if (!engagement) throw new BadRequestError('Proposal has no prospective Engagement');
   if (engagement.status === 'prospective') {
-    const dueAt = new Date(acceptedAt.getTime() + proposal.proposedDurationDays * 86_400_000);
-    engagement.status = 'active';
-    engagement.acceptedAt = acceptedAt;
-    engagement.agreedTerms.dueAt = dueAt;
-    await engagement.save({ session });
-  } else if (engagement.status !== 'active') {
+    const activationAt = engagement.acceptedAt ?? acceptedAt;
+    const dueAt =
+      engagement.agreedTerms.dueAt ??
+      new Date(activationAt.getTime() + proposal.proposedDurationDays * 86_400_000);
+    engagement =
+      (await Engagement.findOneAndUpdate(
+        { _id: engagement._id, status: 'prospective' },
+        { $set: { status: 'active', acceptedAt: activationAt, 'agreedTerms.dueAt': dueAt } },
+        { returnDocument: 'after', session },
+      )) ?? (await withSession(Engagement.findById(engagement._id), session));
+  }
+  if (engagement.status === 'active' && (!engagement.acceptedAt || !engagement.agreedTerms.dueAt)) {
+    const activationAt = engagement.acceptedAt ?? acceptedAt;
+    const dueAt =
+      engagement.agreedTerms.dueAt ??
+      new Date(activationAt.getTime() + proposal.proposedDurationDays * 86_400_000);
+    engagement =
+      (await Engagement.findOneAndUpdate(
+        {
+          _id: engagement._id,
+          status: 'active',
+          acceptedAt: engagement.acceptedAt ?? null,
+          'agreedTerms.dueAt': engagement.agreedTerms.dueAt ?? null,
+        },
+        { $set: { acceptedAt: activationAt, 'agreedTerms.dueAt': dueAt } },
+        { returnDocument: 'after', session },
+      )) ?? (await withSession(Engagement.findById(engagement._id), session));
+  }
+  if (engagement.status !== 'active') {
     throw new BadRequestError('Only a prospective Engagement may be activated');
   }
 
@@ -142,15 +162,15 @@ async function transactionFirst(work) {
 export async function acceptProposal(proposalId, clientProfileId, { confirm } = {}) {
   if (confirm !== true) throw new BadRequestError('Explicit acceptance confirmation is required');
   const { proposal } = await decisionContext(proposalId, clientProfileId);
-  if (proposal.status === 'accepted') return acceptedResult(proposal, clientProfileId);
-  if (!['submitted', 'shortlisted'].includes(proposal.status)) {
+  if (!['submitted', 'shortlisted', 'accepted'].includes(proposal.status)) {
     throw new BadRequestError('Only a submitted Proposal may be accepted');
   }
 
-  const assessment = await requestProposalRiskAssessment(proposalId, clientProfileId, {
-    recompute: true,
-  });
-  if (assessment.riskAssessmentStatus !== 'current') {
+  const assessment =
+    proposal.status === 'accepted'
+      ? await existingAcceptanceAssessment(proposal, clientProfileId)
+      : await requestProposalRiskAssessment(proposalId, clientProfileId, { recompute: true });
+  if (assessment.riskAssessmentStatus && assessment.riskAssessmentStatus !== 'current') {
     throw new BadRequestError('Proposal acceptance requires a current RiskAssessment');
   }
   const acceptedAt = new Date();

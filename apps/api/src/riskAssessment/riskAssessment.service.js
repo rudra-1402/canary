@@ -36,6 +36,20 @@ function proposedTerms(jobPost, proposal) {
   };
 }
 
+function refreshedTerms(engagement, jobPost, proposal) {
+  return {
+    ...proposedTerms(jobPost, proposal),
+    ...(engagement.agreedTerms?.dueAt ? { dueAt: engagement.agreedTerms.dueAt } : {}),
+  };
+}
+
+async function refreshEngagementTerms(engagement, jobPost, proposal) {
+  if (engagement.status !== 'prospective' && !engagement.agreedTerms?.dueAt) return engagement;
+  engagement.agreedTerms = refreshedTerms(engagement, jobPost, proposal);
+  await engagement.save();
+  return engagement;
+}
+
 async function findOrCreateEngagement(jobPost, proposal) {
   const fields = {
     freelancerProfileId: proposal.freelancerProfileId,
@@ -225,8 +239,7 @@ export async function requestProposalRiskAssessment(
   });
   if (matching) {
     await ensureSignals(matching._id, result.signals);
-    engagement.agreedTerms = proposedTerms(jobPost, proposal);
-    await engagement.save();
+    await refreshEngagementTerms(engagement, jobPost, proposal);
     return { engagement, riskAssessment: matching, riskAssessmentStatus: 'current' };
   }
   if (latest && latest.inputVersion !== result.inputVersion && !recompute) {
@@ -235,8 +248,7 @@ export async function requestProposalRiskAssessment(
   const riskAssessment = await createOrReuseAssessment(engagement, result);
 
   if (!latest || latest.inputVersion !== result.inputVersion) {
-    engagement.agreedTerms = proposedTerms(jobPost, proposal);
-    await engagement.save();
+    await refreshEngagementTerms(engagement, jobPost, proposal);
   }
   return { engagement, riskAssessment, riskAssessmentStatus: 'current' };
 }
