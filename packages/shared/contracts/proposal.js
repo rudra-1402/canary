@@ -89,6 +89,8 @@ export const JobPostProposalSchema = z
     createdAt: z.string().datetime().nullable(),
     freelancer: PublicProfileSchema,
     trustScore: TrustScoreResponseSchema,
+    prospectiveEngagementId: objectId.nullable(),
+    riskAssessment: RiskAssessmentSummarySchema.nullable(),
   })
   .strict();
 

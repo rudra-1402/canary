@@ -1,10 +1,14 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import mongoose from 'mongoose';
+import Engagement from '../../src/models/Engagement.js';
 import JobPost from '../../src/models/JobPost.js';
 import TrustScore from '../../src/models/TrustScore.js';
 import Proposal from '../../src/models/Proposal.js';
 import Profile from '../../src/models/Profile.js';
 import Identity from '../../src/models/Identity.js';
+import RiskAssessment from '../../src/models/RiskAssessment.js';
+import RiskSignal from '../../src/models/RiskSignal.js';
+import { requestProposalRiskAssessment } from '../../src/riskAssessment/riskAssessment.service.js';
 import {
   listJobPosts,
   getJobPostById,
@@ -57,7 +61,10 @@ function makeJobPost(overrides = {}) {
 
 beforeAll(startMemoryDb, 60000);
 afterAll(stopMemoryDb);
-afterEach(clearCollections);
+afterEach(async () => {
+  vi.restoreAllMocks();
+  await clearCollections();
+});
 
 describe('listJobPosts', () => {
   it('returns only open jobs by default with a pagination envelope', async () => {
@@ -448,5 +455,79 @@ describe('listOwnedJobPostProposals', () => {
       trustScore: { status: 'insufficient-history', profileId: freelancer._id.toString() },
     });
     expect(result.data[0].freelancer).not.toHaveProperty('identityId');
+    expect(result.data[0]).toMatchObject({
+      prospectiveEngagementId: null,
+      riskAssessment: null,
+    });
+  });
+
+  it('batches null, current, and stale assessment state for one inbox page', async () => {
+    const clientProfileId = await makeClientProfile('Assessment inbox owner');
+    const client = await Profile.findById(clientProfileId).lean();
+    const post = await JobPost.create(makeJobPost({ clientProfileId }));
+    const proposals = [];
+    for (const label of ['none', 'current', 'stale']) {
+      const identity = await Identity.create({
+        email: `${label}-${new mongoose.Types.ObjectId()}@example.test`,
+        passwordHash: 'x',
+      });
+      const freelancer = await Profile.create({
+        identityId: identity._id,
+        role: 'freelancer',
+        origin: 'user-registered',
+        displayName: `${label} applicant`,
+      });
+      proposals.push(
+        await Proposal.create({
+          jobPostId: post._id,
+          freelancerProfileId: freelancer._id,
+          bid: 800,
+          payModel: 'project',
+          proposedDurationDays: 8,
+        }),
+      );
+    }
+    await requestProposalRiskAssessment(proposals[1]._id, clientProfileId);
+    await requestProposalRiskAssessment(proposals[2]._id, clientProfileId);
+    await Proposal.updateOne({ _id: proposals[2]._id }, { $set: { bid: 1200 } });
+
+    const spies = [
+      vi.spyOn(Engagement, 'find'),
+      vi.spyOn(RiskAssessment, 'find'),
+      vi.spyOn(RiskAssessment, 'aggregate'),
+      vi.spyOn(RiskSignal, 'find'),
+    ];
+    const result = await listOwnedJobPostProposals(
+      post._id,
+      clientProfileId,
+      { sort: 'newest', page: 1, pageSize: 20 },
+      client.identityId,
+    );
+    const byName = new Map(result.data.map((row) => [row.freelancer.displayName, row]));
+
+    expect(byName.get('none applicant')).toMatchObject({
+      prospectiveEngagementId: null,
+      riskAssessment: null,
+    });
+    expect(byName.get('current applicant').riskAssessment.status).toBe('current');
+    expect(byName.get('stale applicant').riskAssessment.status).toBe('stale');
+    expect(byName.get('current applicant').prospectiveEngagementId).toMatch(/^[0-9a-f]{24}$/);
+    expect(spies.map((spy) => spy.mock.calls.length)).toEqual([1, 1, 1, 1]);
+
+    vi.restoreAllMocks();
+    await Engagement.updateOne({ proposalId: proposals[1]._id }, { $set: { status: 'active' } });
+    const afterActivation = await listOwnedJobPostProposals(
+      post._id,
+      clientProfileId,
+      { sort: 'newest', page: 1, pageSize: 20 },
+      client.identityId,
+    );
+    const activatedRow = afterActivation.data.find(
+      (row) => row.freelancer.displayName === 'current applicant',
+    );
+    expect(activatedRow).toMatchObject({
+      prospectiveEngagementId: null,
+      riskAssessment: null,
+    });
   });
 });

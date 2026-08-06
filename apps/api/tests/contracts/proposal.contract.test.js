@@ -81,6 +81,8 @@ describe('Proposal contracts', () => {
               outcomeCount: 1,
               outcomesNeeded: 3,
             },
+            prospectiveEngagementId: null,
+            riskAssessment: null,
           },
         ],
         pagination: { page: 1, pageSize: 20, total: 1 },

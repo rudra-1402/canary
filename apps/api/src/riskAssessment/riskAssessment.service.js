@@ -269,6 +269,10 @@ function iso(value) {
 
 export async function toRiskAssessmentSummaryContract(assessment, status) {
   const signals = await getAssessmentSignals(assessment._id);
+  return toRiskAssessmentSummaryWithSignals(assessment, status, signals);
+}
+
+function toRiskAssessmentSummaryWithSignals(assessment, status, signals) {
   return {
     id: assessment._id.toString(),
     engagementId: assessment.engagementId.toString(),
@@ -288,6 +292,96 @@ export async function toRiskAssessmentSummaryContract(assessment, status) {
     inputVersion: assessment.inputVersion,
     modelVersion: assessment.modelVersion,
   };
+}
+
+export async function findRiskAssessmentSummariesForEngagements(
+  engagements,
+  activeProfileId,
+  viewerIdentityId,
+) {
+  if (engagements.length === 0) return new Map();
+  for (const engagement of engagements) {
+    const partyIds = [String(engagement.clientProfileId), String(engagement.freelancerProfileId)];
+    if (!partyIds.includes(String(activeProfileId))) {
+      throw new ForbiddenError('Only an Engagement Party may read its RiskAssessment');
+    }
+  }
+
+  const [jobPosts, proposals] = await Promise.all([
+    JobPost.find({ _id: { $in: engagements.map((item) => item.jobPostId) } }).lean(),
+    Proposal.find({ _id: { $in: engagements.map((item) => item.proposalId) } }).lean(),
+  ]);
+  const jobPostsById = new Map(jobPosts.map((item) => [String(item._id), item]));
+  const proposalsById = new Map(proposals.map((item) => [String(item._id), item]));
+  const profileIds = [
+    ...new Set(
+      engagements.flatMap((item) => [
+        String(item.clientProfileId),
+        String(item.freelancerProfileId),
+      ]),
+    ),
+  ];
+  const trustByProfileId = await loadCurrentTrustScores(profileIds, viewerIdentityId);
+  const currentVersions = new Map();
+  for (const engagement of engagements) {
+    const jobPost = jobPostsById.get(String(engagement.jobPostId));
+    const proposal = proposalsById.get(String(engagement.proposalId));
+    if (!jobPost || !proposal) throw new Error('RiskAssessment linked data is unavailable');
+    currentVersions.set(
+      String(engagement._id),
+      assessRisk(scoringInput(jobPost, proposal, trustByProfileId)).inputVersion,
+    );
+  }
+
+  const engagementIds = engagements.map((item) => item._id);
+  const [matching, latestRows] = await Promise.all([
+    RiskAssessment.find({
+      $or: engagements.map((item) => ({
+        engagementId: item._id,
+        inputVersion: currentVersions.get(String(item._id)),
+      })),
+    }).lean(),
+    RiskAssessment.aggregate([
+      { $match: { engagementId: { $in: engagementIds } } },
+      { $sort: { generatedAt: -1, _id: -1 } },
+      { $group: { _id: '$engagementId', assessment: { $first: '$$ROOT' } } },
+    ]),
+  ]);
+  const matchingByEngagement = new Map(matching.map((item) => [String(item.engagementId), item]));
+  const latestByEngagement = new Map(latestRows.map((item) => [String(item._id), item.assessment]));
+  const selected = engagements
+    .map((item) => {
+      const id = String(item._id);
+      const current = matchingByEngagement.get(id);
+      const assessment = current ?? latestByEngagement.get(id);
+      return assessment
+        ? { engagementId: id, assessment, status: current ? 'current' : 'stale' }
+        : null;
+    })
+    .filter(Boolean);
+  const signals = await RiskSignal.find({
+    parentType: 'RiskAssessment',
+    parentId: { $in: selected.map((item) => item.assessment._id) },
+    source: 'structured-data',
+  })
+    .sort({ direction: 1, name: 1, _id: 1 })
+    .lean();
+  const signalsByAssessment = new Map();
+  for (const item of signals) {
+    const id = String(item.parentId);
+    if (!signalsByAssessment.has(id)) signalsByAssessment.set(id, []);
+    signalsByAssessment.get(id).push(item);
+  }
+  return new Map(
+    selected.map((item) => [
+      item.engagementId,
+      toRiskAssessmentSummaryWithSignals(
+        item.assessment,
+        item.status,
+        signalsByAssessment.get(String(item.assessment._id)) ?? [],
+      ),
+    ]),
+  );
 }
 
 export async function toRiskAssessmentCommandContract(result) {

@@ -2,9 +2,11 @@ import JobPost from '../models/JobPost.js';
 import TrustScore from '../models/TrustScore.js';
 import Proposal from '../models/Proposal.js';
 import Profile from '../models/Profile.js';
+import Engagement from '../models/Engagement.js';
 import { toPublicProfileContract } from '../profile/profile.service.js';
 import { getTrustScores } from '../trustScore/trustScore.service.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
+import { findRiskAssessmentSummariesForEngagements } from '../riskAssessment/riskAssessment.service.js';
 import {
   JobPostSchema,
   JobPostListResponseSchema,
@@ -160,7 +162,7 @@ function proposalInboxSort(sort) {
   return { createdAt: -1, _id: -1 };
 }
 
-function toJobPostProposalContract(doc, freelancer, trustScore) {
+function toJobPostProposalContract(doc, freelancer, trustScore, engagement, riskAssessment) {
   return {
     id: doc._id.toString(),
     jobPostId: doc.jobPostId.toString(),
@@ -175,6 +177,8 @@ function toJobPostProposalContract(doc, freelancer, trustScore) {
     createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
     freelancer: toPublicProfileContract(freelancer),
     trustScore,
+    prospectiveEngagementId: engagement ? String(engagement._id) : null,
+    riskAssessment: riskAssessment ?? null,
   };
 }
 
@@ -198,12 +202,24 @@ export async function listOwnedJobPostProposals(id, clientProfileId, query, view
   ]);
 
   const profileIds = [...new Set(docs.map((doc) => String(doc.freelancerProfileId)))];
-  const [profiles, trustScores] = await Promise.all([
+  const [profiles, trustScores, engagements] = await Promise.all([
     Profile.find({ _id: { $in: profileIds }, role: 'freelancer' }).lean(),
     getTrustScores(profileIds, viewerIdentityId, { visibilityGrantedProfileIds: profileIds }),
+    Engagement.find({
+      proposalId: { $in: docs.map((doc) => doc._id) },
+      status: 'prospective',
+    }).lean(),
   ]);
   const profilesById = new Map(profiles.map((profile) => [String(profile._id), profile]));
   const trustScoresById = new Map(trustScores.map((score) => [score.profileId, score]));
+  const engagementsByProposal = new Map(
+    engagements.map((engagement) => [String(engagement.proposalId), engagement]),
+  );
+  const riskAssessmentsByEngagement = await findRiskAssessmentSummariesForEngagements(
+    engagements,
+    clientProfileId,
+    viewerIdentityId,
+  );
 
   return JobPostProposalListResponseSchema.parse({
     data: docs.map((doc) => {
@@ -213,7 +229,16 @@ export async function listOwnedJobPostProposals(id, clientProfileId, query, view
       if (!freelancer || !trustScore || trustScore.status === 'not-found') {
         throw new Error('Proposal applicant data is unavailable');
       }
-      return JobPostProposalSchema.parse(toJobPostProposalContract(doc, freelancer, trustScore));
+      const engagement = engagementsByProposal.get(String(doc._id));
+      return JobPostProposalSchema.parse(
+        toJobPostProposalContract(
+          doc,
+          freelancer,
+          trustScore,
+          engagement,
+          engagement ? riskAssessmentsByEngagement.get(String(engagement._id)) : null,
+        ),
+      );
     }),
     pagination: { page, pageSize, total },
   });
