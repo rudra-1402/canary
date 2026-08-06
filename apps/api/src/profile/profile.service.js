@@ -195,10 +195,7 @@ export async function listDiscoverableFreelancers(query, identityId) {
     { $sort: gallerySort(query.sort) },
     {
       $facet: {
-        data: [
-          { $skip: (query.page - 1) * query.pageSize },
-          { $limit: query.pageSize },
-        ],
+        data: [{ $skip: (query.page - 1) * query.pageSize }, { $limit: query.pageSize }],
         total: [{ $count: 'value' }],
       },
     },

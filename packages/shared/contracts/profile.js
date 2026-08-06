@@ -110,8 +110,7 @@ export const FreelancerGalleryQuerySchema = z
   })
   .strict()
   .refine(
-    ({ minRate, maxRate }) =>
-      minRate === undefined || maxRate === undefined || minRate <= maxRate,
+    ({ minRate, maxRate }) => minRate === undefined || maxRate === undefined || minRate <= maxRate,
     { message: 'minRate must be less than or equal to maxRate', path: ['minRate'] },
   );
 

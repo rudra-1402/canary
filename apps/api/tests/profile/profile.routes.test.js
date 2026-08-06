@@ -184,9 +184,9 @@ describe('Profile routes', () => {
     ).toBe(401);
 
     const { agent, csrf, profileId } = await activeProfileAgent('freelancer');
-    expect((await agent.patch(`/api/profiles/${profileId}`).send({ headline: 'No CSRF' })).status).toBe(
-      403,
-    );
+    expect(
+      (await agent.patch(`/api/profiles/${profileId}`).send({ headline: 'No CSRF' })).status,
+    ).toBe(403);
     expect(
       (
         await agent

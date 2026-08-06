@@ -5,10 +5,7 @@ import Engagement from '../../src/models/Engagement.js';
 import Outcome from '../../src/models/Outcome.js';
 import TrustScore from '../../src/models/TrustScore.js';
 import RiskSignal from '../../src/models/RiskSignal.js';
-import {
-  escapeRegex,
-  listDiscoverableFreelancers,
-} from '../../src/profile/profile.service.js';
+import { escapeRegex, listDiscoverableFreelancers } from '../../src/profile/profile.service.js';
 import { clearCollections, startMemoryDb, stopMemoryDb } from '../helpers/memoryDb.js';
 
 const identityId = () => new mongoose.Types.ObjectId();
@@ -127,12 +124,13 @@ describe('Freelancer Gallery database reads', () => {
       identityId(),
     );
     expect(highOnly.data.map((item) => item.displayName)).toEqual(['High']);
-    expect(highOnly.data[0].trust).toMatchObject({ status: 'scored', band: 'BAND_HIGH', score: 82 });
+    expect(highOnly.data[0].trust).toMatchObject({
+      status: 'scored',
+      band: 'BAND_HIGH',
+      score: 82,
+    });
 
-    const all = await listDiscoverableFreelancers(
-      query({ sort: 'trust-desc' }),
-      identityId(),
-    );
+    const all = await listDiscoverableFreelancers(query({ sort: 'trust-desc' }), identityId());
     expect(all.data.map((item) => item.displayName)).toEqual(['High', 'Medium']);
   });
 
