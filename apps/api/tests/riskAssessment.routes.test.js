@@ -90,6 +90,7 @@ describe('RiskAssessment HTTP APIs', () => {
       expect(command.body.data.engagement.status).toBe('prospective');
       expect(command.body.data.riskAssessment).toMatchObject({
         engagementId: command.body.data.engagement.id,
+        status: 'current',
         modelVersion: 'risk-deterministic-v1',
       });
       expect(command.body.data.riskAssessment.signals[0]).not.toHaveProperty('value');
@@ -100,6 +101,7 @@ describe('RiskAssessment HTTP APIs', () => {
       );
       expect(read.status).toBe(200);
       expect(read.body.data.riskAssessment.id).toBe(command.body.data.riskAssessment.id);
+      expect(read.body.data.riskAssessment.status).toBe('current');
     },
   );
 
@@ -157,5 +159,56 @@ describe('RiskAssessment HTTP APIs', () => {
     expect(second.status).toBe(200);
     expect(second.body.data.engagement.id).toBe(first.body.data.engagement.id);
     expect(second.body.data.riskAssessment.id).toBe(first.body.data.riskAssessment.id);
+  });
+
+  it('reports changed inputs as stale until recompute creates the current version', async () => {
+    const data = await proposalFixture('client');
+    const url = `/api/proposals/${data.proposal._id}/risk-assessment`;
+    const first = await data.agent.post(url).set('x-csrf-token', data.csrf).send({});
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { bid: 1800 } });
+
+    const staleCommand = await data.agent.post(url).set('x-csrf-token', data.csrf).send({});
+    const staleRead = await data.agent.get(
+      `/api/engagements/${first.body.data.engagement.id}/risk-assessment`,
+    );
+    const current = await data.agent
+      .post(url)
+      .set('x-csrf-token', data.csrf)
+      .send({ recompute: true });
+
+    expect(staleCommand.status).toBe(200);
+    expect(staleCommand.body.data.riskAssessment).toMatchObject({
+      id: first.body.data.riskAssessment.id,
+      status: 'stale',
+    });
+    expect(staleRead.body.data.riskAssessment.status).toBe('stale');
+    expect(current.body.data.riskAssessment.status).toBe('current');
+    expect(current.body.data.riskAssessment.id).not.toBe(first.body.data.riskAssessment.id);
+  });
+
+  it('reads a reused historical version as current after inputs revert', async () => {
+    const data = await proposalFixture('client');
+    const url = `/api/proposals/${data.proposal._id}/risk-assessment`;
+    const first = await data.agent.post(url).set('x-csrf-token', data.csrf).send({});
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { bid: 1800 } });
+    await data.agent.post(url).set('x-csrf-token', data.csrf).send({ recompute: true });
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { bid: 1100 } });
+
+    const reverted = await data.agent
+      .post(url)
+      .set('x-csrf-token', data.csrf)
+      .send({ recompute: true });
+    const read = await data.agent.get(
+      `/api/engagements/${first.body.data.engagement.id}/risk-assessment`,
+    );
+
+    expect(reverted.body.data.riskAssessment).toMatchObject({
+      id: first.body.data.riskAssessment.id,
+      status: 'current',
+    });
+    expect(read.body.data.riskAssessment).toMatchObject({
+      id: first.body.data.riskAssessment.id,
+      status: 'current',
+    });
   });
 });

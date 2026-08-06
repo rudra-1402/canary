@@ -3,9 +3,8 @@ import JobPost from '../models/JobPost.js';
 import Profile from '../models/Profile.js';
 import Proposal from '../models/Proposal.js';
 import Review from '../models/Review.js';
-import RiskAssessment from '../models/RiskAssessment.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
-import { toRiskAssessmentSummaryContract } from '../riskAssessment/riskAssessment.service.js';
+import { findRiskAssessmentSummaryForEngagement } from '../riskAssessment/riskAssessment.service.js';
 import { toEngagementCommandContract } from './engagement.serializer.js';
 
 function timelineFor(engagement) {
@@ -33,7 +32,7 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
     throw new BadRequestError('Engagement detail requires linked proposed terms');
   }
 
-  const [jobPost, proposal, profiles, riskAssessment, existingReview] = await Promise.all([
+  const [jobPost, proposal, profiles, existingReview] = await Promise.all([
     JobPost.findById(engagement.jobPostId).select('title').lean(),
     Proposal.findById(engagement.proposalId).select('status bid').lean(),
     Profile.find({
@@ -41,7 +40,6 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
     })
       .select('role displayName')
       .lean(),
-    RiskAssessment.findOne({ engagementId: engagement._id }).sort({ generatedAt: -1, _id: -1 }),
     Review.exists({ engagementId: engagement._id, authorProfileId: activeProfileId }),
   ]);
   if (!jobPost) throw new NotFoundError('JobPost', engagement.jobPostId);
@@ -72,7 +70,7 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
         displayName: client.displayName,
       },
     },
-    riskAssessment: riskAssessment ? await toRiskAssessmentSummaryContract(riskAssessment) : null,
+    riskAssessment: await findRiskAssessmentSummaryForEngagement(engagement),
     outcomeEligibility: engagement.status === 'active' && !existingReview,
     timeline: timelineFor(engagement),
   };

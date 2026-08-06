@@ -6,6 +6,7 @@ import Identity from '../src/models/Identity.js';
 import JobPost from '../src/models/JobPost.js';
 import Profile from '../src/models/Profile.js';
 import Proposal from '../src/models/Proposal.js';
+import { requestProposalRiskAssessment } from '../src/riskAssessment/riskAssessment.service.js';
 import { clearCollections, startMemoryDb, stopMemoryDb } from './helpers/memoryDb.js';
 
 let app;
@@ -89,6 +90,22 @@ describe('Client Proposal decision APIs', () => {
     });
     expect(response.body.data.engagement.acceptedAt).toMatch(/Z$/);
     expect(response.body.data.riskAssessment.signals[0]).not.toHaveProperty('value');
+  });
+
+  it('returns a current recomputed assessment when terms changed before acceptance', async () => {
+    const data = await fixture();
+    const original = await requestProposalRiskAssessment(data.proposal._id, data.client.profileId);
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { bid: 1800 } });
+
+    const response = await data.client.agent
+      .post(`/api/proposals/${data.proposal._id}/accept`)
+      .set('x-csrf-token', data.client.csrf)
+      .send({ confirm: true });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.riskAssessment.status).toBe('current');
+    expect(response.body.data.riskAssessment.id).not.toBe(String(original.riskAssessment._id));
+    expect(response.body.data.engagement.agreedTerms.price).toBe(1800);
   });
 
   it('rejects missing/false confirmation at the shared contract boundary', async () => {

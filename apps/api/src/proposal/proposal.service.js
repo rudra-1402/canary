@@ -4,7 +4,10 @@ import Proposal from '../models/Proposal.js';
 import JobPost from '../models/JobPost.js';
 import RiskAssessment from '../models/RiskAssessment.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
-import { requestProposalRiskAssessment } from '../riskAssessment/riskAssessment.service.js';
+import {
+  findRiskAssessmentForEngagement,
+  requestProposalRiskAssessment,
+} from '../riskAssessment/riskAssessment.service.js';
 
 export async function createProposal(input, freelancerProfileId) {
   const jobPost = await JobPost.findById(input.jobPostId);
@@ -40,19 +43,22 @@ async function acceptedResult(proposal) {
   if (!engagement || engagement.status !== 'active') {
     throw new BadRequestError('Accepted Proposal has no active Engagement');
   }
-  const riskAssessment = await RiskAssessment.findOne({ engagementId: engagement._id }).sort({
-    generatedAt: -1,
-    _id: -1,
-  });
-  if (!riskAssessment) throw new BadRequestError('Accepted Proposal has no RiskAssessment');
-  return { proposal, engagement, riskAssessment };
+  const assessment = await findRiskAssessmentForEngagement(engagement);
+  if (!assessment) throw new BadRequestError('Accepted Proposal has no RiskAssessment');
+  return { proposal, engagement, riskAssessment: assessment.assessment };
 }
 
 function withSession(query, session) {
   return session ? query.session(session) : query;
 }
 
-async function completeAcceptance(proposalId, clientProfileId, acceptedAt, session) {
+async function completeAcceptance(
+  proposalId,
+  clientProfileId,
+  riskAssessmentId,
+  acceptedAt,
+  session,
+) {
   const proposal = await withSession(Proposal.findById(proposalId), session);
   if (!proposal) throw new NotFoundError('Proposal', proposalId);
   const jobPost = await withSession(JobPost.findById(proposal.jobPostId), session);
@@ -103,7 +109,7 @@ async function completeAcceptance(proposalId, clientProfileId, acceptedAt, sessi
     { session },
   );
   const riskAssessment = await withSession(
-    RiskAssessment.findOne({ engagementId: engagement._id }).sort({ generatedAt: -1, _id: -1 }),
+    RiskAssessment.findOne({ _id: riskAssessmentId, engagementId: engagement._id }),
     session,
   );
   if (!riskAssessment) throw new BadRequestError('Proposal has no RiskAssessment');
@@ -141,10 +147,21 @@ export async function acceptProposal(proposalId, clientProfileId, { confirm } = 
     throw new BadRequestError('Only a submitted Proposal may be accepted');
   }
 
-  await requestProposalRiskAssessment(proposalId, clientProfileId, { recompute: false });
+  const assessment = await requestProposalRiskAssessment(proposalId, clientProfileId, {
+    recompute: true,
+  });
+  if (assessment.riskAssessmentStatus !== 'current') {
+    throw new BadRequestError('Proposal acceptance requires a current RiskAssessment');
+  }
   const acceptedAt = new Date();
   return transactionFirst((session) =>
-    completeAcceptance(proposalId, clientProfileId, acceptedAt, session),
+    completeAcceptance(
+      proposalId,
+      clientProfileId,
+      assessment.riskAssessment._id,
+      acceptedAt,
+      session,
+    ),
   );
 }
 

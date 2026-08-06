@@ -17,6 +17,7 @@ const generatedAt = '2026-08-06T12:00:00.000Z';
 const riskAssessment = {
   id,
   engagementId: otherId,
+  status: 'current',
   score: 31,
   level: 'low',
   verdict: 'proceed',
@@ -57,6 +58,9 @@ const engagement = {
 describe('RiskAssessment and Proposal-decision contracts', () => {
   it('accepts the canonical risk summary and rejects internal signal fields', () => {
     expect(RiskAssessmentSummarySchema.parse(riskAssessment)).toEqual(riskAssessment);
+    expect(RiskAssessmentSummarySchema.parse({ ...riskAssessment, status: 'stale' }).status).toBe(
+      'stale',
+    );
     expect(() =>
       RiskAssessmentSummarySchema.parse({
         ...riskAssessment,

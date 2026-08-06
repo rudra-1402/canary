@@ -190,20 +190,34 @@ export async function requestProposalRiskAssessment(
     generatedAt: -1,
     _id: -1,
   });
-  if (latest && !recompute) return { engagement, riskAssessment: latest };
 
   const trustByProfileId = await loadCurrentTrustScores([
     jobPost.clientProfileId,
     proposal.freelancerProfileId,
   ]);
   const result = assessRisk(scoringInput(jobPost, proposal, trustByProfileId));
+  const matching = await RiskAssessment.findOne({
+    engagementId: engagement._id,
+    inputVersion: result.inputVersion,
+  });
+  if (matching) {
+    await ensureSignals(matching._id, result.signals);
+    if (!latest || latest.inputVersion !== result.inputVersion) {
+      engagement.agreedTerms = proposedTerms(jobPost, proposal);
+      await engagement.save();
+    }
+    return { engagement, riskAssessment: matching, riskAssessmentStatus: 'current' };
+  }
+  if (latest && latest.inputVersion !== result.inputVersion && !recompute) {
+    return { engagement, riskAssessment: latest, riskAssessmentStatus: 'stale' };
+  }
   const riskAssessment = await createOrReuseAssessment(engagement, result);
 
   if (!latest || latest.inputVersion !== result.inputVersion) {
     engagement.agreedTerms = proposedTerms(jobPost, proposal);
     await engagement.save();
   }
-  return { engagement, riskAssessment };
+  return { engagement, riskAssessment, riskAssessmentStatus: 'current' };
 }
 
 export async function getAssessmentSignals(assessmentId) {
@@ -220,11 +234,12 @@ function iso(value) {
   return value ? new Date(value).toISOString() : null;
 }
 
-export async function toRiskAssessmentSummaryContract(assessment) {
+export async function toRiskAssessmentSummaryContract(assessment, status) {
   const signals = await getAssessmentSignals(assessment._id);
   return {
     id: assessment._id.toString(),
     engagementId: assessment.engagementId.toString(),
+    status,
     score: assessment.score,
     level: assessment.level,
     verdict: assessment.verdict,
@@ -245,8 +260,45 @@ export async function toRiskAssessmentSummaryContract(assessment) {
 export async function toRiskAssessmentCommandContract(result) {
   return {
     engagement: toEngagementCommandContract(result.engagement),
-    riskAssessment: await toRiskAssessmentSummaryContract(result.riskAssessment),
+    riskAssessment: await toRiskAssessmentSummaryContract(
+      result.riskAssessment,
+      result.riskAssessmentStatus,
+    ),
   };
+}
+
+async function currentInputVersionForEngagement(engagement) {
+  const [jobPost, proposal] = await Promise.all([
+    JobPost.findById(engagement.jobPostId),
+    Proposal.findById(engagement.proposalId),
+  ]);
+  if (!jobPost) throw new NotFoundError('JobPost', engagement.jobPostId);
+  if (!proposal) throw new NotFoundError('Proposal', engagement.proposalId);
+  const trustByProfileId = await loadCurrentTrustScores([
+    jobPost.clientProfileId,
+    proposal.freelancerProfileId,
+  ]);
+  return assessRisk(scoringInput(jobPost, proposal, trustByProfileId)).inputVersion;
+}
+
+export async function findRiskAssessmentForEngagement(engagement) {
+  const currentInputVersion = await currentInputVersionForEngagement(engagement);
+  const current = await RiskAssessment.findOne({
+    engagementId: engagement._id,
+    inputVersion: currentInputVersion,
+  });
+  if (current) return { assessment: current, status: 'current' };
+  const latest = await RiskAssessment.findOne({ engagementId: engagement._id }).sort({
+    generatedAt: -1,
+    _id: -1,
+  });
+  return latest ? { assessment: latest, status: 'stale' } : null;
+}
+
+export async function findRiskAssessmentSummaryForEngagement(engagement) {
+  const result = await findRiskAssessmentForEngagement(engagement);
+  if (!result) return null;
+  return toRiskAssessmentSummaryContract(result.assessment, result.status);
 }
 
 export async function getEngagementRiskAssessment(engagementId, activeProfileId) {
@@ -259,10 +311,7 @@ export async function getEngagementRiskAssessment(engagementId, activeProfileId)
   if (!partyIds.includes(activeProfileId.toString())) {
     throw new ForbiddenError('Only an Engagement Party may read its RiskAssessment');
   }
-  const riskAssessment = await RiskAssessment.findOne({ engagementId: engagement._id }).sort({
-    generatedAt: -1,
-    _id: -1,
-  });
+  const riskAssessment = await findRiskAssessmentSummaryForEngagement(engagement);
   if (!riskAssessment) throw new RiskAssessmentNotFoundError();
-  return toRiskAssessmentSummaryContract(riskAssessment);
+  return riskAssessment;
 }

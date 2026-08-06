@@ -98,6 +98,7 @@ describe('GET /api/engagements/:engagementId', () => {
     expect(response.body.data.engagement.parties.client.role).toBe('client');
     expect(response.body.data.engagement.parties.freelancer.role).toBe('freelancer');
     expect(response.body.data.engagement.riskAssessment.modelVersion).toBe('risk-deterministic-v1');
+    expect(response.body.data.engagement.riskAssessment.status).toBe('current');
     expect(response.body.data.engagement.timeline.map((event) => event.event)).toEqual([
       'prospective-created',
       'accepted',

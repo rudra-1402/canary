@@ -110,6 +110,7 @@ describe('RiskAssessment service', () => {
         timeline: '14 days',
       });
       expect(result.riskAssessment.modelVersion).toBe('risk-deterministic-v1');
+      expect(result.riskAssessmentStatus).toBe('current');
       expect(result.riskAssessment.score).toBeLessThanOrEqual(34);
       const signals = await RiskSignal.find({ parentId: result.riskAssessment._id }).lean();
       expect(signals.length).toBeGreaterThan(0);
@@ -144,6 +145,7 @@ describe('RiskAssessment service', () => {
 
     expect(String(second.engagement._id)).toBe(String(first.engagement._id));
     expect(String(second.riskAssessment._id)).toBe(String(first.riskAssessment._id));
+    expect(second.riskAssessmentStatus).toBe('current');
     expect(await Engagement.countDocuments({ proposalId: data.proposal._id })).toBe(1);
     expect(await RiskAssessment.countDocuments({ engagementId: first.engagement._id })).toBe(1);
   });
@@ -158,14 +160,57 @@ describe('RiskAssessment service', () => {
     const stale = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
       recompute: false,
     });
+    const termsAfterStaleRead = await Engagement.findById(first.engagement._id).lean();
     const recomputed = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
       recompute: true,
     });
 
     expect(String(stale.riskAssessment._id)).toBe(String(first.riskAssessment._id));
+    expect(stale.riskAssessmentStatus).toBe('stale');
+    expect(termsAfterStaleRead.agreedTerms.price).toBe(1150);
     expect(String(recomputed.riskAssessment._id)).not.toBe(String(first.riskAssessment._id));
+    expect(recomputed.riskAssessmentStatus).toBe('current');
     expect(recomputed.riskAssessment.inputVersion).not.toBe(first.riskAssessment.inputVersion);
     expect(recomputed.engagement.agreedTerms.price).toBe(1800);
+  });
+
+  it('repairs missing RiskSignals when the current input version is reused', async () => {
+    const data = await fixture();
+    const first = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    await RiskSignal.deleteMany({ parentId: first.riskAssessment._id });
+
+    const reused = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
+      recompute: false,
+    });
+
+    expect(String(reused.riskAssessment._id)).toBe(String(first.riskAssessment._id));
+    expect(reused.riskAssessmentStatus).toBe('current');
+    expect(await RiskSignal.countDocuments({ parentId: first.riskAssessment._id })).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('keeps a reused historical version current after inputs revert', async () => {
+    const data = await fixture();
+    const first = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { bid: 1800 } });
+    const second = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
+      recompute: true,
+    });
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { bid: 1150 } });
+
+    const reverted = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
+      recompute: true,
+    });
+    const repeated = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
+      recompute: false,
+    });
+
+    expect(String(second.riskAssessment._id)).not.toBe(String(first.riskAssessment._id));
+    expect(String(reverted.riskAssessment._id)).toBe(String(first.riskAssessment._id));
+    expect(reverted.riskAssessmentStatus).toBe('current');
+    expect(String(repeated.riskAssessment._id)).toBe(String(first.riskAssessment._id));
+    expect(repeated.riskAssessmentStatus).toBe('current');
   });
 
   it('survives concurrent identical requests without duplicate parent records or signals', async () => {

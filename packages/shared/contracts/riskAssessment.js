@@ -19,6 +19,7 @@ export const RiskAssessmentSummarySchema = z
   .object({
     id: objectId,
     engagementId: objectId,
+    status: z.enum(['current', 'stale']),
     score: z.number().min(0).max(100),
     level: z.enum(['low', 'med', 'high']),
     verdict: z.enum(['proceed', 'caution', 'avoid']),

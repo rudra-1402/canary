@@ -106,6 +106,33 @@ describe('Proposal decision service', () => {
     expect(days).toBe(14);
   });
 
+  it('recomputes changed inputs before activating the Engagement', async () => {
+    const data = await fixture();
+    const original = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { bid: 1800 } });
+
+    const accepted = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+
+    expect(String(accepted.riskAssessment._id)).not.toBe(String(original.riskAssessment._id));
+    expect(accepted.engagement.agreedTerms.price).toBe(1800);
+    expect(await RiskAssessment.countDocuments({ engagementId: accepted.engagement._id })).toBe(2);
+  });
+
+  it('activates and returns the matching historical assessment after inputs revert', async () => {
+    const data = await fixture();
+    const original = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { bid: 1800 } });
+    await requestProposalRiskAssessment(data.proposal._id, data.client._id, { recompute: true });
+    await Proposal.updateOne({ _id: data.proposal._id }, { $set: { bid: 1100 } });
+
+    const accepted = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+    const retried = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+
+    expect(String(accepted.riskAssessment._id)).toBe(String(original.riskAssessment._id));
+    expect(String(retried.riskAssessment._id)).toBe(String(original.riskAssessment._id));
+    expect(accepted.engagement.agreedTerms.price).toBe(1100);
+  });
+
   it('accepts one Proposal, declines competitors, and closes the JobPost', async () => {
     const data = await fixture();
     await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
