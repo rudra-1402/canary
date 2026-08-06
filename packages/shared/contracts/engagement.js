@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RiskAssessmentSummarySchema } from './riskAssessment.js';
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character hex ObjectId');
 const status = z.enum(['prospective', 'active', 'concluded']);
@@ -71,3 +72,55 @@ export const MyEngagementSchema = z
   });
 
 export const MyEngagementsResponseSchema = z.object({ data: z.array(MyEngagementSchema) }).strict();
+
+export const EngagementCommandSchema = z
+  .object({
+    id: objectId,
+    status,
+    freelancerProfileId: objectId,
+    clientProfileId: objectId,
+    jobPostId: objectId,
+    proposalId: objectId,
+    agreedTerms: z
+      .object({
+        scope: z.string(),
+        price: z.number(),
+        paymentTerms: z.string(),
+        timeline: z.string(),
+        dueAt: z.string().datetime().nullable(),
+        revisionsIncluded: z.number().int().min(0),
+      })
+      .strict(),
+    createdAt: z.string().datetime(),
+    acceptedAt: z.string().datetime().nullable(),
+  })
+  .strict();
+
+const PartySummarySchema = z
+  .object({ id: objectId, role: z.enum(['freelancer', 'client']), displayName: z.string() })
+  .strict();
+
+export const EngagementDetailSchema = EngagementCommandSchema.extend({
+  jobPost: z.object({ id: objectId, title: z.string() }).strict(),
+  proposal: z.object({ id: objectId, status: z.string(), bid: z.number() }).strict(),
+  parties: z
+    .object({ freelancer: PartySummarySchema, client: PartySummarySchema })
+    .strict(),
+  riskAssessment: RiskAssessmentSummarySchema.nullable(),
+  outcomeEligibility: z.boolean(),
+}).strict();
+
+export const EngagementDetailResponseSchema = z
+  .object({ data: z.object({ engagement: EngagementDetailSchema }).strict() })
+  .strict();
+
+export const RiskAssessmentCommandResponseSchema = z
+  .object({
+    data: z
+      .object({
+        engagement: EngagementCommandSchema,
+        riskAssessment: RiskAssessmentSummarySchema,
+      })
+      .strict(),
+  })
+  .strict();

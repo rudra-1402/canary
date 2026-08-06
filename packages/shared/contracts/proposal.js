@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { PublicProfileSchema } from './profile.js';
 import { TrustScoreResponseSchema } from './trustScore.js';
+import { EngagementCommandSchema } from './engagement.js';
+import { RiskAssessmentSummarySchema } from './riskAssessment.js';
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character hex ObjectId');
 const payModel = z.enum(['project', 'milestone']);
@@ -101,4 +103,30 @@ export const JobPostProposalListResponseSchema = z
       })
       .strict(),
   })
+  .strict();
+
+export const AcceptProposalRequestSchema = z.object({ confirm: z.literal(true) }).strict();
+
+export const DeclineProposalRequestSchema = z
+  .object({ reasonCode: z.string().trim().min(1).max(100).optional() })
+  .strict();
+
+export const ProposalCommandSummarySchema = z
+  .object({ id: objectId, status })
+  .strict();
+
+export const ProposalDecisionResponseSchema = z
+  .object({
+    data: z
+      .object({
+        proposal: ProposalCommandSummarySchema,
+        engagement: EngagementCommandSchema,
+        riskAssessment: RiskAssessmentSummarySchema,
+      })
+      .strict(),
+  })
+  .strict();
+
+export const ProposalDeclineResponseSchema = z
+  .object({ data: z.object({ proposal: ProposalCommandSummarySchema }).strict() })
   .strict();
