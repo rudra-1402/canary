@@ -178,7 +178,7 @@ function toJobPostProposalContract(doc, freelancer, trustScore) {
   };
 }
 
-export async function listOwnedJobPostProposals(id, clientProfileId, query) {
+export async function listOwnedJobPostProposals(id, clientProfileId, query, viewerIdentityId) {
   const jobPost = await JobPost.findById(id).lean();
   if (!jobPost) throw new NotFoundError('JobPost', id);
   if (String(jobPost.clientProfileId) !== String(clientProfileId)) {
@@ -200,7 +200,7 @@ export async function listOwnedJobPostProposals(id, clientProfileId, query) {
   const profileIds = [...new Set(docs.map((doc) => String(doc.freelancerProfileId)))];
   const [profiles, trustScores] = await Promise.all([
     Profile.find({ _id: { $in: profileIds }, role: 'freelancer' }).lean(),
-    getTrustScores(profileIds),
+    getTrustScores(profileIds, viewerIdentityId, { visibilityGrantedProfileIds: profileIds }),
   ]);
   const profilesById = new Map(profiles.map((profile) => [String(profile._id), profile]));
   const trustScoresById = new Map(trustScores.map((score) => [score.profileId, score]));

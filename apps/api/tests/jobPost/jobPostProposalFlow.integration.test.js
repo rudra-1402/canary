@@ -53,6 +53,7 @@ describe('Client JobPost to proposal inbox flow', () => {
       .patch(`/api/jobposts/${draft.body.id}`)
       .set('x-csrf-token', client.csrf)
       .send({ action: 'publish' });
+    expect(published.status).toBe(200);
     expect(published.body.status).toBe('open');
 
     const submitted = await freelancer.agent
@@ -69,9 +70,11 @@ describe('Client JobPost to proposal inbox flow', () => {
     expect(submitted.status).toBe(201);
 
     const dashboard = await client.agent.get('/api/me/jobposts?status=open');
+    expect(dashboard.status).toBe(200);
     expect(dashboard.body.data[0].proposalCounts.submitted).toBe(1);
 
     const inbox = await client.agent.get(`/api/jobposts/${draft.body.id}/proposals`);
+    expect(inbox.status).toBe(200);
     expect(inbox.body.data[0]).toMatchObject({
       id: submitted.body.id,
       freelancer: { id: freelancer.profileId },

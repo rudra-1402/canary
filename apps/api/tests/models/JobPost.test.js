@@ -58,6 +58,27 @@ describe('JobPost schema', () => {
     expect(err.errors.screeningQuestions).toBeDefined();
   });
 
+  it('rejects whitespace-only bounded strings at persistence', () => {
+    const doc = new JobPost({
+      clientProfileId,
+      title: '   ',
+      category: '   ',
+      description: '   ',
+      skills: ['   '],
+      jobType: 'fixed',
+      budgetOrRate: 100,
+      experienceLevel: 'entry',
+      projectLength: '1-to-3-months',
+      screeningQuestions: ['   '],
+    });
+    const err = doc.validateSync();
+    expect(err.errors.title).toBeDefined();
+    expect(err.errors.category).toBeDefined();
+    expect(err.errors.description).toBeDefined();
+    expect(err.errors['skills.0']).toBeDefined();
+    expect(err.errors['screeningQuestions.0']).toBeDefined();
+  });
+
   it('declares the owned dashboard index', () => {
     expect(JobPost.schema.indexes()).toContainEqual([
       { clientProfileId: 1, status: 1, createdAt: -1 },

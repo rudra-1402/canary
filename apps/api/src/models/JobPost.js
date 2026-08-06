@@ -4,11 +4,11 @@ const { Schema, model } = mongoose;
 const jobPostSchema = new Schema(
   {
     clientProfileId: { type: Schema.Types.ObjectId, ref: 'Profile', required: true },
-    title: { type: String, required: true, maxlength: 160 },
-    category: { type: String, required: true, maxlength: 100 },
-    description: { type: String, required: true, maxlength: 5000 },
+    title: { type: String, required: true, trim: true, minlength: 1, maxlength: 160 },
+    category: { type: String, required: true, trim: true, minlength: 1, maxlength: 100 },
+    description: { type: String, required: true, trim: true, minlength: 1, maxlength: 5000 },
     skills: {
-      type: [{ type: String, maxlength: 80 }],
+      type: [{ type: String, trim: true, minlength: 1, maxlength: 80 }],
       default: [],
       validate: { validator: (value) => value.length <= 15, message: 'skills may not exceed 15' },
     },
@@ -27,7 +27,7 @@ const jobPostSchema = new Schema(
       validate: { validator: Number.isInteger, message: 'hoursPerWeek must be an integer' },
     },
     screeningQuestions: {
-      type: [{ type: String, maxlength: 500 }],
+      type: [{ type: String, trim: true, minlength: 1, maxlength: 500 }],
       default: [],
       validate: {
         validator: (value) => value.length <= 10,

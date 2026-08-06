@@ -124,6 +124,7 @@ describe('Client JobPost authoring', () => {
   });
 
   it('enforces CSRF, Client role, and server-owned identity/status', async () => {
+    expect((await request(app).post('/api/jobposts').send(authoringBody())).status).toBe(401);
     const client = await activeProfileAgent(app, 'client');
     expect((await client.agent.post('/api/jobposts').send(authoringBody())).status).toBe(403);
 
@@ -244,6 +245,8 @@ describe('Client JobPost proposal inbox', () => {
     });
     expect(res.body.data[0].freelancer).not.toHaveProperty('identityId');
     expect(res.body.data[0].freelancer).not.toHaveProperty('origin');
+    expect(res.body.data[0].freelancer).not.toHaveProperty('taxRatePct');
+    expect(res.body.data[0].freelancer).not.toHaveProperty('onboardingCompletedAt');
   });
 
   it('requires Client ownership without concealing an existing JobPost', async () => {

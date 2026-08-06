@@ -8,15 +8,15 @@ const router = Router();
 router.get('/', jobPostController.list);
 router.post(
   '/',
-  csrfSynchronisedProtection,
   requireAuth,
+  csrfSynchronisedProtection,
   requireRole('client'),
   jobPostController.create,
 );
 router.patch(
   '/:id',
-  csrfSynchronisedProtection,
   requireAuth,
+  csrfSynchronisedProtection,
   requireRole('client'),
   jobPostController.update,
 );

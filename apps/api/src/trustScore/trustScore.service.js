@@ -155,8 +155,13 @@ async function signalsFor(snapshots) {
   return grouped;
 }
 
-export async function getTrustScores(profileIds, identityId) {
+export async function getTrustScores(
+  profileIds,
+  identityId,
+  { visibilityGrantedProfileIds = [] } = {},
+) {
   const uniqueIds = [...new Set(profileIds)];
+  const visibilityGrants = new Set(visibilityGrantedProfileIds.map(String));
   const objectIds = uniqueIds.map((id) => new mongoose.Types.ObjectId(id));
   const profiles = await Profile.find({ _id: { $in: objectIds } }).lean();
   const profilesById = new Map(profiles.map((profile) => [String(profile._id), profile]));
@@ -178,7 +183,7 @@ export async function getTrustScores(profileIds, identityId) {
   for (const id of existingIds) {
     const profile = profilesById.get(id);
     const relation = viewerRelation(profile, identityId);
-    if (relation === 'member' && !profile.discoverable) {
+    if (relation === 'member' && !profile.discoverable && !visibilityGrants.has(id)) {
       byId.set(id, { status: 'not-found', profileId: id });
       continue;
     }

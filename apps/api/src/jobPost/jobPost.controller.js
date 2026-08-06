@@ -40,7 +40,12 @@ export async function update(req, res) {
 export async function listProposals(req, res) {
   const { id } = JobPostIdParamSchema.parse(req.params);
   const query = JobPostProposalListQuerySchema.parse(req.query);
-  const { activeProfile } = getCurrentUser(req);
-  const proposals = await jobPostService.listOwnedJobPostProposals(id, activeProfile.id, query);
+  const { activeProfile, identityId } = getCurrentUser(req);
+  const proposals = await jobPostService.listOwnedJobPostProposals(
+    id,
+    activeProfile.id,
+    query,
+    identityId,
+  );
   res.json(proposals);
 }
