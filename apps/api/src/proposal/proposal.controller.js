@@ -8,10 +8,8 @@ import {
   ProposalRiskAssessmentParamSchema,
 } from '@canary/shared';
 import { getCurrentUser } from '../auth/getCurrentUser.js';
-import {
-  toEngagementCommandContract,
-  toRiskAssessmentSummaryContract,
-} from '../riskAssessment/riskAssessment.service.js';
+import { toRiskAssessmentSummaryContract } from '../riskAssessment/riskAssessment.service.js';
+import { toEngagementCommandContract } from '../engagement/engagement.serializer.js';
 import * as proposalService from './proposal.service.js';
 
 export async function create(req, res) {

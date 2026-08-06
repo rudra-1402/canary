@@ -5,10 +5,8 @@ import Proposal from '../models/Proposal.js';
 import Review from '../models/Review.js';
 import RiskAssessment from '../models/RiskAssessment.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
-import {
-  toEngagementCommandContract,
-  toRiskAssessmentSummaryContract,
-} from '../riskAssessment/riskAssessment.service.js';
+import { toRiskAssessmentSummaryContract } from '../riskAssessment/riskAssessment.service.js';
+import { toEngagementCommandContract } from './engagement.serializer.js';
 
 function timelineFor(engagement) {
   return [
