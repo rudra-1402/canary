@@ -38,4 +38,51 @@ describe('Profile schema', () => {
     const err = doc.validateSync();
     expect(err.errors.skills).toBeDefined();
   });
+
+  it('persists bounded presentation and availability fields', async () => {
+    const profile = new Profile({
+      identityId,
+      role: 'freelancer',
+      origin: 'user-registered',
+      displayName: 'Asha',
+      headline: 'Product designer',
+      bio: 'Evidence-led onboarding specialist.',
+      availableForWork: true,
+    });
+
+    await expect(profile.validate()).resolves.toBeUndefined();
+    expect(profile.headline).toBe('Product designer');
+    expect(profile.bio).toBe('Evidence-led onboarding specialist.');
+  });
+
+  it('rejects overlong Profile presentation fields', async () => {
+    const profile = new Profile({
+      identityId,
+      role: 'freelancer',
+      origin: 'user-registered',
+      displayName: 'Asha',
+      headline: 'x'.repeat(161),
+    });
+
+    await expect(profile.validate()).rejects.toMatchObject({
+      errors: { headline: expect.any(Object) },
+    });
+  });
+
+  it('declares indexes for availability, name, and skills discovery', () => {
+    const indexKeys = Profile.schema.indexes().map(([keys]) => keys);
+    expect(indexKeys).toContainEqual({
+      role: 1,
+      discoverable: 1,
+      availableForWork: 1,
+      hourlyRate: 1,
+    });
+    expect(indexKeys).toContainEqual({
+      role: 1,
+      discoverable: 1,
+      availableForWork: 1,
+      displayName: 1,
+    });
+    expect(indexKeys).toContainEqual({ skills: 1 });
+  });
 });
