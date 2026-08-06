@@ -32,7 +32,10 @@ export async function accept(req, res) {
     data: {
       proposal: { id: result.proposal._id.toString(), status: result.proposal.status },
       engagement: toEngagementCommandContract(result.engagement),
-      riskAssessment: await findRiskAssessmentSummaryForEngagement(result.engagement),
+      riskAssessment: await findRiskAssessmentSummaryForEngagement(
+        result.engagement,
+        activeProfile.id,
+      ),
     },
   };
   res.json(ProposalDecisionResponseSchema.parse(response));

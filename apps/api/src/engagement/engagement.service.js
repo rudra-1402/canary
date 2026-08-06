@@ -70,7 +70,7 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
         displayName: client.displayName,
       },
     },
-    riskAssessment: await findRiskAssessmentSummaryForEngagement(engagement),
+    riskAssessment: await findRiskAssessmentSummaryForEngagement(engagement, activeProfileId),
     outcomeEligibility: engagement.status === 'active' && !existingReview,
     timeline: timelineFor(engagement),
   };

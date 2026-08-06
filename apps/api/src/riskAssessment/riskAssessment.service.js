@@ -4,7 +4,6 @@ import Profile from '../models/Profile.js';
 import Proposal from '../models/Proposal.js';
 import RiskAssessment from '../models/RiskAssessment.js';
 import RiskSignal from '../models/RiskSignal.js';
-import TrustScore from '../models/TrustScore.js';
 import {
   BadRequestError,
   ForbiddenError,
@@ -12,6 +11,7 @@ import {
   RiskAssessmentNotFoundError,
 } from '../lib/errors.js';
 import { toEngagementCommandContract } from '../engagement/engagement.serializer.js';
+import { getTrustScores } from '../trustScore/trustScore.service.js';
 import { assessRisk } from './riskAssessment.scoring.js';
 
 function proposedTerms(jobPost, proposal) {
@@ -45,12 +45,22 @@ async function findOrCreateEngagement(jobPost, proposal) {
   }
 }
 
-function toStandingInput(snapshot) {
-  if (!snapshot || snapshot.status !== 'scored') return { status: 'insufficient-history' };
+function toStandingInput(state) {
+  const standing = {
+    status: state.status,
+    ...(state.outcomeCount !== undefined ? { outcomeCount: state.outcomeCount } : {}),
+    ...(state.outcomesNeeded !== undefined ? { outcomesNeeded: state.outcomesNeeded } : {}),
+  };
+  if (!['scored', 'stale'].includes(state.status)) return standing;
   return {
-    status: 'scored',
-    score: snapshot.score,
-    generatedAt: snapshot.generatedAt.toISOString(),
+    ...standing,
+    score: state.score,
+    generatedAt: state.generatedAt,
+    ...(state.outcomesSince !== undefined ? { outcomesSince: state.outcomesSince } : {}),
+    signals: [...(state.signals ?? [])].sort(
+      (left, right) =>
+        left.name.localeCompare(right.name) || left.direction.localeCompare(right.direction),
+    ),
   };
 }
 
@@ -86,13 +96,10 @@ function scoringInput(jobPost, proposal, trustByProfileId) {
   };
 }
 
-async function loadCurrentTrustScores(profileIds) {
-  const rows = await TrustScore.aggregate([
-    { $match: { profileId: { $in: profileIds } } },
-    { $sort: { generatedAt: -1, _id: -1 } },
-    { $group: { _id: '$profileId', snapshot: { $first: '$$ROOT' } } },
-  ]);
-  return new Map(rows.map((row) => [row._id.toString(), row.snapshot]));
+async function loadCurrentTrustScores(profileIds, identityId) {
+  const ids = profileIds.map(String);
+  const states = await getTrustScores(ids, identityId, { visibilityGrantedProfileIds: ids });
+  return new Map(states.map((state) => [state.profileId, state]));
 }
 
 async function ensureSignals(assessmentId, signals) {
@@ -164,6 +171,7 @@ async function assertLinkedProfiles(jobPost, proposal) {
   ]);
   if (!client) throw new NotFoundError('Client Profile', jobPost.clientProfileId);
   if (!freelancer) throw new NotFoundError('Freelancer Profile', proposal.freelancerProfileId);
+  return { client, freelancer };
 }
 
 export async function requestProposalRiskAssessment(
@@ -183,7 +191,10 @@ export async function requestProposalRiskAssessment(
   if (!['submitted', 'shortlisted'].includes(proposal.status)) {
     throw new BadRequestError('RiskAssessment requires a submitted Proposal');
   }
-  await assertLinkedProfiles(jobPost, proposal);
+  const linkedProfiles = await assertLinkedProfiles(jobPost, proposal);
+  const requestingProfile = [linkedProfiles.client, linkedProfiles.freelancer].find(
+    (profile) => profile._id.toString() === activeProfileId.toString(),
+  );
 
   const engagement = await findOrCreateEngagement(jobPost, proposal);
   const latest = await RiskAssessment.findOne({ engagementId: engagement._id }).sort({
@@ -191,10 +202,10 @@ export async function requestProposalRiskAssessment(
     _id: -1,
   });
 
-  const trustByProfileId = await loadCurrentTrustScores([
-    jobPost.clientProfileId,
-    proposal.freelancerProfileId,
-  ]);
+  const trustByProfileId = await loadCurrentTrustScores(
+    [jobPost.clientProfileId, proposal.freelancerProfileId],
+    requestingProfile.identityId,
+  );
   const result = assessRisk(scoringInput(jobPost, proposal, trustByProfileId));
   const matching = await RiskAssessment.findOne({
     engagementId: engagement._id,
@@ -267,22 +278,31 @@ export async function toRiskAssessmentCommandContract(result) {
   };
 }
 
-async function currentInputVersionForEngagement(engagement) {
-  const [jobPost, proposal] = await Promise.all([
+async function currentInputVersionForEngagement(engagement, activeProfileId) {
+  const [jobPost, proposal, requestingProfile] = await Promise.all([
     JobPost.findById(engagement.jobPostId),
     Proposal.findById(engagement.proposalId),
+    Profile.findById(activeProfileId).select('identityId').lean(),
   ]);
   if (!jobPost) throw new NotFoundError('JobPost', engagement.jobPostId);
   if (!proposal) throw new NotFoundError('Proposal', engagement.proposalId);
-  const trustByProfileId = await loadCurrentTrustScores([
-    jobPost.clientProfileId,
-    proposal.freelancerProfileId,
-  ]);
+  if (!requestingProfile) throw new NotFoundError('Profile', activeProfileId);
+  const trustByProfileId = await loadCurrentTrustScores(
+    [jobPost.clientProfileId, proposal.freelancerProfileId],
+    requestingProfile.identityId,
+  );
   return assessRisk(scoringInput(jobPost, proposal, trustByProfileId)).inputVersion;
 }
 
-export async function findRiskAssessmentForEngagement(engagement) {
-  const currentInputVersion = await currentInputVersionForEngagement(engagement);
+export async function findRiskAssessmentForEngagement(engagement, activeProfileId) {
+  const partyIds = [
+    engagement.clientProfileId.toString(),
+    engagement.freelancerProfileId.toString(),
+  ];
+  if (!partyIds.includes(activeProfileId.toString())) {
+    throw new ForbiddenError('Only an Engagement Party may read its RiskAssessment');
+  }
+  const currentInputVersion = await currentInputVersionForEngagement(engagement, activeProfileId);
   const current = await RiskAssessment.findOne({
     engagementId: engagement._id,
     inputVersion: currentInputVersion,
@@ -295,8 +315,8 @@ export async function findRiskAssessmentForEngagement(engagement) {
   return latest ? { assessment: latest, status: 'stale' } : null;
 }
 
-export async function findRiskAssessmentSummaryForEngagement(engagement) {
-  const result = await findRiskAssessmentForEngagement(engagement);
+export async function findRiskAssessmentSummaryForEngagement(engagement, activeProfileId) {
+  const result = await findRiskAssessmentForEngagement(engagement, activeProfileId);
   if (!result) return null;
   return toRiskAssessmentSummaryContract(result.assessment, result.status);
 }
@@ -311,7 +331,7 @@ export async function getEngagementRiskAssessment(engagementId, activeProfileId)
   if (!partyIds.includes(activeProfileId.toString())) {
     throw new ForbiddenError('Only an Engagement Party may read its RiskAssessment');
   }
-  const riskAssessment = await findRiskAssessmentSummaryForEngagement(engagement);
+  const riskAssessment = await findRiskAssessmentSummaryForEngagement(engagement, activeProfileId);
   if (!riskAssessment) throw new RiskAssessmentNotFoundError();
   return riskAssessment;
 }

@@ -3,12 +3,17 @@ import mongoose from 'mongoose';
 import Engagement from '../src/models/Engagement.js';
 import Identity from '../src/models/Identity.js';
 import JobPost from '../src/models/JobPost.js';
+import Outcome from '../src/models/Outcome.js';
 import Profile from '../src/models/Profile.js';
 import Proposal from '../src/models/Proposal.js';
 import RiskAssessment from '../src/models/RiskAssessment.js';
 import RiskSignal from '../src/models/RiskSignal.js';
 import TrustScore from '../src/models/TrustScore.js';
-import { requestProposalRiskAssessment } from '../src/riskAssessment/riskAssessment.service.js';
+import {
+  findRiskAssessmentForEngagement,
+  requestProposalRiskAssessment,
+} from '../src/riskAssessment/riskAssessment.service.js';
+import { getTrustScore } from '../src/trustScore/trustScore.service.js';
 import { clearCollections, startMemoryDb, stopMemoryDb } from './helpers/memoryDb.js';
 
 describe('RiskAssessment service', () => {
@@ -30,9 +35,14 @@ describe('RiskAssessment service', () => {
       passwordHash: 'hash',
       emailVerified: true,
     });
+    const freelancerIdentity = await Identity.create({
+      email: `risk-freelancer-${new mongoose.Types.ObjectId()}@example.com`,
+      passwordHash: 'hash',
+      emailVerified: true,
+    });
     const [client, freelancer, outsider] = await Profile.create([
       {
-        identityId: identity._id,
+        identityId: freelancerIdentity._id,
         role: 'client',
         origin: 'user-registered',
         displayName: 'Aster Labs',
@@ -74,7 +84,7 @@ describe('RiskAssessment service', () => {
       screeningAnswers: ['A comparable dashboard is in my portfolio.'],
       status: 'submitted',
     });
-    await TrustScore.create([
+    const [clientTrustScore, freelancerTrustScore] = await TrustScore.create([
       {
         profileId: client._id,
         status: 'scored',
@@ -90,7 +100,42 @@ describe('RiskAssessment service', () => {
         generatedAt: new Date('2026-08-05T00:00:00.000Z'),
       },
     ]);
-    return { client, freelancer, outsider, jobPost, proposal };
+    return {
+      client,
+      freelancer,
+      outsider,
+      jobPost,
+      proposal,
+      clientTrustScore,
+      freelancerTrustScore,
+    };
+  }
+
+  async function concludedOutcome(profile, role, recordedAt) {
+    const counterpartyProfileId = new mongoose.Types.ObjectId();
+    const engagement = await Engagement.create({
+      freelancerProfileId: role === 'freelancer' ? profile._id : counterpartyProfileId,
+      clientProfileId: role === 'client' ? profile._id : counterpartyProfileId,
+      status: 'concluded',
+      agreedTerms: {
+        scope: 'Completed historical work.',
+        price: 100,
+        paymentTerms: 'project',
+        timeline: '7 days',
+        dueAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+    });
+    return Outcome.create({
+      engagementId: engagement._id,
+      subjectProfileId: profile._id,
+      counterpartyProfileId,
+      subjectRole: role,
+      observed: true,
+      ...(role === 'client' ? { paidInFull: true } : { daysLate: 0 }),
+      endedAs: 'completed',
+      labelSource: 'synthetic',
+      recordedAt,
+    });
   }
 
   it.each(['client', 'freelancer'])(
@@ -123,6 +168,26 @@ describe('RiskAssessment service', () => {
     const data = await fixture();
     await expect(
       requestProposalRiskAssessment(data.proposal._id, data.outsider._id, { recompute: false }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it('grants Proposal-Party standing without making a hidden counterparty publicly readable', async () => {
+    const data = await fixture();
+
+    await expect(
+      getTrustScore(String(data.freelancer._id), data.client.identityId),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      requestProposalRiskAssessment(data.proposal._id, data.client._id),
+    ).resolves.toMatchObject({ riskAssessmentStatus: 'current' });
+  });
+
+  it('refuses relationship visibility grants to an outsider at the assessment lookup seam', async () => {
+    const data = await fixture();
+    const assessed = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+
+    await expect(
+      findRiskAssessmentForEngagement(assessed.engagement, data.outsider._id),
     ).rejects.toMatchObject({ statusCode: 403 });
   });
 
@@ -211,6 +276,46 @@ describe('RiskAssessment service', () => {
     expect(reverted.riskAssessmentStatus).toBe('current');
     expect(String(repeated.riskAssessment._id)).toBe(String(first.riskAssessment._id));
     expect(repeated.riskAssessmentStatus).toBe('current');
+  });
+
+  it('marks the assessment stale when a new Outcome makes TrustScore state stale', async () => {
+    const data = await fixture();
+    await TrustScore.updateOne({ _id: data.clientTrustScore._id }, { $set: { score: 100 } });
+    await RiskSignal.create({
+      parentType: 'TrustScore',
+      parentId: data.clientTrustScore._id,
+      name: 'on-time-rate',
+      value: 1,
+      direction: 'favorable',
+      source: 'structured-data',
+    });
+    for (const date of [
+      '2026-08-01T00:00:00.000Z',
+      '2026-08-02T00:00:00.000Z',
+      '2026-08-03T00:00:00.000Z',
+    ]) {
+      await concludedOutcome(data.client, 'client', new Date(date));
+    }
+    const current = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
+      recompute: true,
+    });
+    const standingSignal = await RiskSignal.findOne({
+      parentId: current.riskAssessment._id,
+      name: 'PARTY_STANDING_STRONG',
+    }).lean();
+    expect(standingSignal.evidence).toContain('on-time-rate');
+    await concludedOutcome(data.client, 'client', new Date('2026-08-06T00:00:00.000Z'));
+
+    const stale = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
+      recompute: false,
+    });
+    const recomputed = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
+      recompute: true,
+    });
+
+    expect(stale.riskAssessmentStatus).toBe('stale');
+    expect(String(stale.riskAssessment._id)).toBe(String(current.riskAssessment._id));
+    expect(recomputed.riskAssessment.inputVersion).not.toBe(current.riskAssessment.inputVersion);
   });
 
   it('survives concurrent identical requests without duplicate parent records or signals', async () => {

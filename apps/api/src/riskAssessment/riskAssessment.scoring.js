@@ -35,15 +35,24 @@ function signal(name, value, direction, label, evidence) {
 function standingContribution(trustScores) {
   const parties = [trustScores?.client, trustScores?.freelancer];
   const scored = parties.filter(
-    (standing) => standing?.status === 'scored' && Number.isFinite(standing.score),
+    (standing) => ['scored', 'stale'].includes(standing?.status) && Number.isFinite(standing.score),
   );
   const missingCount = parties.length - scored.length;
   const scores = parties.map((standing) =>
-    standing?.status === 'scored' && Number.isFinite(standing.score) ? standing.score : 50,
+    ['scored', 'stale'].includes(standing?.status) && Number.isFinite(standing.score)
+      ? standing.score
+      : 50,
   );
   const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
   const risk = scores.reduce((sum, score) => sum + (100 - score) * 0.2, 0);
   const signals = [];
+  const safeEvidenceNames = [
+    ...new Set(scored.flatMap((standing) => standing.signals ?? []).map((item) => item.name)),
+  ].sort();
+  const safeEvidence =
+    safeEvidenceNames.length > 0
+      ? ` Safe TrustScore evidence: ${safeEvidenceNames.slice(0, 5).join(', ')}.`
+      : '';
 
   if (missingCount > 0) {
     signals.push(
@@ -63,7 +72,7 @@ function standingContribution(trustScores) {
         Number(((average - 50) / 50).toFixed(3)),
         'favorable',
         'Party standing is strong',
-        `Available Party TrustScores average ${Math.round(average)} out of 100.`,
+        `Available Party TrustScores average ${Math.round(average)} out of 100.${safeEvidence}`,
       ),
     );
   } else if (scored.length > 0 && average < 50) {
@@ -73,11 +82,11 @@ function standingContribution(trustScores) {
         Number(((50 - average) / 50).toFixed(3)),
         'unfavorable',
         'Party standing needs caution',
-        `Available Party TrustScores average ${Math.round(average)} out of 100.`,
+        `Available Party TrustScores average ${Math.round(average)} out of 100.${safeEvidence}`,
       ),
     );
   }
-  return { risk, missingCount, signals };
+  return { risk, missingCount, signals, safeEvidenceNames };
 }
 
 function priceContribution(jobPost, proposal) {
@@ -245,14 +254,19 @@ function paymentContribution(proposal) {
   };
 }
 
-function explanationFor(verdict, signals) {
+function explanationFor(verdict, signals, safeEvidenceNames) {
   const warningLabels = signals
     .filter((item) => item.direction === 'unfavorable' && item.value > 0)
     .map((item) => item.label.toLowerCase());
-  if (warningLabels.length === 0) {
-    return 'Structured terms and available Party standing support proceeding, with normal human review.';
-  }
-  return `Decision support recommends ${verdict}: ${warningLabels.slice(0, 3).join('; ')}.`;
+  const decisionExplanation =
+    warningLabels.length === 0
+      ? 'Structured terms and available Party standing support proceeding, with normal human review.'
+      : `Decision support recommends ${verdict}: ${warningLabels.slice(0, 3).join('; ')}.`;
+  const standingEvidence =
+    safeEvidenceNames.length > 0
+      ? ` TrustScore evidence considered: ${safeEvidenceNames.slice(0, 5).join(', ')}.`
+      : '';
+  return `${decisionExplanation}${standingEvidence}`;
 }
 
 export function assessRisk(input) {
@@ -289,7 +303,7 @@ export function assessRisk(input) {
     score,
     ...classification,
     confidence,
-    explanation: explanationFor(classification.verdict, signals),
+    explanation: explanationFor(classification.verdict, signals, standing.safeEvidenceNames),
     signals,
     inputVersion: createRiskInputVersion(input),
     modelVersion: RISK_MODEL_VERSION,

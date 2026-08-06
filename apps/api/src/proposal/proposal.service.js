@@ -38,12 +38,12 @@ async function decisionContext(proposalId, clientProfileId) {
   return { proposal, jobPost };
 }
 
-async function acceptedResult(proposal) {
+async function acceptedResult(proposal, activeProfileId) {
   const engagement = await Engagement.findOne({ proposalId: proposal._id });
   if (!engagement || engagement.status !== 'active') {
     throw new BadRequestError('Accepted Proposal has no active Engagement');
   }
-  const assessment = await findRiskAssessmentForEngagement(engagement);
+  const assessment = await findRiskAssessmentForEngagement(engagement, activeProfileId);
   if (!assessment) throw new BadRequestError('Accepted Proposal has no RiskAssessment');
   return { proposal, engagement, riskAssessment: assessment.assessment };
 }
@@ -66,7 +66,7 @@ async function completeAcceptance(
   if (String(jobPost.clientProfileId) !== String(clientProfileId)) {
     throw new ForbiddenError('Only the owning Client may accept this Proposal');
   }
-  if (proposal.status === 'accepted') return acceptedResult(proposal);
+  if (proposal.status === 'accepted') return acceptedResult(proposal, clientProfileId);
   if (!['submitted', 'shortlisted'].includes(proposal.status)) {
     throw new BadRequestError('Only a submitted Proposal may be accepted');
   }
@@ -142,7 +142,7 @@ async function transactionFirst(work) {
 export async function acceptProposal(proposalId, clientProfileId, { confirm } = {}) {
   if (confirm !== true) throw new BadRequestError('Explicit acceptance confirmation is required');
   const { proposal } = await decisionContext(proposalId, clientProfileId);
-  if (proposal.status === 'accepted') return acceptedResult(proposal);
+  if (proposal.status === 'accepted') return acceptedResult(proposal, clientProfileId);
   if (!['submitted', 'shortlisted'].includes(proposal.status)) {
     throw new BadRequestError('Only a submitted Proposal may be accepted');
   }

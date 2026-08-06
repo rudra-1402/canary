@@ -140,6 +140,49 @@ describe('deterministic RiskAssessment scoring', () => {
     );
   });
 
+  it('uses stale TrustScore numbers while pending score history stays neutral', () => {
+    const scored = baseInput();
+    const stale = structuredClone(scored);
+    stale.trustScores.client = {
+      ...stale.trustScores.client,
+      status: 'stale',
+      outcomesSince: 1,
+    };
+    const pending = structuredClone(scored);
+    pending.trustScores.client = { status: 'pending-score', outcomeCount: 3 };
+    const neutral = structuredClone(scored);
+    neutral.trustScores.client.score = 50;
+
+    expect(assessRisk(stale).score).toBe(assessRisk(scored).score);
+    expect(assessRisk(pending).score).toBe(assessRisk(neutral).score);
+    expect(assessRisk(pending).confidence).toBeLessThan(assessRisk(scored).confidence);
+  });
+
+  it('hashes safe structured TrustScore evidence as deterministic input', () => {
+    const withoutEvidence = baseInput();
+    const withEvidence = structuredClone(withoutEvidence);
+    withEvidence.trustScores.client.signals = [
+      { name: 'on-time-rate', direction: 'favorable', strength: 'STRENGTH_STRONG' },
+    ];
+
+    expect(createRiskInputVersion(withEvidence)).not.toBe(createRiskInputVersion(withoutEvidence));
+    expect(
+      assessRisk(withEvidence).signals.find((item) => item.name === 'PARTY_STANDING_STRONG')
+        .evidence,
+    ).toContain('on-time-rate');
+  });
+
+  it('includes safe TrustScore evidence in the explanation for mid-band standing', () => {
+    const input = baseInput();
+    input.trustScores.client.score = 60;
+    input.trustScores.freelancer.score = 60;
+    input.trustScores.client.signals = [
+      { name: 'repeat-engagement-rate', direction: 'favorable', strength: 'STRENGTH_MEDIUM' },
+    ];
+
+    expect(assessRisk(input).explanation).toContain('repeat-engagement-rate');
+  });
+
   it('makes milestone-total mismatch riskier than aligned milestones', () => {
     const aligned = baseInput();
     aligned.proposal.payModel = 'milestone';
