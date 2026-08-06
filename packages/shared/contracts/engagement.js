@@ -103,9 +103,7 @@ const PartySummarySchema = z
 export const EngagementDetailSchema = EngagementCommandSchema.extend({
   jobPost: z.object({ id: objectId, title: z.string() }).strict(),
   proposal: z.object({ id: objectId, status: z.string(), bid: z.number() }).strict(),
-  parties: z
-    .object({ freelancer: PartySummarySchema, client: PartySummarySchema })
-    .strict(),
+  parties: z.object({ freelancer: PartySummarySchema, client: PartySummarySchema }).strict(),
   riskAssessment: RiskAssessmentSummarySchema.nullable(),
   outcomeEligibility: z.boolean(),
   timeline: z.array(

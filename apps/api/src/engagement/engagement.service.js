@@ -12,7 +12,10 @@ import {
 
 function timelineFor(engagement) {
   return [
-    engagement.createdAt && { event: 'prospective-created', at: engagement.createdAt.toISOString() },
+    engagement.createdAt && {
+      event: 'prospective-created',
+      at: engagement.createdAt.toISOString(),
+    },
     engagement.acceptedAt && { event: 'accepted', at: engagement.acceptedAt.toISOString() },
     engagement.concludedAt && { event: 'concluded', at: engagement.concludedAt.toISOString() },
   ].filter(Boolean);
@@ -40,8 +43,7 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
     })
       .select('role displayName')
       .lean(),
-    RiskAssessment.findOne({ engagementId: engagement._id })
-      .sort({ generatedAt: -1, _id: -1 }),
+    RiskAssessment.findOne({ engagementId: engagement._id }).sort({ generatedAt: -1, _id: -1 }),
     Review.exists({ engagementId: engagement._id, authorProfileId: activeProfileId }),
   ]);
   if (!jobPost) throw new NotFoundError('JobPost', engagement.jobPostId);
@@ -49,7 +51,8 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
   const profilesByRole = new Map(profiles.map((profile) => [profile.role, profile]));
   const client = profilesByRole.get('client');
   const freelancer = profilesByRole.get('freelancer');
-  if (!client || !freelancer) throw new BadRequestError('Engagement Party profiles are unavailable');
+  if (!client || !freelancer)
+    throw new BadRequestError('Engagement Party profiles are unavailable');
 
   return {
     ...toEngagementCommandContract(engagement),
@@ -71,9 +74,7 @@ export async function getEngagementDetail(engagementId, activeProfileId) {
         displayName: client.displayName,
       },
     },
-    riskAssessment: riskAssessment
-      ? await toRiskAssessmentSummaryContract(riskAssessment)
-      : null,
+    riskAssessment: riskAssessment ? await toRiskAssessmentSummaryContract(riskAssessment) : null,
     outcomeEligibility: engagement.status === 'active' && !existingReview,
     timeline: timelineFor(engagement),
   };

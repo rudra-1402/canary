@@ -80,9 +80,7 @@ function scoringInput(jobPost, proposal, trustByProfileId) {
     },
     trustScores: {
       client: toStandingInput(trustByProfileId.get(jobPost.clientProfileId.toString())),
-      freelancer: toStandingInput(
-        trustByProfileId.get(proposal.freelancerProfileId.toString()),
-      ),
+      freelancer: toStandingInput(trustByProfileId.get(proposal.freelancerProfileId.toString())),
     },
   };
 }

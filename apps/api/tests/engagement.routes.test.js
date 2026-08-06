@@ -28,7 +28,9 @@ async function activeProfileAgent(role) {
 }
 
 async function directProfile(role, name) {
-  const identity = await Identity.create({ email: `${new mongoose.Types.ObjectId()}@test.invalid` });
+  const identity = await Identity.create({
+    email: `${new mongoose.Types.ObjectId()}@test.invalid`,
+  });
   return Profile.create({
     identityId: identity._id,
     role,
@@ -41,7 +43,9 @@ async function fixture(activeRole = 'client') {
   const active = await activeProfileAgent(activeRole);
   const activeId = new mongoose.Types.ObjectId(active.profileId);
   const client =
-    activeRole === 'client' ? { _id: activeId, displayName: 'client viewer' } : await directProfile('client', 'Aster Labs');
+    activeRole === 'client'
+      ? { _id: activeId, displayName: 'client viewer' }
+      : await directProfile('client', 'Aster Labs');
   const freelancer =
     activeRole === 'freelancer'
       ? { _id: activeId, displayName: 'freelancer viewer' }
@@ -93,9 +97,7 @@ describe('GET /api/engagements/:engagementId', () => {
     });
     expect(response.body.data.engagement.parties.client.role).toBe('client');
     expect(response.body.data.engagement.parties.freelancer.role).toBe('freelancer');
-    expect(response.body.data.engagement.riskAssessment.modelVersion).toBe(
-      'risk-deterministic-v1',
-    );
+    expect(response.body.data.engagement.riskAssessment.modelVersion).toBe('risk-deterministic-v1');
     expect(response.body.data.engagement.timeline.map((event) => event.event)).toEqual([
       'prospective-created',
       'accepted',
@@ -131,9 +133,9 @@ describe('GET /api/engagements/:engagementId', () => {
   it('returns contract errors for malformed and missing IDs', async () => {
     const data = await fixture('client');
     expect((await data.agent.get('/api/engagements/not-an-id')).status).toBe(400);
-    expect(
-      (await data.agent.get(`/api/engagements/${new mongoose.Types.ObjectId()}`)).status,
-    ).toBe(404);
+    expect((await data.agent.get(`/api/engagements/${new mongoose.Types.ObjectId()}`)).status).toBe(
+      404,
+    );
   });
 
   it('returns a nullable assessment and no outcome action for a prospective Engagement', async () => {

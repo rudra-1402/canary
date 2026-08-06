@@ -25,7 +25,9 @@ async function activeProfileAgent(role) {
 }
 
 async function directProfile(role) {
-  const identity = await Identity.create({ email: `${new mongoose.Types.ObjectId()}@test.invalid` });
+  const identity = await Identity.create({
+    email: `${new mongoose.Types.ObjectId()}@test.invalid`,
+  });
   return Profile.create({
     identityId: identity._id,
     role,

@@ -111,9 +111,7 @@ export const DeclineProposalRequestSchema = z
   .object({ reasonCode: z.string().trim().min(1).max(100).optional() })
   .strict();
 
-export const ProposalCommandSummarySchema = z
-  .object({ id: objectId, status })
-  .strict();
+export const ProposalCommandSummarySchema = z.object({ id: objectId, status }).strict();
 
 export const ProposalDecisionResponseSchema = z
   .object({

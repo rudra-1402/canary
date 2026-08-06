@@ -69,10 +69,7 @@ async function completeAcceptance(proposalId, clientProfileId, acceptedAt, sessi
     {
       _id: jobPost._id,
       clientProfileId,
-      $or: [
-        { status: 'open', acceptedProposalId: null },
-        { acceptedProposalId: proposal._id },
-      ],
+      $or: [{ status: 'open', acceptedProposalId: null }, { acceptedProposalId: proposal._id }],
     },
     { $set: { status: 'closed', acceptedProposalId: proposal._id } },
     { returnDocument: 'after', session },

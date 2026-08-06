@@ -4,7 +4,11 @@ const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character h
 
 export const RiskAssessmentSignalSchema = z
   .object({
-    code: z.string().min(1).max(80).regex(/^[A-Z0-9_]+$/),
+    code: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[A-Z0-9_]+$/),
     severity: z.enum(['positive', 'warning']),
     label: z.string().min(1).max(160),
     evidence: z.string().min(1).max(1000),
@@ -31,13 +35,9 @@ export const RequestRiskAssessmentSchema = z
   .object({ recompute: z.boolean().default(false) })
   .strict();
 
-export const ProposalRiskAssessmentParamSchema = z
-  .object({ proposalId: objectId })
-  .strict();
+export const ProposalRiskAssessmentParamSchema = z.object({ proposalId: objectId }).strict();
 
-export const EngagementRiskAssessmentParamSchema = z
-  .object({ engagementId: objectId })
-  .strict();
+export const EngagementRiskAssessmentParamSchema = z.object({ engagementId: objectId }).strict();
 
 export const RiskAssessmentResponseSchema = z
   .object({ data: z.object({ riskAssessment: RiskAssessmentSummarySchema }).strict() })

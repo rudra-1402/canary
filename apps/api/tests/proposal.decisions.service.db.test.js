@@ -13,13 +13,19 @@ import { clearCollections, startMemoryDb, stopMemoryDb } from './helpers/memoryD
 describe('Proposal decision service', () => {
   beforeAll(async () => {
     await startMemoryDb();
-    await Promise.all([Engagement.syncIndexes(), Proposal.syncIndexes(), RiskAssessment.syncIndexes()]);
+    await Promise.all([
+      Engagement.syncIndexes(),
+      Proposal.syncIndexes(),
+      RiskAssessment.syncIndexes(),
+    ]);
   });
   beforeEach(clearCollections);
   afterAll(stopMemoryDb);
 
   async function profile(role, displayName) {
-    const identity = await Identity.create({ email: `${new mongoose.Types.ObjectId()}@test.invalid` });
+    const identity = await Identity.create({
+      email: `${new mongoose.Types.ObjectId()}@test.invalid`,
+    });
     return Profile.create({
       identityId: identity._id,
       role,
@@ -85,11 +91,9 @@ describe('Proposal decision service', () => {
 
   it('creates the assessment and activates that same prospective Engagement', async () => {
     const data = await fixture();
-    const prospective = await requestProposalRiskAssessment(
-      data.proposal._id,
-      data.client._id,
-      { recompute: false },
-    );
+    const prospective = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
+      recompute: false,
+    });
     const result = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
 
     expect(String(result.engagement._id)).toBe(String(prospective.engagement._id));
@@ -134,7 +138,9 @@ describe('Proposal decision service', () => {
     await expect(
       acceptProposal(data.competingProposal._id, data.client._id, { confirm: true }),
     ).rejects.toMatchObject({ statusCode: 400 });
-    expect(await Proposal.countDocuments({ jobPostId: data.jobPost._id, status: 'accepted' })).toBe(1);
+    expect(await Proposal.countDocuments({ jobPostId: data.jobPost._id, status: 'accepted' })).toBe(
+      1,
+    );
   });
 
   it('allows only one winner under concurrent competing acceptance', async () => {
@@ -144,17 +150,19 @@ describe('Proposal decision service', () => {
       acceptProposal(data.competingProposal._id, data.client._id, { confirm: true }),
     ]);
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(await Proposal.countDocuments({ jobPostId: data.jobPost._id, status: 'accepted' })).toBe(1);
-    expect(await Engagement.countDocuments({ jobPostId: data.jobPost._id, status: 'active' })).toBe(1);
+    expect(await Proposal.countDocuments({ jobPostId: data.jobPost._id, status: 'accepted' })).toBe(
+      1,
+    );
+    expect(await Engagement.countDocuments({ jobPostId: data.jobPost._id, status: 'active' })).toBe(
+      1,
+    );
   });
 
   it('declines only the selected Proposal and preserves decision-support records', async () => {
     const data = await fixture();
-    const assessed = await requestProposalRiskAssessment(
-      data.proposal._id,
-      data.client._id,
-      { recompute: false },
-    );
+    const assessed = await requestProposalRiskAssessment(data.proposal._id, data.client._id, {
+      recompute: false,
+    });
     const result = await declineProposal(data.proposal._id, data.client._id, {
       reasonCode: 'terms-not-aligned',
     });

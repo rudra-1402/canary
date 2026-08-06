@@ -26,7 +26,9 @@ async function activeProfileAgent(role) {
 }
 
 async function linkedProfile(role) {
-  const identity = await Identity.create({ email: `${new mongoose.Types.ObjectId()}@test.invalid` });
+  const identity = await Identity.create({
+    email: `${new mongoose.Types.ObjectId()}@test.invalid`,
+  });
   return Profile.create({
     identityId: identity._id,
     role,
@@ -75,28 +77,31 @@ afterAll(stopMemoryDb);
 afterEach(clearCollections);
 
 describe('RiskAssessment HTTP APIs', () => {
-  it.each(['client', 'freelancer'])('lets the %s Party request and read an assessment', async (role) => {
-    const data = await proposalFixture(role);
-    const command = await data.agent
-      .post(`/api/proposals/${data.proposal._id}/risk-assessment`)
-      .set('x-csrf-token', data.csrf)
-      .send({});
+  it.each(['client', 'freelancer'])(
+    'lets the %s Party request and read an assessment',
+    async (role) => {
+      const data = await proposalFixture(role);
+      const command = await data.agent
+        .post(`/api/proposals/${data.proposal._id}/risk-assessment`)
+        .set('x-csrf-token', data.csrf)
+        .send({});
 
-    expect(command.status).toBe(200);
-    expect(command.body.data.engagement.status).toBe('prospective');
-    expect(command.body.data.riskAssessment).toMatchObject({
-      engagementId: command.body.data.engagement.id,
-      modelVersion: 'risk-deterministic-v1',
-    });
-    expect(command.body.data.riskAssessment.signals[0]).not.toHaveProperty('value');
-    expect(command.body.data.engagement).not.toHaveProperty('_id');
+      expect(command.status).toBe(200);
+      expect(command.body.data.engagement.status).toBe('prospective');
+      expect(command.body.data.riskAssessment).toMatchObject({
+        engagementId: command.body.data.engagement.id,
+        modelVersion: 'risk-deterministic-v1',
+      });
+      expect(command.body.data.riskAssessment.signals[0]).not.toHaveProperty('value');
+      expect(command.body.data.engagement).not.toHaveProperty('_id');
 
-    const read = await data.agent.get(
-      `/api/engagements/${command.body.data.engagement.id}/risk-assessment`,
-    );
-    expect(read.status).toBe(200);
-    expect(read.body.data.riskAssessment.id).toBe(command.body.data.riskAssessment.id);
-  });
+      const read = await data.agent.get(
+        `/api/engagements/${command.body.data.engagement.id}/risk-assessment`,
+      );
+      expect(read.status).toBe(200);
+      expect(read.body.data.riskAssessment.id).toBe(command.body.data.riskAssessment.id);
+    },
+  );
 
   it('enforces authentication and CSRF on the command', async () => {
     const id = new mongoose.Types.ObjectId();
@@ -105,7 +110,8 @@ describe('RiskAssessment HTTP APIs', () => {
     );
     const data = await proposalFixture('client');
     expect(
-      (await data.agent.post(`/api/proposals/${data.proposal._id}/risk-assessment`).send({})).status,
+      (await data.agent.post(`/api/proposals/${data.proposal._id}/risk-assessment`).send({}))
+        .status,
     ).toBe(403);
   });
 
@@ -138,9 +144,7 @@ describe('RiskAssessment HTTP APIs', () => {
       proposalId: data.proposal._id,
       status: 'prospective',
     });
-    const response = await data.agent.get(
-      `/api/engagements/${engagement._id}/risk-assessment`,
-    );
+    const response = await data.agent.get(`/api/engagements/${engagement._id}/risk-assessment`);
     expect(response.status).toBe(404);
     expect(response.body.error).toBe('RISK_ASSESSMENT_NOT_FOUND');
   });

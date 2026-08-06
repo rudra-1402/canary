@@ -93,29 +93,30 @@ describe('RiskAssessment service', () => {
     return { client, freelancer, outsider, jobPost, proposal };
   }
 
-  it.each(['client', 'freelancer'])('allows the %s Party and persists structured results', async (party) => {
-    const data = await fixture();
-    const result = await requestProposalRiskAssessment(
-      data.proposal._id,
-      data[party]._id,
-      { recompute: false },
-    );
+  it.each(['client', 'freelancer'])(
+    'allows the %s Party and persists structured results',
+    async (party) => {
+      const data = await fixture();
+      const result = await requestProposalRiskAssessment(data.proposal._id, data[party]._id, {
+        recompute: false,
+      });
 
-    expect(result.engagement.status).toBe('prospective');
-    expect(String(result.engagement.proposalId)).toBe(String(data.proposal._id));
-    expect(result.engagement.agreedTerms).toMatchObject({
-      scope: data.jobPost.description,
-      price: data.proposal.bid,
-      paymentTerms: data.proposal.payModel,
-      timeline: '14 days',
-    });
-    expect(result.riskAssessment.modelVersion).toBe('risk-deterministic-v1');
-    expect(result.riskAssessment.score).toBeLessThanOrEqual(34);
-    const signals = await RiskSignal.find({ parentId: result.riskAssessment._id }).lean();
-    expect(signals.length).toBeGreaterThan(0);
-    expect(signals.every((signal) => signal.source === 'structured-data')).toBe(true);
-    expect(signals.map((signal) => signal.name)).toContain('CLEAR_SCOPE');
-  });
+      expect(result.engagement.status).toBe('prospective');
+      expect(String(result.engagement.proposalId)).toBe(String(data.proposal._id));
+      expect(result.engagement.agreedTerms).toMatchObject({
+        scope: data.jobPost.description,
+        price: data.proposal.bid,
+        paymentTerms: data.proposal.payModel,
+        timeline: '14 days',
+      });
+      expect(result.riskAssessment.modelVersion).toBe('risk-deterministic-v1');
+      expect(result.riskAssessment.score).toBeLessThanOrEqual(34);
+      const signals = await RiskSignal.find({ parentId: result.riskAssessment._id }).lean();
+      expect(signals.length).toBeGreaterThan(0);
+      expect(signals.every((signal) => signal.source === 'structured-data')).toBe(true);
+      expect(signals.map((signal) => signal.name)).toContain('CLEAR_SCOPE');
+    },
+  );
 
   it('forbids a Profile outside the Proposal Parties', async () => {
     const data = await fixture();

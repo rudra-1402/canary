@@ -264,14 +264,24 @@ export function assessRisk(input) {
     scheduleFeature(input.jobPost, input.proposal),
     paymentFeature(input.proposal),
   ];
-  const score = Math.round(clamp(features.reduce((sum, feature) => sum + feature.risk, 0), 0, 100));
+  const score = Math.round(
+    clamp(
+      features.reduce((sum, feature) => sum + feature.risk, 0),
+      0,
+      100,
+    ),
+  );
   const signals = features.flatMap((feature) => feature.signals);
   const screeningGap =
     (input.jobPost.screeningQuestions?.length ?? 0) >
     (input.proposal.screeningAnswers?.length ?? 0);
   const workloadGap = input.jobPost.jobType === 'hourly' && !input.jobPost.hoursPerWeek;
   const confidence = Number(
-    clamp(1 - standing.missingCount * 0.2 - (screeningGap ? 0.05 : 0) - (workloadGap ? 0.05 : 0), 0.4, 1).toFixed(2),
+    clamp(
+      1 - standing.missingCount * 0.2 - (screeningGap ? 0.05 : 0) - (workloadGap ? 0.05 : 0),
+      0.4,
+      1,
+    ).toFixed(2),
   );
   const classification = classifyRisk(score);
 
