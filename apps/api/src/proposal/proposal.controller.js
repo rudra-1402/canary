@@ -8,8 +8,6 @@ import {
   ProposalRiskAssessmentParamSchema,
 } from '@canary/shared';
 import { getCurrentUser } from '../auth/getCurrentUser.js';
-import { findRiskAssessmentSummaryForEngagement } from '../riskAssessment/riskAssessment.service.js';
-import { toEngagementCommandContract } from '../engagement/engagement.serializer.js';
 import * as proposalService from './proposal.service.js';
 
 export async function create(req, res) {
@@ -27,18 +25,8 @@ export async function accept(req, res) {
   const { proposalId } = ProposalRiskAssessmentParamSchema.parse(req.params);
   const input = AcceptProposalRequestSchema.parse(req.body);
   const { activeProfile } = getCurrentUser(req);
-  const result = await proposalService.acceptProposal(proposalId, activeProfile.id, input);
-  const response = {
-    data: {
-      proposal: { id: result.proposal._id.toString(), status: result.proposal.status },
-      engagement: toEngagementCommandContract(result.engagement),
-      riskAssessment: await findRiskAssessmentSummaryForEngagement(
-        result.engagement,
-        activeProfile.id,
-      ),
-    },
-  };
-  res.json(ProposalDecisionResponseSchema.parse(response));
+  const data = await proposalService.acceptProposalCommand(proposalId, activeProfile.id, input);
+  res.json(ProposalDecisionResponseSchema.parse({ data }));
 }
 
 export async function decline(req, res) {

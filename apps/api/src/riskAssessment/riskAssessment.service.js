@@ -200,10 +200,10 @@ async function assertLinkedProfiles(jobPost, proposal) {
   return { client, freelancer };
 }
 
-export async function requestProposalRiskAssessment(
+async function calculateProposalRiskAssessment(
   proposalId,
   activeProfileId,
-  { recompute = false } = {},
+  { recompute, allowedProposalStatuses },
 ) {
   const proposal = await Proposal.findById(proposalId);
   if (!proposal) throw new NotFoundError('Proposal', proposalId);
@@ -214,7 +214,7 @@ export async function requestProposalRiskAssessment(
   if (!partyIds.includes(activeProfileId.toString())) {
     throw new ForbiddenError('Only a Proposal Party may request its RiskAssessment');
   }
-  if (!['submitted', 'shortlisted'].includes(proposal.status)) {
+  if (!allowedProposalStatuses.includes(proposal.status)) {
     throw new BadRequestError('RiskAssessment requires a submitted Proposal');
   }
   const linkedProfiles = await assertLinkedProfiles(jobPost, proposal);
@@ -251,6 +251,27 @@ export async function requestProposalRiskAssessment(
     await refreshEngagementTerms(engagement, jobPost, proposal);
   }
   return { engagement, riskAssessment, riskAssessmentStatus: 'current' };
+}
+
+export async function requestProposalRiskAssessment(
+  proposalId,
+  activeProfileId,
+  { recompute = false } = {},
+) {
+  return calculateProposalRiskAssessment(proposalId, activeProfileId, {
+    recompute,
+    allowedProposalStatuses: ['submitted', 'shortlisted'],
+  });
+}
+
+export async function ensureCurrentProposalRiskAssessmentForAcceptance(
+  proposalId,
+  activeProfileId,
+) {
+  return calculateProposalRiskAssessment(proposalId, activeProfileId, {
+    recompute: true,
+    allowedProposalStatuses: ['submitted', 'shortlisted', 'accepted'],
+  });
 }
 
 export async function getAssessmentSignals(assessmentId) {

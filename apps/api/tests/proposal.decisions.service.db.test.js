@@ -189,6 +189,22 @@ describe('Proposal decision service', () => {
     expect(competitor.status).toBe('declined');
   });
 
+  it('recomputes stale inputs before reconciling an accepted partial state', async () => {
+    const data = await fixture();
+    const original = await requestProposalRiskAssessment(data.proposal._id, data.client._id);
+    await Proposal.updateOne(
+      { _id: data.proposal._id },
+      { $set: { status: 'accepted', bid: 1800 } },
+    );
+
+    const repaired = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+
+    expect(String(repaired.riskAssessment._id)).not.toBe(String(original.riskAssessment._id));
+    expect(repaired.engagement.status).toBe('active');
+    expect(repaired.engagement.agreedTerms.price).toBe(1800);
+    expect(await RiskAssessment.countDocuments({ engagementId: repaired.engagement._id })).toBe(2);
+  });
+
   it('repairs competitors that reopened after the winner was accepted', async () => {
     const data = await fixture();
     const first = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });

@@ -5,9 +5,12 @@ import JobPost from '../models/JobPost.js';
 import RiskAssessment from '../models/RiskAssessment.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
 import {
+  ensureCurrentProposalRiskAssessmentForAcceptance,
   findRiskAssessmentForEngagement,
   requestProposalRiskAssessment,
+  toRiskAssessmentSummaryContract,
 } from '../riskAssessment/riskAssessment.service.js';
+import { toEngagementCommandContract } from '../engagement/engagement.serializer.js';
 
 export async function createProposal(input, freelancerProfileId) {
   const jobPost = await JobPost.findById(input.jobPostId);
@@ -41,9 +44,16 @@ async function decisionContext(proposalId, clientProfileId) {
 async function existingAcceptanceAssessment(proposal, activeProfileId) {
   const engagement = await Engagement.findOne({ proposalId: proposal._id });
   if (!engagement) throw new BadRequestError('Accepted Proposal has no Engagement');
+  if (engagement.status === 'prospective') {
+    return ensureCurrentProposalRiskAssessmentForAcceptance(proposal._id, activeProfileId);
+  }
   const assessment = await findRiskAssessmentForEngagement(engagement, activeProfileId);
   if (!assessment) throw new BadRequestError('Accepted Proposal has no RiskAssessment');
-  return { engagement, riskAssessment: assessment.assessment };
+  return {
+    engagement,
+    riskAssessment: assessment.assessment,
+    riskAssessmentStatus: assessment.status,
+  };
 }
 
 function withSession(query, session) {
@@ -170,7 +180,7 @@ export async function acceptProposal(proposalId, clientProfileId, { confirm } = 
     proposal.status === 'accepted'
       ? await existingAcceptanceAssessment(proposal, clientProfileId)
       : await requestProposalRiskAssessment(proposalId, clientProfileId, { recompute: true });
-  if (assessment.riskAssessmentStatus && assessment.riskAssessmentStatus !== 'current') {
+  if (assessment.riskAssessmentStatus !== 'current') {
     throw new BadRequestError('Proposal acceptance requires a current RiskAssessment');
   }
   const acceptedAt = new Date();
@@ -183,6 +193,18 @@ export async function acceptProposal(proposalId, clientProfileId, { confirm } = 
       session,
     ),
   );
+}
+
+export async function toProposalDecisionContract(result) {
+  return {
+    proposal: { id: result.proposal._id.toString(), status: result.proposal.status },
+    engagement: toEngagementCommandContract(result.engagement),
+    riskAssessment: await toRiskAssessmentSummaryContract(result.riskAssessment, 'current'),
+  };
+}
+
+export async function acceptProposalCommand(proposalId, clientProfileId, input) {
+  return toProposalDecisionContract(await acceptProposal(proposalId, clientProfileId, input));
 }
 
 export async function declineProposal(proposalId, clientProfileId, { reasonCode } = {}) {
