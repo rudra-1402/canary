@@ -16,7 +16,7 @@ import { SEED_TESTS_ENABLED, TRUST_SCORE_SEEDED } from './helpers/seedGate.js';
 // CANARY_SEED_TESTS — see tests/helpers/seedGate.js. On an empty DB the invariants hold vacuously,
 // which makes every `it.fails()` marker invert; skipping is the only honest answer.
 
-const TIMEOUT = 120000;
+const TIMEOUT = 600000;
 
 const db = () => mongoose.connection.db;
 
@@ -36,11 +36,15 @@ async function countOrphans(collection, field, target) {
 }
 
 async function countRoleMismatch(collection, field, expectedRole) {
-  const r = await db()
+  // Group first so the 784k-Proposal seed performs at most one Profile lookup per distinct
+  // author instead of one lookup per Proposal. Referential integrity is asserted immediately
+  // before this check, so an absent joined Profile cannot be mistaken for the expected role.
+  const rows = await db()
     .collection(collection)
     .aggregate(
       [
-        { $lookup: { from: 'profiles', localField: field, foreignField: '_id', as: '__p' } },
+        { $group: { _id: `$${field}` } },
+        { $lookup: { from: 'profiles', localField: '_id', foreignField: '_id', as: '__p' } },
         { $unwind: '$__p' },
         { $match: { '__p.role': { $ne: expectedRole } } },
         { $count: 'n' },
@@ -48,7 +52,7 @@ async function countRoleMismatch(collection, field, expectedRole) {
       { allowDiskUse: true },
     )
     .toArray();
-  return r[0]?.n ?? 0;
+  return rows[0]?.n ?? 0;
 }
 
 async function distinctStatuses(collection) {
@@ -324,53 +328,36 @@ describe.skipIf(!SEED_TESTS_ENABLED)(
       it(
         'no profile below the scoring threshold has a SCORED TrustScore',
         async () => {
-          const scoredButUnscoreable = await db()
-            .collection('trustscores')
-            .aggregate(
-              [
-                { $match: { status: 'scored' } },
-                { $group: { _id: '$profileId' } },
-                {
-                  $lookup: {
-                    from: 'engagements',
-                    let: { pid: '$_id' },
-                    pipeline: [
-                      {
-                        $match: {
-                          $expr: {
-                            $and: [
-                              { $eq: ['$status', 'concluded'] },
-                              {
-                                $or: [
-                                  { $eq: ['$freelancerProfileId', '$$pid'] },
-                                  { $eq: ['$clientProfileId', '$$pid'] },
-                                ],
-                              },
-                            ],
-                          },
-                        },
-                      },
-                      { $count: 'n' },
-                    ],
-                    as: 'eng',
+          // Count concluded work once for the whole population. The former per-TrustScore
+          // correlated lookup rescanned engagements for every scored Profile and could not
+          // complete against the 20k-Profile B4/B6 demo seed.
+          const [scoredProfileIds, engagementCounts] = await Promise.all([
+            db().collection('trustscores').distinct('profileId', { status: 'scored' }),
+            db()
+              .collection('engagements')
+              .aggregate(
+                [
+                  {
+                    $match: { status: 'concluded' },
                   },
-                },
-                {
-                  $match: {
-                    $expr: {
-                      $lt: [
-                        { $ifNull: [{ $arrayElemAt: ['$eng.n', 0] }, 0] },
-                        MIN_ENGAGEMENTS_FOR_SCORING,
-                      ],
+                  {
+                    $project: {
+                      profileIds: ['$freelancerProfileId', '$clientProfileId'],
                     },
                   },
-                },
-                { $count: 'n' },
-              ],
-              { allowDiskUse: true },
-            )
-            .toArray();
-          expect(scoredButUnscoreable[0]?.n ?? 0).toBe(0);
+                  { $unwind: '$profileIds' },
+                  { $group: { _id: '$profileIds', n: { $sum: 1 } } },
+                ],
+                { allowDiskUse: true },
+              )
+              .toArray(),
+          ]);
+          const countsByProfile = new Map(engagementCounts.map((row) => [String(row._id), row.n]));
+          const scoredButUnscoreable = scoredProfileIds.filter(
+            (profileId) =>
+              (countsByProfile.get(String(profileId)) ?? 0) < MIN_ENGAGEMENTS_FOR_SCORING,
+          );
+          expect(scoredButUnscoreable).toEqual([]);
         },
         TIMEOUT,
       );
