@@ -46,28 +46,82 @@ async function registerParty(app, role, email) {
 
 async function cleanup() {
   const assessmentIds = ids.assessments.map((id) => new mongoose.Types.ObjectId(id));
+  const deleted = {};
   if (assessmentIds.length) {
-    await RiskSignal.deleteMany({ parentType: 'RiskAssessment', parentId: { $in: assessmentIds } });
-    await RiskAssessment.deleteMany({ _id: { $in: assessmentIds } });
+    const expectedRiskSignals = await RiskSignal.countDocuments({
+      parentType: 'RiskAssessment',
+      parentId: { $in: assessmentIds },
+    });
+    deleted.riskSignals = (
+      await RiskSignal.deleteMany({
+        parentType: 'RiskAssessment',
+        parentId: { $in: assessmentIds },
+      })
+    ).deletedCount;
+    assert.equal(deleted.riskSignals, expectedRiskSignals);
+    deleted.riskAssessments = (
+      await RiskAssessment.deleteMany({ _id: { $in: assessmentIds } })
+    ).deletedCount;
   }
-  if (ids.engagements.length) await Engagement.deleteMany({ _id: { $in: ids.engagements } });
-  if (ids.proposals.length) await Proposal.deleteMany({ _id: { $in: ids.proposals } });
-  if (ids.jobPosts.length) await JobPost.deleteMany({ _id: { $in: ids.jobPosts } });
-  if (ids.profiles.length) await Profile.deleteMany({ _id: { $in: ids.profiles } });
+  deleted.engagements = (
+    await Engagement.deleteMany({ _id: { $in: ids.engagements } })
+  ).deletedCount;
+  deleted.proposals = (await Proposal.deleteMany({ _id: { $in: ids.proposals } })).deletedCount;
+  deleted.jobPosts = (await JobPost.deleteMany({ _id: { $in: ids.jobPosts } })).deletedCount;
+  deleted.profiles = (await Profile.deleteMany({ _id: { $in: ids.profiles } })).deletedCount;
   const identities = await Identity.find({ email: { $in: emails } })
     .select('_id')
     .lean();
   ids.identities = identities.map((identity) => identity._id.toString());
-  if (identities.length)
-    await Identity.deleteMany({ _id: { $in: identities.map((row) => row._id) } });
+  deleted.identities = (
+    await Identity.deleteMany({ _id: { $in: identities.map((row) => row._id) } })
+  ).deletedCount;
+  deleted.sessions = 0;
   if (ids.identities.length && mongoose.connection.collections.sessions) {
-    await mongoose.connection.collections.sessions.deleteMany({
-      $or: ids.identities.map((id) => ({ session: { $regex: id } })),
-    });
+    deleted.sessions = (
+      await mongoose.connection.collections.sessions.deleteMany({
+        $or: ids.identities.map((id) => ({ session: { $regex: id } })),
+      })
+    ).deletedCount;
   }
+
+  assert.deepEqual(
+    {
+      riskAssessments: deleted.riskAssessments,
+      engagements: deleted.engagements,
+      proposals: deleted.proposals,
+      jobPosts: deleted.jobPosts,
+      profiles: deleted.profiles,
+      identities: deleted.identities,
+    },
+    { riskAssessments: 1, engagements: 1, proposals: 1, jobPosts: 1, profiles: 2, identities: 2 },
+  );
+  assert.ok(deleted.riskSignals > 0);
+
+  const remaining = {
+    riskSignals: await RiskSignal.countDocuments({ parentId: { $in: assessmentIds } }),
+    riskAssessments: await RiskAssessment.countDocuments({ _id: { $in: assessmentIds } }),
+    engagements: await Engagement.countDocuments({ _id: { $in: ids.engagements } }),
+    proposals: await Proposal.countDocuments({ _id: { $in: ids.proposals } }),
+    jobPosts: await JobPost.countDocuments({ _id: { $in: ids.jobPosts } }),
+    profiles: await Profile.countDocuments({ _id: { $in: ids.profiles } }),
+    identities: await Identity.countDocuments({ email: { $in: emails } }),
+  };
+  assert.deepEqual(remaining, {
+    riskSignals: 0,
+    riskAssessments: 0,
+    engagements: 0,
+    proposals: 0,
+    jobPosts: 0,
+    profiles: 0,
+    identities: 0,
+  });
+  return { deleted, remaining };
 }
 
 await connectDB(uri);
+let proof;
+let cleanupProof;
 try {
   const app = createApp();
   const client = await registerParty(app, 'client', emails[0]);
@@ -131,16 +185,15 @@ try {
   assert.equal(detail.body.data.engagement.riskAssessment.id, ids.assessments[0]);
   assert.equal(detail.body.data.engagement.outcomeEligibility, true);
 
-  console.log(
-    JSON.stringify({
-      ok: true,
-      database: databaseName,
-      flow: 'register → JobPost → Proposal → RiskAssessment → accept → Engagement detail',
-      engagementReused: true,
-      cleanupMarker: marker,
-    }),
-  );
+  proof = {
+    ok: true,
+    database: databaseName,
+    flow: 'register → JobPost → Proposal → RiskAssessment → accept → Engagement detail',
+    engagementReused: true,
+    cleanupMarker: marker,
+  };
 } finally {
-  await cleanup();
+  cleanupProof = await cleanup();
   await disconnectDB();
 }
+console.log(JSON.stringify({ ...proof, cleanup: cleanupProof }));
