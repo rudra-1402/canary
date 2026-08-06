@@ -3,6 +3,7 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import { createApp } from '../../src/app.js';
 import JobPost from '../../src/models/JobPost.js';
+import Proposal from '../../src/models/Proposal.js';
 import { clearCollections, startMemoryDb, stopMemoryDb } from '../helpers/memoryDb.js';
 
 async function activeProfileAgent(app, role) {
@@ -190,5 +191,72 @@ describe('Client JobPost authoring', () => {
           .send({ title: 'Too late' })
       ).status,
     ).toBe(400);
+  });
+});
+
+describe('Client JobPost proposal inbox', () => {
+  let app;
+  beforeAll(async () => {
+    await startMemoryDb();
+    app = createApp();
+  }, 60000);
+  afterAll(stopMemoryDb);
+  afterEach(clearCollections);
+
+  it('returns owned proposals sorted and filtered with public Profile and TrustScore data', async () => {
+    const client = await activeProfileAgent(app, 'client');
+    const applicantA = await activeProfileAgent(app, 'freelancer');
+    const applicantB = await activeProfileAgent(app, 'freelancer');
+    const post = await JobPost.create(makeJobPost({ clientProfileId: client.profileId }));
+    await Proposal.create({
+      jobPostId: post._id,
+      freelancerProfileId: applicantA.profileId,
+      bid: 1400,
+      payModel: 'project',
+      proposedDurationDays: 14,
+      coverLetter: 'Higher proposal',
+      status: 'submitted',
+    });
+    await Proposal.create({
+      jobPostId: post._id,
+      freelancerProfileId: applicantB.profileId,
+      bid: 900,
+      payModel: 'project',
+      proposedDurationDays: 10,
+      coverLetter: 'Lower proposal',
+      status: 'submitted',
+    });
+
+    const res = await client.agent.get(
+      `/api/jobposts/${post._id}/proposals?status=submitted&sort=bid_low&pageSize=1`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.pagination).toEqual({ page: 1, pageSize: 1, total: 2 });
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0]).toMatchObject({
+      bid: 900,
+      freelancer: { id: applicantB.profileId, role: 'freelancer' },
+      trustScore: {
+        status: 'insufficient-history',
+        profileId: applicantB.profileId,
+      },
+    });
+    expect(res.body.data[0].freelancer).not.toHaveProperty('identityId');
+    expect(res.body.data[0].freelancer).not.toHaveProperty('origin');
+  });
+
+  it('requires Client ownership without concealing an existing JobPost', async () => {
+    const owner = await activeProfileAgent(app, 'client');
+    const otherClient = await activeProfileAgent(app, 'client');
+    const freelancer = await activeProfileAgent(app, 'freelancer');
+    const post = await JobPost.create(makeJobPost({ clientProfileId: owner.profileId }));
+
+    expect((await otherClient.agent.get(`/api/jobposts/${post._id}/proposals`)).status).toBe(403);
+    expect((await freelancer.agent.get(`/api/jobposts/${post._id}/proposals`)).status).toBe(403);
+    expect(
+      (await owner.agent.get(`/api/jobposts/${new mongoose.Types.ObjectId().toString()}/proposals`))
+        .status,
+    ).toBe(404);
   });
 });

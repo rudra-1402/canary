@@ -10,6 +10,7 @@ import {
   getJobPostById,
   createJobPost,
   updateOwnedJobPost,
+  listOwnedJobPostProposals,
 } from '../../src/jobPost/jobPost.service.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from '../helpers/memoryDb.js';
 
@@ -412,3 +413,40 @@ function authoringInput(action) {
     action,
   };
 }
+
+describe('listOwnedJobPostProposals', () => {
+  it('projects the applicant safely and batches their TrustScore state', async () => {
+    const clientProfileId = await makeClientProfile('Inbox owner');
+    const identity = await Identity.create({
+      email: `${new mongoose.Types.ObjectId()}@example.test`,
+      passwordHash: 'x',
+    });
+    const freelancer = await Profile.create({
+      identityId: identity._id,
+      role: 'freelancer',
+      origin: 'user-registered',
+      displayName: 'Inbox applicant',
+      skills: ['node'],
+    });
+    const post = await JobPost.create(makeJobPost({ clientProfileId }));
+    await Proposal.create({
+      jobPostId: post._id,
+      freelancerProfileId: freelancer._id,
+      bid: 800,
+      payModel: 'project',
+      proposedDurationDays: 8,
+    });
+
+    const result = await listOwnedJobPostProposals(post._id, clientProfileId, {
+      sort: 'newest',
+      page: 1,
+      pageSize: 20,
+    });
+
+    expect(result.data[0]).toMatchObject({
+      freelancer: { id: freelancer._id.toString(), displayName: 'Inbox applicant' },
+      trustScore: { status: 'insufficient-history', profileId: freelancer._id.toString() },
+    });
+    expect(result.data[0].freelancer).not.toHaveProperty('identityId');
+  });
+});

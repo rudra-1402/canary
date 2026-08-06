@@ -20,6 +20,7 @@ router.patch(
   requireRole('client'),
   jobPostController.update,
 );
+router.get('/:id/proposals', requireAuth, requireRole('client'), jobPostController.listProposals);
 router.get('/:id', jobPostController.getById);
 
 export default router;

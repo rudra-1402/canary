@@ -3,6 +3,7 @@ import {
   JobPostListQuerySchema,
   JobPostIdParamSchema,
   UpdateJobPostRequestSchema,
+  JobPostProposalListQuerySchema,
 } from '@canary/shared';
 import { getCurrentUser } from '../auth/getCurrentUser.js';
 import * as jobPostService from './jobPost.service.js';
@@ -34,4 +35,12 @@ export async function update(req, res) {
   const { activeProfile } = getCurrentUser(req);
   const jobPost = await jobPostService.updateOwnedJobPost(id, activeProfile.id, input);
   res.json(jobPost);
+}
+
+export async function listProposals(req, res) {
+  const { id } = JobPostIdParamSchema.parse(req.params);
+  const query = JobPostProposalListQuerySchema.parse(req.query);
+  const { activeProfile } = getCurrentUser(req);
+  const proposals = await jobPostService.listOwnedJobPostProposals(id, activeProfile.id, query);
+  res.json(proposals);
 }
