@@ -108,6 +108,14 @@ export const EngagementDetailSchema = EngagementCommandSchema.extend({
     .strict(),
   riskAssessment: RiskAssessmentSummarySchema.nullable(),
   outcomeEligibility: z.boolean(),
+  timeline: z.array(
+    z
+      .object({
+        event: z.enum(['prospective-created', 'accepted', 'concluded']),
+        at: z.string().datetime(),
+      })
+      .strict(),
+  ),
 }).strict();
 
 export const EngagementDetailResponseSchema = z

@@ -11,6 +11,7 @@ import profileRouter from './profile/profile.routes.js';
 import meRouter from './me/me.routes.js';
 import proposalRouter from './proposal/proposal.routes.js';
 import outcomeReviewRouter from './outcomeReview/outcomeReview.routes.js';
+import engagementRouter from './engagement/engagement.routes.js';
 import {
   engagementRiskAssessmentRouter,
   proposalRiskAssessmentRouter,
@@ -39,6 +40,7 @@ export function createApp() {
   app.use('/api/proposals', proposalRouter);
   app.use('/api/proposals', proposalRiskAssessmentRouter);
   app.use('/api/engagements', engagementRiskAssessmentRouter);
+  app.use('/api/engagements', engagementRouter);
   app.use('/api/outcome-reviews', outcomeReviewRouter);
   app.use('/api/trust-scores', trustScoreRouter);
   app.use('/api/profiles', profileRouter);

@@ -32,6 +32,7 @@ const engagementSchema = new Schema(
     proposalId: { type: Schema.Types.ObjectId, ref: 'Proposal', default: null },
     status: { type: String, enum: ['prospective', 'active', 'concluded'], required: true },
     acceptedAt: { type: Date, default: null },
+    concludedAt: { type: Date, default: null },
     agreedTerms: {
       type: agreedTermsSchema,
       required: function () {

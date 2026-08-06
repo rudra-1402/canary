@@ -104,6 +104,7 @@ describe('RiskAssessment and Proposal-decision contracts', () => {
             },
             riskAssessment,
             outcomeEligibility: false,
+            timeline: [{ event: 'prospective-created', at: generatedAt }],
           },
         },
       }),
