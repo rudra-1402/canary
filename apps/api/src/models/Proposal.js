@@ -34,5 +34,6 @@ const proposalSchema = new Schema(
 // The database is the concurrent-submit guard. The dense-data preflight recorded no
 // existing duplicate pairs before this index was introduced.
 proposalSchema.index({ jobPostId: 1, freelancerProfileId: 1 }, { unique: true });
+proposalSchema.index({ jobPostId: 1, status: 1, createdAt: -1 });
 
 export default model('Proposal', proposalSchema);

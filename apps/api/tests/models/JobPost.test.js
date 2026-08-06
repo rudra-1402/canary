@@ -34,4 +34,34 @@ describe('JobPost schema', () => {
     const err = doc.validateSync();
     expect(err.errors.jobType).toBeDefined();
   });
+
+  it('enforces the authoring contract bounds', () => {
+    const doc = new JobPost({
+      clientProfileId,
+      title: 'x'.repeat(161),
+      category: 'x'.repeat(101),
+      description: 'x',
+      skills: Array.from({ length: 16 }, (_, index) => `skill-${index}`),
+      jobType: 'hourly',
+      budgetOrRate: 0,
+      experienceLevel: 'entry',
+      projectLength: 'less-than-1-month',
+      hoursPerWeek: 169,
+      screeningQuestions: Array.from({ length: 11 }, (_, index) => `Question ${index}`),
+    });
+    const err = doc.validateSync();
+    expect(err.errors.title).toBeDefined();
+    expect(err.errors.category).toBeDefined();
+    expect(err.errors.skills).toBeDefined();
+    expect(err.errors.budgetOrRate).toBeDefined();
+    expect(err.errors.hoursPerWeek).toBeDefined();
+    expect(err.errors.screeningQuestions).toBeDefined();
+  });
+
+  it('declares the owned dashboard index', () => {
+    expect(JobPost.schema.indexes()).toContainEqual([
+      { clientProfileId: 1, status: 1, createdAt: -1 },
+      {},
+    ]);
+  });
 });
