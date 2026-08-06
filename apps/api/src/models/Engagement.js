@@ -10,7 +10,8 @@ const agreedTermsSchema = new Schema(
     dueAt: {
       type: Date,
       required: function () {
-        return this.parent().status !== 'prospective';
+        const engagement = this.parent?.();
+        return Boolean(engagement && engagement.status !== 'prospective');
       },
     },
     revisionsIncluded: {
