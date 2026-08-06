@@ -9,6 +9,24 @@ const projectLengthEnum = z.enum([
   'more-than-6-months',
 ]);
 const statusEnum = z.enum(['draft', 'open', 'closed']);
+const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character hex ObjectId');
+const title = z.string().trim().min(1).max(160);
+const category = z.string().trim().min(1).max(100);
+const description = z.string().trim().min(1).max(5000);
+const skill = z.string().trim().min(1).max(80);
+const screeningQuestion = z.string().trim().min(1).max(500);
+const writableJobPostFields = {
+  title,
+  category,
+  description,
+  skills: z.array(skill).max(15),
+  jobType: jobTypeEnum,
+  budgetOrRate: z.number().positive().max(1_000_000_000),
+  experienceLevel: experienceLevelEnum,
+  projectLength: projectLengthEnum,
+  hoursPerWeek: z.number().int().min(1).max(168).optional(),
+  screeningQuestions: z.array(screeningQuestion).max(10).default([]),
+};
 
 // GET /api/jobposts query params. Values arrive as strings, so coerce where typed; defaults
 // scope browse to open work and paginate.
@@ -30,8 +48,41 @@ export const JobPostListQuerySchema = z.object({
 
 // GET /api/jobposts/:id path param. Malformed id fails here -> 400.
 export const JobPostIdParamSchema = z.object({
-  id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'must be a 24-character hex ObjectId'),
+  id: objectId,
 });
+
+export const CreateJobPostRequestSchema = z
+  .object({
+    ...writableJobPostFields,
+    action: z.enum(['save_draft', 'publish']),
+  })
+  .strict();
+
+export const UpdateJobPostRequestSchema = z
+  .object({
+    title: title.optional(),
+    category: category.optional(),
+    description: description.optional(),
+    skills: z.array(skill).max(15).optional(),
+    jobType: jobTypeEnum.optional(),
+    budgetOrRate: z.number().positive().max(1_000_000_000).optional(),
+    experienceLevel: experienceLevelEnum.optional(),
+    projectLength: projectLengthEnum.optional(),
+    hoursPerWeek: z.number().int().min(1).max(168).nullable().optional(),
+    screeningQuestions: z.array(screeningQuestion).max(10).optional(),
+    action: z.enum(['save_draft', 'publish', 'close']).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, 'at least one change is required');
+
+export const MyJobPostListQuerySchema = z
+  .object({
+    status: statusEnum.optional(),
+    q: z.string().trim().min(1).max(100).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
 
 // Public projection — the service maps the Mongoose doc to this; _id/__v never leak.
 // createdAt is nullable: raw pymongo-seeded rows can bypass Mongoose timestamps.
@@ -67,3 +118,31 @@ export const JobPostListResponseSchema = z.object({
     total: z.number().int(),
   }),
 });
+
+const ProposalCountsSchema = z
+  .object({
+    submitted: z.number().int().nonnegative(),
+    shortlisted: z.number().int().nonnegative(),
+    accepted: z.number().int().nonnegative(),
+    declined: z.number().int().nonnegative(),
+    withdrawn: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const MyJobPostSchema = JobPostSchema.extend({
+  proposalCounts: ProposalCountsSchema,
+}).strict();
+
+export const MyJobPostListResponseSchema = z
+  .object({
+    data: z.array(MyJobPostSchema),
+    pagination: z
+      .object({
+        page: z.number().int(),
+        pageSize: z.number().int(),
+        total: z.number().int(),
+      })
+      .strict(),
+  })
+  .strict();

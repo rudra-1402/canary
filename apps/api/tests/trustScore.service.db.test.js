@@ -8,6 +8,7 @@ import RiskSignal from '../src/models/RiskSignal.js';
 import {
   getTrustScore,
   getTrustScoreBatch,
+  getTrustScores,
   outcomeRows,
 } from '../src/trustScore/trustScore.service.js';
 import { startMemoryDb, stopMemoryDb, clearCollections } from './helpers/memoryDb.js';
@@ -237,5 +238,17 @@ describe('TrustScore database reads', () => {
     const result = await getTrustScoreBatch([String(p._id), missing, String(p._id)], p.identityId);
     expect(result.data.map((r) => r.status)).toEqual(['scored', 'not-found']);
     expect(result.data[0].signals.map((s2) => s2.name)).toEqual(['on-time-rate']);
+  });
+
+  it('honors an explicit relationship visibility grant for a non-discoverable Profile', async () => {
+    const applicant = await profile({ discoverable: false });
+    const viewerIdentityId = new mongoose.Types.ObjectId();
+    const [withoutGrant] = await getTrustScores([String(applicant._id)], viewerIdentityId);
+    const [withGrant] = await getTrustScores([String(applicant._id)], viewerIdentityId, {
+      visibilityGrantedProfileIds: [String(applicant._id)],
+    });
+
+    expect(withoutGrant.status).toBe('not-found');
+    expect(withGrant.status).toBe('insufficient-history');
   });
 });

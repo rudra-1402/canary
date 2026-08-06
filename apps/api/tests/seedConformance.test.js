@@ -10,14 +10,14 @@ describe.skipIf(!SEED_TESTS_ENABLED)('seed conformance', () => {
   // generator-only seed. Their conformance is asserted only when that pipeline has also run.
   const TRUST_SCORE_COLLECTIONS = ['TrustScore', 'RiskSignal'];
 
-  // Built once and shared: validateSeededCollections() walks every seeded document (~60s against
-  // the 20k seed), and running it per-test put both tests on the edge of their own timeout.
+  // Built once and shared: validateSeededCollections() streams every seeded document, including
+  // the 784k-Proposal demo population, and running it per-test would duplicate that full scan.
   let report;
 
   beforeAll(async () => {
     await connectDB(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/canary_dev');
     report = await validateSeededCollections();
-  }, 180000);
+  }, 600000);
 
   afterAll(async () => {
     await disconnectDB();
@@ -36,7 +36,7 @@ describe.skipIf(!SEED_TESTS_ENABLED)('seed conformance', () => {
     ).toEqual([]);
     const failures = report.filter((r) => r.invalidCount > 0);
     expect(failures, JSON.stringify(failures, null, 2)).toEqual([]);
-  }, 60000);
+  }, 600000);
 
   it('checked every collection the generator seeds', async () => {
     const checked = report.map((r) => r.collection).sort();
@@ -53,5 +53,5 @@ describe.skipIf(!SEED_TESTS_ENABLED)('seed conformance', () => {
         ...TRUST_SCORE_COLLECTIONS,
       ].sort(),
     );
-  }, 60000);
+  }, 600000);
 });

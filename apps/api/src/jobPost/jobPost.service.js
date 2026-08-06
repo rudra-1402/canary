@@ -2,8 +2,15 @@ import JobPost from '../models/JobPost.js';
 import TrustScore from '../models/TrustScore.js';
 import Proposal from '../models/Proposal.js';
 import Profile from '../models/Profile.js';
-import { NotFoundError } from '../lib/errors.js';
-import { JobPostSchema, JobPostListResponseSchema } from '@canary/shared';
+import { toPublicProfileContract } from '../profile/profile.service.js';
+import { getTrustScores } from '../trustScore/trustScore.service.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
+import {
+  JobPostSchema,
+  JobPostListResponseSchema,
+  JobPostProposalSchema,
+  JobPostProposalListResponseSchema,
+} from '@canary/shared';
 
 // Build the Mongo filter from an already-parsed query (status always present via the default).
 export function buildJobPostFilter(query) {
@@ -106,4 +113,108 @@ export async function getJobPostById(id) {
   if (!doc) throw new NotFoundError('JobPost', id);
   const proposalCount = await Proposal.countDocuments({ jobPostId: doc._id });
   return JobPostSchema.parse(toJobPostContract(doc, { proposalCount }));
+}
+
+export async function createJobPost(input, clientProfileId) {
+  const { action, ...fields } = input;
+  const doc = await JobPost.create({
+    ...fields,
+    clientProfileId,
+    status: action === 'publish' ? 'open' : 'draft',
+  });
+  return JobPostSchema.parse(toJobPostContract(doc));
+}
+
+function nextStatus(currentStatus, action) {
+  if (currentStatus === 'closed') throw new BadRequestError('Closed JobPosts are immutable');
+  if (!action) return currentStatus;
+  if (currentStatus === 'draft') {
+    if (action === 'save_draft') return 'draft';
+    if (action === 'publish') return 'open';
+    throw new BadRequestError('A draft JobPost cannot be closed');
+  }
+  if (action === 'close') return 'closed';
+  throw new BadRequestError('An open JobPost can only be edited or closed');
+}
+
+export async function updateOwnedJobPost(id, clientProfileId, input) {
+  const doc = await JobPost.findById(id);
+  if (!doc) throw new NotFoundError('JobPost', id);
+  if (String(doc.clientProfileId) !== String(clientProfileId)) {
+    throw new ForbiddenError('Only the owning Client may update this JobPost');
+  }
+
+  const { action, ...fields } = input;
+  const status = nextStatus(doc.status, action);
+  for (const [key, value] of Object.entries(fields)) {
+    doc[key] = value === null ? undefined : value;
+  }
+  doc.status = status;
+  await doc.save();
+  return JobPostSchema.parse(toJobPostContract(doc));
+}
+
+function proposalInboxSort(sort) {
+  if (sort === 'bid_low') return { bid: 1, _id: -1 };
+  if (sort === 'bid_high') return { bid: -1, _id: -1 };
+  return { createdAt: -1, _id: -1 };
+}
+
+function toJobPostProposalContract(doc, freelancer, trustScore) {
+  return {
+    id: doc._id.toString(),
+    jobPostId: doc.jobPostId.toString(),
+    bid: doc.bid,
+    payModel: doc.payModel,
+    proposedMilestones: doc.proposedMilestones ?? [],
+    durationEstimate: doc.durationEstimate,
+    proposedDurationDays: doc.proposedDurationDays,
+    coverLetter: doc.coverLetter,
+    screeningAnswers: doc.screeningAnswers ?? [],
+    status: doc.status,
+    createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
+    freelancer: toPublicProfileContract(freelancer),
+    trustScore,
+  };
+}
+
+export async function listOwnedJobPostProposals(id, clientProfileId, query, viewerIdentityId) {
+  const jobPost = await JobPost.findById(id).lean();
+  if (!jobPost) throw new NotFoundError('JobPost', id);
+  if (String(jobPost.clientProfileId) !== String(clientProfileId)) {
+    throw new ForbiddenError('Only the owning Client may read this proposal inbox');
+  }
+
+  const filter = { jobPostId: jobPost._id };
+  if (query.status) filter.status = query.status;
+  const { page, pageSize } = query;
+  const [docs, total] = await Promise.all([
+    Proposal.find(filter)
+      .sort(proposalInboxSort(query.sort))
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean(),
+    Proposal.countDocuments(filter),
+  ]);
+
+  const profileIds = [...new Set(docs.map((doc) => String(doc.freelancerProfileId)))];
+  const [profiles, trustScores] = await Promise.all([
+    Profile.find({ _id: { $in: profileIds }, role: 'freelancer' }).lean(),
+    getTrustScores(profileIds, viewerIdentityId, { visibilityGrantedProfileIds: profileIds }),
+  ]);
+  const profilesById = new Map(profiles.map((profile) => [String(profile._id), profile]));
+  const trustScoresById = new Map(trustScores.map((score) => [score.profileId, score]));
+
+  return JobPostProposalListResponseSchema.parse({
+    data: docs.map((doc) => {
+      const profileId = String(doc.freelancerProfileId);
+      const freelancer = profilesById.get(profileId);
+      const trustScore = trustScoresById.get(profileId);
+      if (!freelancer || !trustScore || trustScore.status === 'not-found') {
+        throw new Error('Proposal applicant data is unavailable');
+      }
+      return JobPostProposalSchema.parse(toJobPostProposalContract(doc, freelancer, trustScore));
+    }),
+    pagination: { page, pageSize, total },
+  });
 }
