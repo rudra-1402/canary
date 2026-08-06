@@ -7,6 +7,8 @@ import Profile from '../../src/models/Profile.js';
 import Review from '../../src/models/Review.js';
 import { clearCollections, startMemoryDb, stopMemoryDb } from '../helpers/memoryDb.js';
 
+let app;
+
 function makeProfile(identityId, overrides = {}) {
   return {
     identityId,
@@ -29,9 +31,24 @@ async function createProfile(overrides = {}) {
   return Profile.create(makeProfile(identity._id, overrides));
 }
 
-describe('Profile routes', () => {
-  let app;
+async function activeProfileAgent(role) {
+  const agent = request.agent(app);
+  const csrf = (await agent.get('/api/auth/csrf-token')).body.csrfToken;
+  await agent
+    .post('/api/auth/register')
+    .set('x-csrf-token', csrf)
+    .send({
+      email: `${new mongoose.Types.ObjectId()}@test.invalid`,
+      password: 'longenough1',
+    });
+  const created = await agent
+    .post('/api/auth/profiles')
+    .set('x-csrf-token', csrf)
+    .send({ role, displayName: 'Demo Profile' });
+  return { agent, csrf, profileId: created.body.id };
+}
 
+describe('Profile routes', () => {
   beforeAll(async () => {
     await startMemoryDb();
     app = createApp();
@@ -105,5 +122,93 @@ describe('Profile routes', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error).toBe('NotFoundError');
+  });
+
+  it('updates only the active Profile owned by the Identity', async () => {
+    const { agent, csrf, profileId } = await activeProfileAgent('freelancer');
+
+    const res = await agent
+      .patch(`/api/profiles/${profileId}`)
+      .set('x-csrf-token', csrf)
+      .send({ headline: 'Product designer', availableForWork: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body.profile).toMatchObject({
+      id: profileId,
+      headline: 'Product designer',
+      availableForWork: true,
+    });
+    expect(res.body.profile).not.toHaveProperty('identityId');
+  });
+
+  it('rejects a Profile owned by another Identity', async () => {
+    const owner = await activeProfileAgent('freelancer');
+    const other = await activeProfileAgent('freelancer');
+
+    const res = await other.agent
+      .patch(`/api/profiles/${owner.profileId}`)
+      .set('x-csrf-token', other.csrf)
+      .send({ headline: 'Not mine' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('ForbiddenError');
+  });
+
+  it('rejects Client-only and system-managed fields on a Freelancer patch', async () => {
+    const { agent, csrf, profileId } = await activeProfileAgent('freelancer');
+
+    const clientField = await agent
+      .patch(`/api/profiles/${profileId}`)
+      .set('x-csrf-token', csrf)
+      .send({ businessName: 'X' });
+    const managedField = await agent
+      .patch(`/api/profiles/${profileId}`)
+      .set('x-csrf-token', csrf)
+      .send({ paymentVerified: true });
+
+    expect(clientField.status).toBe(400);
+    expect(managedField.status).toBe(400);
+  });
+
+  it('enforces authentication, CSRF, ObjectId, and non-empty patch validation', async () => {
+    const anonymous = request.agent(app);
+    const anonymousCsrf = (await anonymous.get('/api/auth/csrf-token')).body.csrfToken;
+    const targetId = new mongoose.Types.ObjectId();
+    expect(
+      (
+        await anonymous
+          .patch(`/api/profiles/${targetId}`)
+          .set('x-csrf-token', anonymousCsrf)
+          .send({ headline: 'No session' })
+      ).status,
+    ).toBe(401);
+
+    const { agent, csrf, profileId } = await activeProfileAgent('freelancer');
+    expect((await agent.patch(`/api/profiles/${profileId}`).send({ headline: 'No CSRF' })).status).toBe(
+      403,
+    );
+    expect(
+      (
+        await agent
+          .patch('/api/profiles/not-an-object-id')
+          .set('x-csrf-token', csrf)
+          .send({ headline: 'Invalid id' })
+      ).status,
+    ).toBe(400);
+    expect(
+      (await agent.patch(`/api/profiles/${profileId}`).set('x-csrf-token', csrf).send({})).status,
+    ).toBe(400);
+  });
+
+  it('hides a non-discoverable Profile from anonymous viewers but not its owner', async () => {
+    const { agent, csrf, profileId } = await activeProfileAgent('freelancer');
+    const patch = await agent
+      .patch(`/api/profiles/${profileId}`)
+      .set('x-csrf-token', csrf)
+      .send({ discoverable: false });
+    expect(patch.status).toBe(200);
+
+    expect((await request(app).get(`/api/profiles/${profileId}`)).status).toBe(404);
+    expect((await agent.get(`/api/profiles/${profileId}`)).status).toBe(200);
   });
 });
