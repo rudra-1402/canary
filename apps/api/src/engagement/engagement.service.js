@@ -20,8 +20,14 @@ function timelineFor(engagement) {
   ].filter(Boolean);
 }
 
-function allowedActionsFor(engagement, activeProfileId, existingReview) {
+function allowedActionsFor(engagement, proposal, activeProfileId, existingReview) {
   if (engagement.status === 'prospective') {
+    if (!['submitted', 'shortlisted'].includes(proposal.status)) {
+      return proposal.status === 'accepted' &&
+        String(activeProfileId) === String(engagement.clientProfileId)
+        ? ['accept-proposal']
+        : [];
+    }
     if (String(activeProfileId) === String(engagement.clientProfileId)) {
       return ['request-risk-assessment', 'accept-proposal', 'decline-proposal'];
     }
@@ -91,7 +97,7 @@ export async function getEngagementDetail(engagementId, activeProfileId, viewerI
     },
     riskAssessment: await findRiskAssessmentSummaryForEngagement(engagement, activeProfileId),
     outcomeEligibility,
-    allowedActions: allowedActionsFor(engagement, activeProfileId, existingReview),
+    allowedActions: allowedActionsFor(engagement, proposal, activeProfileId, existingReview),
     timeline: timelineFor(engagement),
   };
 }

@@ -422,7 +422,7 @@ function authoringInput(action) {
 }
 
 describe('listOwnedJobPostProposals', () => {
-  it('projects the applicant safely and batches their TrustScore state', async () => {
+  it('projects the Freelancer safely and batches their TrustScore state', async () => {
     const clientProfileId = await makeClientProfile('Inbox owner');
     const identity = await Identity.create({
       email: `${new mongoose.Types.ObjectId()}@example.test`,
@@ -432,7 +432,7 @@ describe('listOwnedJobPostProposals', () => {
       identityId: identity._id,
       role: 'freelancer',
       origin: 'user-registered',
-      displayName: 'Inbox applicant',
+      displayName: 'Inbox Freelancer',
       skills: ['node'],
     });
     const post = await JobPost.create(makeJobPost({ clientProfileId }));
@@ -451,7 +451,7 @@ describe('listOwnedJobPostProposals', () => {
     });
 
     expect(result.data[0]).toMatchObject({
-      freelancer: { id: freelancer._id.toString(), displayName: 'Inbox applicant' },
+      freelancer: { id: freelancer._id.toString(), displayName: 'Inbox Freelancer' },
       trustScore: { status: 'insufficient-history', profileId: freelancer._id.toString() },
     });
     expect(result.data[0].freelancer).not.toHaveProperty('identityId');
@@ -475,7 +475,7 @@ describe('listOwnedJobPostProposals', () => {
         identityId: identity._id,
         role: 'freelancer',
         origin: 'user-registered',
-        displayName: `${label} applicant`,
+        displayName: `${label} Freelancer`,
       });
       proposals.push(
         await Proposal.create({
@@ -505,13 +505,13 @@ describe('listOwnedJobPostProposals', () => {
     );
     const byName = new Map(result.data.map((row) => [row.freelancer.displayName, row]));
 
-    expect(byName.get('none applicant')).toMatchObject({
+    expect(byName.get('none Freelancer')).toMatchObject({
       prospectiveEngagementId: null,
       riskAssessment: null,
     });
-    expect(byName.get('current applicant').riskAssessment.status).toBe('current');
-    expect(byName.get('stale applicant').riskAssessment.status).toBe('stale');
-    expect(byName.get('current applicant').prospectiveEngagementId).toMatch(/^[0-9a-f]{24}$/);
+    expect(byName.get('current Freelancer').riskAssessment.status).toBe('current');
+    expect(byName.get('stale Freelancer').riskAssessment.status).toBe('stale');
+    expect(byName.get('current Freelancer').prospectiveEngagementId).toMatch(/^[0-9a-f]{24}$/);
     expect(spies.map((spy) => spy.mock.calls.length)).toEqual([1, 1, 1, 1]);
 
     vi.restoreAllMocks();
@@ -523,7 +523,7 @@ describe('listOwnedJobPostProposals', () => {
       client.identityId,
     );
     const activatedRow = afterActivation.data.find(
-      (row) => row.freelancer.displayName === 'current applicant',
+      (row) => row.freelancer.displayName === 'current Freelancer',
     );
     expect(activatedRow).toMatchObject({
       prospectiveEngagementId: null,

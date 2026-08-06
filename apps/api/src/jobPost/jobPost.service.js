@@ -227,7 +227,7 @@ export async function listOwnedJobPostProposals(id, clientProfileId, query, view
       const freelancer = profilesById.get(profileId);
       const trustScore = trustScoresById.get(profileId);
       if (!freelancer || !trustScore || trustScore.status === 'not-found') {
-        throw new Error('Proposal applicant data is unavailable');
+        throw new Error('Proposal Freelancer data is unavailable');
       }
       const engagement = engagementsByProposal.get(String(doc._id));
       return JobPostProposalSchema.parse(

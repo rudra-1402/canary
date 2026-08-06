@@ -207,12 +207,12 @@ describe('Client JobPost proposal inbox', () => {
 
   it('returns owned proposals sorted and filtered with public Profile and TrustScore data', async () => {
     const client = await activeProfileAgent(app, 'client');
-    const applicantA = await activeProfileAgent(app, 'freelancer');
-    const applicantB = await activeProfileAgent(app, 'freelancer');
+    const freelancerA = await activeProfileAgent(app, 'freelancer');
+    const freelancerB = await activeProfileAgent(app, 'freelancer');
     const post = await JobPost.create(makeJobPost({ clientProfileId: client.profileId }));
     await Proposal.create({
       jobPostId: post._id,
-      freelancerProfileId: applicantA.profileId,
+      freelancerProfileId: freelancerA.profileId,
       bid: 1400,
       payModel: 'project',
       proposedDurationDays: 14,
@@ -221,7 +221,7 @@ describe('Client JobPost proposal inbox', () => {
     });
     await Proposal.create({
       jobPostId: post._id,
-      freelancerProfileId: applicantB.profileId,
+      freelancerProfileId: freelancerB.profileId,
       bid: 900,
       payModel: 'project',
       proposedDurationDays: 10,
@@ -240,10 +240,10 @@ describe('Client JobPost proposal inbox', () => {
       bid: 900,
       prospectiveEngagementId: null,
       riskAssessment: null,
-      freelancer: { id: applicantB.profileId, role: 'freelancer' },
+      freelancer: { id: freelancerB.profileId, role: 'freelancer' },
       trustScore: {
         status: 'insufficient-history',
-        profileId: applicantB.profileId,
+        profileId: freelancerB.profileId,
       },
     });
     expect(res.body.data[0].freelancer).not.toHaveProperty('identityId');
@@ -254,16 +254,16 @@ describe('Client JobPost proposal inbox', () => {
 
   it('serializes null, current, and stale prospective assessment state over HTTP', async () => {
     const client = await activeProfileAgent(app, 'client');
-    const applicants = await Promise.all([
+    const freelancers = await Promise.all([
       activeProfileAgent(app, 'freelancer'),
       activeProfileAgent(app, 'freelancer'),
       activeProfileAgent(app, 'freelancer'),
     ]);
     const post = await JobPost.create(makeJobPost({ clientProfileId: client.profileId }));
     const proposals = await Proposal.create(
-      applicants.map((applicant, index) => ({
+      freelancers.map((freelancer, index) => ({
         jobPostId: post._id,
-        freelancerProfileId: applicant.profileId,
+        freelancerProfileId: freelancer.profileId,
         bid: 900 + index * 100,
         payModel: 'project',
         proposedDurationDays: 10,
@@ -278,15 +278,15 @@ describe('Client JobPost proposal inbox', () => {
 
     expect(res.status).toBe(200);
     const byProfile = new Map(res.body.data.map((row) => [row.freelancer.id, row]));
-    expect(byProfile.get(applicants[0].profileId)).toMatchObject({
+    expect(byProfile.get(freelancers[0].profileId)).toMatchObject({
       prospectiveEngagementId: null,
       riskAssessment: null,
     });
-    expect(byProfile.get(applicants[1].profileId)).toMatchObject({
+    expect(byProfile.get(freelancers[1].profileId)).toMatchObject({
       prospectiveEngagementId: expect.stringMatching(/^[0-9a-f]{24}$/),
       riskAssessment: { status: 'current' },
     });
-    expect(byProfile.get(applicants[2].profileId)).toMatchObject({
+    expect(byProfile.get(freelancers[2].profileId)).toMatchObject({
       prospectiveEngagementId: expect.stringMatching(/^[0-9a-f]{24}$/),
       riskAssessment: { status: 'stale' },
     });

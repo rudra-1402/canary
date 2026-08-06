@@ -215,7 +215,7 @@ function paymentContribution(proposal) {
           1,
           'favorable',
           'Payment structure is defined',
-          'The Proposal uses a single project payment amount.',
+          'The Proposal uses a single fixed payment amount.',
         ),
       ],
     };

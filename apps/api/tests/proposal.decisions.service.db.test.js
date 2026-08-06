@@ -6,6 +6,7 @@ import JobPost from '../src/models/JobPost.js';
 import Profile from '../src/models/Profile.js';
 import Proposal from '../src/models/Proposal.js';
 import RiskAssessment from '../src/models/RiskAssessment.js';
+import RiskSignal from '../src/models/RiskSignal.js';
 import { acceptProposal, declineProposal } from '../src/proposal/proposal.service.js';
 import { requestProposalRiskAssessment } from '../src/riskAssessment/riskAssessment.service.js';
 import { clearCollections, startMemoryDb, stopMemoryDb } from './helpers/memoryDb.js';
@@ -157,6 +158,42 @@ describe('Proposal decision service', () => {
     expect(String(second.engagement._id)).toBe(String(first.engagement._id));
     expect(String(second.riskAssessment._id)).toBe(String(first.riskAssessment._id));
     expect(second.engagement.acceptedAt).toEqual(first.engagement.acceptedAt);
+  });
+
+  it('repairs missing assessment signals and term snapshot fields on an active retry', async () => {
+    const data = await fixture();
+    const first = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+    await Promise.all([
+      RiskSignal.deleteMany({ parentType: 'RiskAssessment', parentId: first.riskAssessment._id }),
+      Engagement.updateOne(
+        { _id: first.engagement._id },
+        {
+          $unset: {
+            'agreedTerms.skills': 1,
+            'agreedTerms.proposedDurationDays': 1,
+            'agreedTerms.screeningAnswers': 1,
+          },
+        },
+      ),
+    ]);
+
+    const repaired = await acceptProposal(data.proposal._id, data.client._id, { confirm: true });
+
+    expect(repaired.engagement.acceptedAt).toEqual(first.engagement.acceptedAt);
+    expect(repaired.engagement.agreedTerms.dueAt).toEqual(first.engagement.agreedTerms.dueAt);
+    expect(repaired.engagement.agreedTerms.skills).toEqual(data.jobPost.skills);
+    expect(repaired.engagement.agreedTerms.proposedDurationDays).toBe(
+      data.proposal.proposedDurationDays,
+    );
+    expect(repaired.engagement.agreedTerms.screeningAnswers).toEqual(
+      data.proposal.screeningAnswers,
+    );
+    expect(
+      await RiskSignal.countDocuments({
+        parentType: 'RiskAssessment',
+        parentId: repaired.riskAssessment._id,
+      }),
+    ).toBeGreaterThan(0);
   });
 
   it('reconciles a standalone partial acceptance and preserves established dates', async () => {

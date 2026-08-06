@@ -264,4 +264,26 @@ describe('GET /api/engagements/:engagementId', () => {
       at: concludedAt.toISOString(),
     });
   });
+
+  it('returns no actions for a declined Proposal with a prospective Engagement', async () => {
+    const data = await fixture('client');
+    const assessment = await data.agent
+      .post(`/api/proposals/${data.proposal._id}/risk-assessment`)
+      .set('x-csrf-token', data.csrf)
+      .send({});
+    expect(assessment.status).toBe(200);
+    const declined = await data.agent
+      .post(`/api/proposals/${data.proposal._id}/decline`)
+      .set('x-csrf-token', data.csrf)
+      .send({});
+    expect(declined.status).toBe(200);
+
+    const response = await data.agent.get(`/api/engagements/${assessment.body.data.engagement.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.engagement).toMatchObject({
+      status: 'prospective',
+      allowedActions: [],
+    });
+  });
 });

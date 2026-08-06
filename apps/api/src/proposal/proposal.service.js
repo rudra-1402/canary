@@ -6,8 +6,6 @@ import RiskAssessment from '../models/RiskAssessment.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../lib/errors.js';
 import {
   ensureCurrentProposalRiskAssessmentForAcceptance,
-  findRiskAssessmentForEngagement,
-  requestProposalRiskAssessment,
   toRiskAssessmentSummaryContract,
 } from '../riskAssessment/riskAssessment.service.js';
 import { toEngagementCommandContract } from '../engagement/engagement.serializer.js';
@@ -39,21 +37,6 @@ async function decisionContext(proposalId, clientProfileId) {
     throw new ForbiddenError('Only the owning Client may decide this Proposal');
   }
   return { proposal, jobPost };
-}
-
-async function existingAcceptanceAssessment(proposal, activeProfileId) {
-  const engagement = await Engagement.findOne({ proposalId: proposal._id });
-  if (!engagement) throw new BadRequestError('Accepted Proposal has no Engagement');
-  if (engagement.status === 'prospective') {
-    return ensureCurrentProposalRiskAssessmentForAcceptance(proposal._id, activeProfileId);
-  }
-  const assessment = await findRiskAssessmentForEngagement(engagement, activeProfileId);
-  if (!assessment) throw new BadRequestError('Accepted Proposal has no RiskAssessment');
-  return {
-    engagement,
-    riskAssessment: assessment.assessment,
-    riskAssessmentStatus: assessment.status,
-  };
 }
 
 function withSession(query, session) {
@@ -176,15 +159,17 @@ export async function acceptProposal(proposalId, clientProfileId, { confirm } = 
     throw new BadRequestError('Only a submitted Proposal may be accepted');
   }
 
-  const assessment =
-    proposal.status === 'accepted'
-      ? await existingAcceptanceAssessment(proposal, clientProfileId)
-      : await requestProposalRiskAssessment(proposalId, clientProfileId, { recompute: true });
+  const assessment = await ensureCurrentProposalRiskAssessmentForAcceptance(
+    proposalId,
+    clientProfileId,
+  );
   if (assessment.riskAssessmentStatus !== 'current') {
     throw new BadRequestError('Proposal acceptance requires a current RiskAssessment');
   }
+  const needsPostActivationTermRepair =
+    assessment.engagement.status !== 'prospective' && !assessment.engagement.agreedTerms?.dueAt;
   const acceptedAt = new Date();
-  return transactionFirst((session) =>
+  const completed = await transactionFirst((session) =>
     completeAcceptance(
       proposalId,
       clientProfileId,
@@ -193,6 +178,16 @@ export async function acceptProposal(proposalId, clientProfileId, { confirm } = 
       session,
     ),
   );
+  if (!needsPostActivationTermRepair) return completed;
+  const repaired = await ensureCurrentProposalRiskAssessmentForAcceptance(
+    proposalId,
+    clientProfileId,
+  );
+  return {
+    ...completed,
+    engagement: repaired.engagement,
+    riskAssessment: repaired.riskAssessment,
+  };
 }
 
 export async function toProposalDecisionContract(result) {
