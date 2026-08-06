@@ -211,4 +211,50 @@ describe('Profile routes', () => {
     expect((await request(app).get(`/api/profiles/${profileId}`)).status).toBe(404);
     expect((await agent.get(`/api/profiles/${profileId}`)).status).toBe(200);
   });
+
+  it('requires an active Client Profile for Freelancer discovery', async () => {
+    const freelancer = await activeProfileAgent('freelancer');
+    expect((await freelancer.agent.get('/api/profiles')).status).toBe(403);
+  });
+
+  it('returns only discoverable and available Freelancer Profiles', async () => {
+    const client = await activeProfileAgent('client');
+    await createProfile({
+      role: 'freelancer',
+      discoverable: true,
+      availableForWork: true,
+      displayName: 'Visible',
+    });
+    await createProfile({
+      role: 'freelancer',
+      discoverable: false,
+      availableForWork: true,
+      displayName: 'Private',
+    });
+    await createProfile({
+      role: 'freelancer',
+      discoverable: true,
+      availableForWork: false,
+      displayName: 'Unavailable',
+    });
+    await createProfile({ role: 'client', discoverable: true, displayName: 'Client' });
+
+    const res = await client.agent.get('/api/profiles');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((item) => item.displayName)).toEqual(['Visible']);
+    expect(res.body.data[0]).toMatchObject({
+      role: 'freelancer',
+      availableForWork: true,
+      activeEngagementCount: 0,
+      trust: { status: 'insufficient-history' },
+    });
+  });
+
+  it('validates Gallery rate ranges before querying MongoDB', async () => {
+    const client = await activeProfileAgent('client');
+    const res = await client.agent.get('/api/profiles?minRate=100&maxRate=50');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('ValidationError');
+  });
 });
