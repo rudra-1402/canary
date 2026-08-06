@@ -6,6 +6,21 @@ import * as proposalController from './proposal.controller.js';
 const router = Router();
 
 router.post(
+  '/:proposalId/accept',
+  requireAuth,
+  csrfSynchronisedProtection,
+  requireRole('client'),
+  proposalController.accept,
+);
+router.post(
+  '/:proposalId/decline',
+  requireAuth,
+  csrfSynchronisedProtection,
+  requireRole('client'),
+  proposalController.decline,
+);
+
+router.post(
   '/',
   csrfSynchronisedProtection,
   requireAuth,

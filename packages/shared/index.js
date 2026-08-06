@@ -32,6 +32,10 @@ export {
   EngagementSchema,
   MyEngagementSchema,
   MyEngagementsResponseSchema,
+  EngagementCommandSchema,
+  EngagementDetailSchema,
+  EngagementDetailResponseSchema,
+  RiskAssessmentCommandResponseSchema,
 } from './contracts/engagement.js';
 export {
   ProposalSchema,
@@ -42,7 +46,21 @@ export {
   JobPostProposalListQuerySchema,
   JobPostProposalSchema,
   JobPostProposalListResponseSchema,
+  AcceptProposalRequestSchema,
+  DeclineProposalRequestSchema,
+  AcceptedProposalCommandSummarySchema,
+  DeclinedProposalCommandSummarySchema,
+  ProposalDecisionResponseSchema,
+  ProposalDeclineResponseSchema,
 } from './contracts/proposal.js';
+export {
+  RiskAssessmentSignalSchema,
+  RiskAssessmentSummarySchema,
+  RequestRiskAssessmentSchema,
+  ProposalRiskAssessmentParamSchema,
+  EngagementRiskAssessmentParamSchema,
+  RiskAssessmentResponseSchema,
+} from './contracts/riskAssessment.js';
 export {
   OutcomeSchema,
   CreateOutcomeReviewRequestSchema,

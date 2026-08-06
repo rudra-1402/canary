@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { createApp } from '../../src/app.js';
 import JobPost from '../../src/models/JobPost.js';
 import Proposal from '../../src/models/Proposal.js';
+import { requestProposalRiskAssessment } from '../../src/riskAssessment/riskAssessment.service.js';
 import { clearCollections, startMemoryDb, stopMemoryDb } from '../helpers/memoryDb.js';
 
 async function activeProfileAgent(app, role) {
@@ -206,12 +207,12 @@ describe('Client JobPost proposal inbox', () => {
 
   it('returns owned proposals sorted and filtered with public Profile and TrustScore data', async () => {
     const client = await activeProfileAgent(app, 'client');
-    const applicantA = await activeProfileAgent(app, 'freelancer');
-    const applicantB = await activeProfileAgent(app, 'freelancer');
+    const freelancerA = await activeProfileAgent(app, 'freelancer');
+    const freelancerB = await activeProfileAgent(app, 'freelancer');
     const post = await JobPost.create(makeJobPost({ clientProfileId: client.profileId }));
     await Proposal.create({
       jobPostId: post._id,
-      freelancerProfileId: applicantA.profileId,
+      freelancerProfileId: freelancerA.profileId,
       bid: 1400,
       payModel: 'project',
       proposedDurationDays: 14,
@@ -220,7 +221,7 @@ describe('Client JobPost proposal inbox', () => {
     });
     await Proposal.create({
       jobPostId: post._id,
-      freelancerProfileId: applicantB.profileId,
+      freelancerProfileId: freelancerB.profileId,
       bid: 900,
       payModel: 'project',
       proposedDurationDays: 10,
@@ -237,16 +238,58 @@ describe('Client JobPost proposal inbox', () => {
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0]).toMatchObject({
       bid: 900,
-      freelancer: { id: applicantB.profileId, role: 'freelancer' },
+      prospectiveEngagementId: null,
+      riskAssessment: null,
+      freelancer: { id: freelancerB.profileId, role: 'freelancer' },
       trustScore: {
         status: 'insufficient-history',
-        profileId: applicantB.profileId,
+        profileId: freelancerB.profileId,
       },
     });
     expect(res.body.data[0].freelancer).not.toHaveProperty('identityId');
     expect(res.body.data[0].freelancer).not.toHaveProperty('origin');
     expect(res.body.data[0].freelancer).not.toHaveProperty('taxRatePct');
     expect(res.body.data[0].freelancer).not.toHaveProperty('onboardingCompletedAt');
+  });
+
+  it('serializes null, current, and stale prospective assessment state over HTTP', async () => {
+    const client = await activeProfileAgent(app, 'client');
+    const freelancers = await Promise.all([
+      activeProfileAgent(app, 'freelancer'),
+      activeProfileAgent(app, 'freelancer'),
+      activeProfileAgent(app, 'freelancer'),
+    ]);
+    const post = await JobPost.create(makeJobPost({ clientProfileId: client.profileId }));
+    const proposals = await Proposal.create(
+      freelancers.map((freelancer, index) => ({
+        jobPostId: post._id,
+        freelancerProfileId: freelancer.profileId,
+        bid: 900 + index * 100,
+        payModel: 'project',
+        proposedDurationDays: 10,
+        status: 'submitted',
+      })),
+    );
+    await requestProposalRiskAssessment(proposals[1]._id, client.profileId);
+    await requestProposalRiskAssessment(proposals[2]._id, client.profileId);
+    await Proposal.updateOne({ _id: proposals[2]._id }, { $set: { bid: 1500 } });
+
+    const res = await client.agent.get(`/api/jobposts/${post._id}/proposals?sort=bid_low`);
+
+    expect(res.status).toBe(200);
+    const byProfile = new Map(res.body.data.map((row) => [row.freelancer.id, row]));
+    expect(byProfile.get(freelancers[0].profileId)).toMatchObject({
+      prospectiveEngagementId: null,
+      riskAssessment: null,
+    });
+    expect(byProfile.get(freelancers[1].profileId)).toMatchObject({
+      prospectiveEngagementId: expect.stringMatching(/^[0-9a-f]{24}$/),
+      riskAssessment: { status: 'current' },
+    });
+    expect(byProfile.get(freelancers[2].profileId)).toMatchObject({
+      prospectiveEngagementId: expect.stringMatching(/^[0-9a-f]{24}$/),
+      riskAssessment: { status: 'stale' },
+    });
   });
 
   it('requires Client ownership without concealing an existing JobPost', async () => {

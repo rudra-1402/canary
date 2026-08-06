@@ -6,6 +6,8 @@ const riskSignalSchema = new Schema(
     parentType: { type: String, enum: ['TrustScore', 'RiskAssessment'], required: true },
     parentId: { type: Schema.Types.ObjectId, required: true, refPath: 'parentType' },
     name: { type: String, required: true },
+    label: { type: String, maxlength: 160 },
+    evidence: { type: String, maxlength: 1000 },
     value: { type: Number, required: true },
     direction: { type: String, enum: ['favorable', 'unfavorable'], required: true },
     source: { type: String, enum: ['structured-data', 'brief-analysis'], required: true },
@@ -15,5 +17,9 @@ const riskSignalSchema = new Schema(
 );
 
 riskSignalSchema.index({ parentType: 1, parentId: 1 });
+riskSignalSchema.index(
+  { parentType: 1, parentId: 1, name: 1, source: 1 },
+  { unique: true, partialFilterExpression: { parentType: 'RiskAssessment' } },
+);
 
 export default model('RiskSignal', riskSignalSchema);

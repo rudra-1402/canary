@@ -27,6 +27,7 @@ const proposalSchema = new Schema(
       enum: ['submitted', 'shortlisted', 'accepted', 'declined', 'withdrawn'],
       default: 'submitted',
     },
+    declineReasonCode: { type: String, maxlength: 100, default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
