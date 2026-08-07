@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import PropTypes from 'prop-types';
+import { Link, useParams } from 'react-router-dom';
 import { listMyEngagements } from '../../lib/api/engagements.js';
 import { getProfile } from '../../lib/api/profiles.js';
 import { submitOutcomeReview } from '../../lib/api/outcomeReviews.js';
@@ -25,6 +26,36 @@ const TRISTATE_OPTIONS = [
   { value: 'yes', label: 'Yes' },
   { value: 'no', label: 'No' },
 ];
+
+// Honest causal sequence per Gate 5: recording an Outcome does not instantly change a
+// TrustScore — it stales the current evidence and queues a rescore for the next scoring
+// pass. No synchronous "rescore requested -> current" step exists in this API to report,
+// so this states the true sequence rather than implying an instant, unshown change.
+function CausalSequenceNote({ profileId }) {
+  return (
+    <p className="mt-2 text-xs text-muted-foreground">
+      Outcome recorded → the affected TrustScore evidence is now stale → it recomputes in the next
+      scoring pass, not instantly.
+      {profileId && (
+        <>
+          {' '}
+          <Link to={`/trust/${profileId}`} className="underline">
+            View current TrustScore
+          </Link>
+          .
+        </>
+      )}
+    </p>
+  );
+}
+
+CausalSequenceNote.propTypes = {
+  profileId: PropTypes.string,
+};
+
+CausalSequenceNote.defaultProps = {
+  profileId: null,
+};
 
 function initialForm() {
   return {
@@ -191,6 +222,7 @@ export default function RecordOutcome() {
           <p className="text-sm font-medium text-foreground">
             Both sides have submitted. This engagement is concluded, and reviews are now visible.
           </p>
+          <CausalSequenceNote profileId={engagement.counterpartyProfileId} />
         </div>
       </div>
     );
@@ -236,6 +268,7 @@ export default function RecordOutcome() {
             <p className="text-sm font-medium text-foreground">
               Both sides have submitted. This engagement is concluded, and reviews are now visible.
             </p>
+            <CausalSequenceNote profileId={engagement.counterpartyProfileId} />
           </div>
         </div>
       );

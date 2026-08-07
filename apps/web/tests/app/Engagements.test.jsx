@@ -100,7 +100,7 @@ describe('Engagements', () => {
     expect(await screen.findByText('No active engagements')).toBeInTheDocument();
   });
 
-  it('lists active engagements with the counterparty name and links to the review screen', async () => {
+  it('lists active engagements with the counterparty name and links to the detail screen', async () => {
     vi.spyOn(global, 'fetch').mockImplementation((url) => {
       const href = url.toString();
       if (href.includes('/me/engagements')) {
@@ -128,7 +128,7 @@ describe('Engagements', () => {
     expect(await screen.findByText('Harborview Media')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Harborview Media/ })).toHaveAttribute(
       'href',
-      `/engagements/${ACTIVE_ID}/review`,
+      `/engagements/${ACTIVE_ID}`,
     );
   });
 });

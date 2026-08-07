@@ -91,7 +91,7 @@ export default function Engagements() {
             return (
               <li key={engagement.id}>
                 <Link
-                  to={`/engagements/${engagement.id}/review`}
+                  to={`/engagements/${engagement.id}`}
                   className="flex items-start justify-between gap-4 px-5 py-4 hover:bg-background"
                 >
                   <div>
@@ -104,7 +104,7 @@ export default function Engagements() {
                       </p>
                     )}
                   </div>
-                  <span className="text-sm font-medium text-primary">Record outcome</span>
+                  <span className="text-sm font-medium text-primary">View engagement</span>
                 </Link>
               </li>
             );

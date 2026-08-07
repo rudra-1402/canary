@@ -10,6 +10,7 @@ import FindWork from './routes/FindWork.jsx';
 import JobDetail from './routes/JobDetail.jsx';
 import TrustScoreDetail from './routes/TrustScoreDetail.jsx';
 import Engagements from './routes/Engagements.jsx';
+import EngagementDetail from './routes/EngagementDetail.jsx';
 import RecordOutcome from './routes/RecordOutcome.jsx';
 import Talent from './routes/Talent.jsx';
 import JobPostsOwner from './routes/JobPostsOwner.jsx';
@@ -75,6 +76,16 @@ export default function App() {
               <RequireAuth>
                 <AppShell>
                   <Engagements />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/engagements/:id"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <EngagementDetail />
                 </AppShell>
               </RequireAuth>
             }
