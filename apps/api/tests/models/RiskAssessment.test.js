@@ -11,6 +11,9 @@ describe('RiskAssessment schema', () => {
       verdict: 'caution',
       confidence: 0.7,
       explanation: 'Net-90 terms on an otherwise reliable client.',
+      inputVersion: 'sha256:test-input',
+      modelVersion: 'risk-deterministic-v1',
+      generatedAt: new Date('2026-08-06T12:00:00.000Z'),
     });
     expect(doc.validateSync()).toBeUndefined();
   });

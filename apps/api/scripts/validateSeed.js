@@ -28,17 +28,21 @@ const MODELS_TO_CHECK = {
 export async function validateSeededCollections() {
   const report = [];
   for (const [name, Model] of Object.entries(MODELS_TO_CHECK)) {
-    const docs = await Model.find({}).lean();
+    let checked = 0;
     let invalidCount = 0;
     const sampleErrors = [];
-    for (const doc of docs) {
+    // Stream the canonical demo population. Materializing 784k Proposals at once made the
+    // conformance gate memory-bound and prevented it from completing against B4/B6.
+    const cursor = Model.find({}).lean().cursor({ batchSize: 5000 });
+    for await (const doc of cursor) {
+      checked += 1;
       const err = new Model(doc).validateSync();
       if (err) {
         invalidCount += 1;
         if (sampleErrors.length < 3) sampleErrors.push({ id: doc._id, message: err.message });
       }
     }
-    report.push({ collection: name, checked: docs.length, invalidCount, sampleErrors });
+    report.push({ collection: name, checked, invalidCount, sampleErrors });
   }
   return report;
 }

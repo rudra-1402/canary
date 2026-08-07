@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
-import { toMyEngagementContract, toMyProposalContract } from '../../src/me/me.service.js';
+import {
+  buildMyJobPostFilter,
+  toMyEngagementContract,
+  toMyProposalContract,
+} from '../../src/me/me.service.js';
 
 describe('My Work response mappers', () => {
   it('includes the populated JobPost summary with a Proposal', () => {
@@ -43,5 +47,15 @@ describe('My Work response mappers', () => {
 
     expect(result.counterpartyProfileId).toBe(freelancerProfileId.toString());
     expect(result.agreedTerms.dueAt).toBe('2026-08-31T00:00:00.000Z');
+  });
+});
+
+describe('buildMyJobPostFilter', () => {
+  it('always scopes ownership and escapes literal search metacharacters', () => {
+    const profileId = new mongoose.Types.ObjectId();
+    const filter = buildMyJobPostFilter(profileId, { status: 'open', q: '[React]' });
+    expect(String(filter.clientProfileId)).toBe(profileId.toString());
+    expect(filter.status).toBe('open');
+    expect(filter.$or[0].title.$regex).toBe('\\[React\\]');
   });
 });
