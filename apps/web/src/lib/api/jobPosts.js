@@ -13,6 +13,17 @@ export function getJobPostById(id) {
   return apiRequest(`/jobposts/${id}`);
 }
 
+// payload: { title, category, description, skills, jobType, budgetOrRate, experienceLevel,
+// projectLength, hoursPerWeek?, screeningQuestions?, action: 'save_draft' | 'publish' }
+export function createJobPost(payload) {
+  return apiRequest('/jobposts', { method: 'POST', body: payload });
+}
+
+// Owner-only. patch may include an action transition: 'save_draft' | 'publish' | 'close'.
+export function updateJobPost(id, patch) {
+  return apiRequest(`/jobposts/${id}`, { method: 'PATCH', body: patch });
+}
+
 // Owner-only. query: { status, q, page, pageSize }
 export function listMyJobPosts(query = {}) {
   const params = new URLSearchParams(

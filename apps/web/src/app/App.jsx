@@ -14,6 +14,9 @@ import EngagementDetail from './routes/EngagementDetail.jsx';
 import RecordOutcome from './routes/RecordOutcome.jsx';
 import Talent from './routes/Talent.jsx';
 import JobPostsOwner from './routes/JobPostsOwner.jsx';
+import JobPostNew from './routes/JobPostNew.jsx';
+import Work from './routes/Work.jsx';
+import Dashboard from './routes/Dashboard.jsx';
 
 export default function App() {
   return (
@@ -116,6 +119,36 @@ export default function App() {
               <RequireAuth>
                 <AppShell>
                   <JobPostsOwner />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/job-posts/new"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <JobPostNew />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/work"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <Work />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <Dashboard />
                 </AppShell>
               </RequireAuth>
             }

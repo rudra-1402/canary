@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
+import { Link } from 'react-router-dom';
 import { useSession } from '../session/SessionContext.jsx';
 import { listMyJobPosts } from '../../lib/api/jobPosts.js';
 import {
@@ -297,9 +298,17 @@ export default function JobPostsOwner() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight text-foreground">
-        Manage jobs &amp; proposals
-      </h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          Manage jobs &amp; proposals
+        </h1>
+        <Link
+          to="/job-posts/new"
+          className="text-sm font-medium text-primary underline underline-offset-2"
+        >
+          New JobPost
+        </Link>
+      </div>
 
       {state.jobPosts.length === 0 ? (
         <div className="mt-6">

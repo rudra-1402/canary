@@ -116,8 +116,14 @@ export default function AppShell({ children }) {
           <div className="flex items-center gap-8">
             <span className="text-lg font-semibold tracking-tight text-foreground">Canary</span>
             <nav className="flex items-center gap-6">
+              <NavLink to="/dashboard" className={navLinkClass}>
+                Dashboard
+              </NavLink>
               <NavLink to="/" className={navLinkClass} end>
                 Find Work
+              </NavLink>
+              <NavLink to="/work" className={navLinkClass}>
+                My Work
               </NavLink>
               <NavLink to="/engagements" className={navLinkClass}>
                 Engagements

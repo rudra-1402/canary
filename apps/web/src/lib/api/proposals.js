@@ -6,6 +6,11 @@ export function createProposal(payload) {
   return apiRequest('/proposals', { method: 'POST', body: payload });
 }
 
+// All of the signed-in Freelancer's own Proposals, any status.
+export function listMyProposals() {
+  return apiRequest('/me/proposals');
+}
+
 // Owner-only. query: { status, sort, page, pageSize }
 export function listJobPostProposals(jobPostId, query = {}) {
   const params = new URLSearchParams(
