@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../session/SessionContext.jsx';
 import { resendVerification } from '../../lib/api/auth.js';
-import { BASE_URL } from '../../lib/apiClient.js';
 import Button from '../../components/ui/Button.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import { Input } from '../../components/ui/input.jsx';
@@ -118,13 +117,6 @@ export default function SignUp() {
             {submitting ? 'Creating account…' : 'Create account'}
           </Button>
         </form>
-
-        <a
-          href={`${BASE_URL}/auth/google`}
-          className="mt-4 block w-full rounded-md border border-border bg-card px-4 py-2 text-center text-sm font-medium text-foreground hover:bg-background"
-        >
-          Continue with Google
-        </a>
 
         <Link
           to="/login"
