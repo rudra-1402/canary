@@ -2,6 +2,9 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import Button from '../ui/Button.jsx';
 import ErrorNotice from '../ui/ErrorNotice.jsx';
+import { Input } from '../ui/input.jsx';
+import { Label } from '../ui/label.jsx';
+import { Textarea } from '../ui/textarea.jsx';
 
 const csv = (value) =>
   value
@@ -117,17 +120,14 @@ export default function ProfileFieldsForm({ role, initialValues, onSubmit, submi
     <div>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {fields.map((field) => (
-          <div key={field.name}>
-            <label htmlFor={field.name} className="block text-sm font-medium text-foreground">
-              {field.label}
-            </label>
+          <div key={field.name} className="space-y-1.5">
+            <Label htmlFor={field.name}>{field.label}</Label>
             {field.type === 'textarea' || field.type === 'lines' ? (
-              <textarea
+              <Textarea
                 id={field.name}
                 rows={field.type === 'lines' ? 4 : 3}
                 value={values[field.name]}
                 onChange={(e) => setField(field.name, e.target.value)}
-                className="mt-1 block w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-ring focus:outline-none"
               />
             ) : field.type === 'checkbox' ? (
               <input
@@ -138,22 +138,18 @@ export default function ProfileFieldsForm({ role, initialValues, onSubmit, submi
                 className="mt-1 size-4"
               />
             ) : (
-              <input
+              <Input
                 id={field.name}
                 type={field.type === 'number' ? 'number' : 'text'}
                 value={values[field.name]}
                 onChange={(e) => setField(field.name, e.target.value)}
-                className="mt-1 block w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-ring focus:outline-none"
               />
             )}
           </div>
         ))}
 
         <div>
-          <label
-            htmlFor="discoverable"
-            className="flex items-center gap-2 text-sm font-medium text-foreground"
-          >
+          <Label htmlFor="discoverable" className="font-medium">
             <input
               id="discoverable"
               type="checkbox"
@@ -162,7 +158,7 @@ export default function ProfileFieldsForm({ role, initialValues, onSubmit, submi
               className="size-4"
             />
             Discoverable (appear in search)
-          </label>
+          </Label>
         </div>
 
         {error && <ErrorNotice message={error} />}

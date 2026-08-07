@@ -6,6 +6,7 @@ import { getProfile } from '../../lib/api/profiles.js';
 import Spinner from '../../components/ui/Spinner.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs.jsx';
 
 const budgetFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -76,22 +77,12 @@ export default function Work() {
     <div>
       <h1 className="text-xl font-semibold tracking-tight text-foreground">My work</h1>
 
-      <div className="mt-4 flex gap-4 border-b border-border">
-        <button
-          type="button"
-          onClick={() => setTab('proposals')}
-          className={`border-b-2 pb-2 text-sm font-medium ${tab === 'proposals' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'}`}
-        >
-          Proposals ({state.proposals.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('engagements')}
-          className={`border-b-2 pb-2 text-sm font-medium ${tab === 'engagements' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'}`}
-        >
-          Engagements ({state.engagements.length})
-        </button>
-      </div>
+      <Tabs value={tab} onValueChange={setTab} className="mt-4">
+        <TabsList>
+          <TabsTrigger value="proposals">Proposals ({state.proposals.length})</TabsTrigger>
+          <TabsTrigger value="engagements">Engagements ({state.engagements.length})</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {tab === 'proposals' &&
         (state.proposals.length === 0 ? (

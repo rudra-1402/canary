@@ -13,6 +13,14 @@ import Spinner from '../../components/ui/Spinner.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import Button from '../../components/ui/Button.jsx';
+import { Badge } from '../../components/ui/badge.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select.jsx';
 
 const RISK_LEVEL_STYLE = {
   low: 'bg-band-high-soft text-band-high',
@@ -60,11 +68,7 @@ function RiskCell({ proposal, onChange }) {
     <div>
       <div className="flex items-center gap-2">
         <span className="text-lg font-semibold text-foreground">{risk.score}</span>
-        <span
-          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${RISK_LEVEL_STYLE[risk.level]}`}
-        >
-          {risk.verdict}
-        </span>
+        <Badge className={RISK_LEVEL_STYLE[risk.level]}>{risk.verdict}</Badge>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         confidence {Math.round(risk.confidence * 100)}%
@@ -112,7 +116,7 @@ function ProposalRow({ proposal, onUpdated }) {
   const [confirmingAccept, setConfirmingAccept] = useState(false);
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionError, setDecisionError] = useState(null);
-  const [reasonCode, setReasonCode] = useState('');
+  const [reasonCode, setReasonCode] = useState('none');
 
   const canAccept = current.riskAssessment && current.riskAssessment.status === 'current';
 
@@ -133,7 +137,7 @@ function ProposalRow({ proposal, onUpdated }) {
     setDecisionBusy(true);
     setDecisionError(null);
     try {
-      await declineProposal(current.id, reasonCode || undefined);
+      await declineProposal(current.id, reasonCode === 'none' ? undefined : reasonCode);
       onUpdated();
     } catch (err) {
       setDecisionError(err.message || 'Could not decline this Proposal');
@@ -191,17 +195,18 @@ function ProposalRow({ proposal, onUpdated }) {
           </Button>
         )}
         <div className="flex items-center gap-2">
-          <select
-            value={reasonCode}
-            onChange={(event) => setReasonCode(event.target.value)}
-            className="rounded-md border border-border px-2 py-1 text-xs"
-          >
-            {DECLINE_REASONS.map((reason) => (
-              <option key={reason.code} value={reason.code}>
-                {reason.label}
-              </option>
-            ))}
-          </select>
+          <Select value={reasonCode} onValueChange={setReasonCode}>
+            <SelectTrigger className="h-auto py-1 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DECLINE_REASONS.map((reason) => (
+                <SelectItem key={reason.code} value={reason.code || 'none'}>
+                  {reason.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button type="button" variant="ghost" disabled={decisionBusy} onClick={handleDecline}>
             Decline
           </Button>

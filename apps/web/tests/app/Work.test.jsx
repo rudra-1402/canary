@@ -70,7 +70,7 @@ describe('Work', () => {
     const user = userEvent.setup();
 
     expect(await screen.findByText('Landing page')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Engagements/ }));
+    await user.click(screen.getByRole('tab', { name: /Engagements/ }));
     expect(await screen.findByText('Aster Labs')).toBeInTheDocument();
   });
 });

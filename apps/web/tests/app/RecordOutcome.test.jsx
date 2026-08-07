@@ -6,6 +6,13 @@ import RecordOutcome from '../../src/app/routes/RecordOutcome.jsx';
 import { resetCsrfToken } from '../../src/lib/apiClient.js';
 import * as SessionContext from '../../src/app/session/SessionContext.jsx';
 
+// Radix Select renders a combobox button + a portal listbox, not a native <select> —
+// user.selectOptions() only works on real <select> elements, so pick via click + option role.
+async function selectRadixOption(user, label, optionName) {
+  await user.click(screen.getByLabelText(label));
+  await user.click(await screen.findByRole('option', { name: optionName }));
+}
+
 function jsonResponse(body, status = 200) {
   return Promise.resolve({
     ok: status >= 200 && status < 300,
@@ -161,8 +168,8 @@ describe('RecordOutcome', () => {
     mockFetch({ engagements: [activeEngagement()], profile: PROFILE, postHandler });
     const second = renderScreen('freelancer');
     await screen.findAllByText(/Harborview Media/);
-    await user.selectOptions(screen.getByLabelText(/Paid in full/i), 'yes');
-    await user.selectOptions(screen.getByLabelText(/Scope creep/i), 'no');
+    await selectRadixOption(user, /Paid in full/i, 'Yes');
+    await selectRadixOption(user, /Scope creep/i, 'No');
     await user.click(screen.getByRole('button', { name: /Submit outcome/i }));
     expect(submitted[1].outcome).toMatchObject({
       paidInFull: true,
@@ -206,8 +213,8 @@ describe('RecordOutcome', () => {
     renderScreen('freelancer');
 
     await screen.findAllByText(/Harborview Media/);
-    await user.selectOptions(screen.getByLabelText(/How did this engagement end/i), 'completed');
-    await user.selectOptions(screen.getByLabelText(/Rating/i), '5');
+    await selectRadixOption(user, /How did this engagement end/i, 'Completed');
+    await selectRadixOption(user, /Rating/i, '5 / 5');
     await user.click(screen.getByRole('button', { name: /Submit outcome/i }));
 
     expect(
@@ -230,8 +237,8 @@ describe('RecordOutcome', () => {
     renderScreen('freelancer');
 
     await screen.findAllByText(/Harborview Media/);
-    await user.selectOptions(screen.getByLabelText(/How did this engagement end/i), 'completed');
-    await user.selectOptions(screen.getByLabelText(/Rating/i), '4');
+    await selectRadixOption(user, /How did this engagement end/i, 'Completed');
+    await selectRadixOption(user, /Rating/i, '4 / 5');
     await user.click(screen.getByRole('button', { name: /Submit outcome/i }));
 
     expect(
@@ -257,8 +264,8 @@ describe('RecordOutcome', () => {
     renderScreen('freelancer');
 
     await screen.findAllByText(/Harborview Media/);
-    await user.selectOptions(screen.getByLabelText(/How did this engagement end/i), 'completed');
-    await user.selectOptions(screen.getByLabelText(/Rating/i), '3');
+    await selectRadixOption(user, /How did this engagement end/i, 'Completed');
+    await selectRadixOption(user, /Rating/i, '3 / 5');
     await user.click(screen.getByRole('button', { name: /Submit outcome/i }));
 
     expect(

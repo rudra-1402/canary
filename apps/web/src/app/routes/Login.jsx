@@ -4,6 +4,8 @@ import { useSession } from '../session/SessionContext.jsx';
 import { BASE_URL } from '../../lib/apiClient.js';
 import Button from '../../components/ui/Button.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
+import { Input } from '../../components/ui/input.jsx';
+import { Label } from '../../components/ui/label.jsx';
 
 export default function Login() {
   const { status, login } = useSession();
@@ -40,32 +42,26 @@ export default function Login() {
         <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground">
-              Email
-            </label>
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="email">Email</Label>
+            <Input
               id="email"
               type="email"
               autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-ring focus:outline-none"
             />
           </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground">
-              Password
-            </label>
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="password">Password</Label>
+            <Input
               id="password"
               type="password"
               autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-ring focus:outline-none"
             />
           </div>
 

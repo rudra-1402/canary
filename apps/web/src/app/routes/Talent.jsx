@@ -6,6 +6,16 @@ import Spinner from '../../components/ui/Spinner.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import TrustBadge from '../../components/ui/TrustBadge.jsx';
+import { Badge } from '../../components/ui/badge.jsx';
+import { Input } from '../../components/ui/input.jsx';
+import { Label } from '../../components/ui/label.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select.jsx';
 
 const rateFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -63,45 +73,45 @@ export default function Talent() {
         onSubmit={(event) => event.preventDefault()}
         className="mt-4 flex flex-wrap items-end gap-3"
       >
-        <div>
-          <label htmlFor="q" className="block text-xs font-medium text-muted-foreground">
+        <div className="space-y-1.5">
+          <Label htmlFor="q" className="text-xs text-muted-foreground">
             Search
-          </label>
-          <input
+          </Label>
+          <Input
             id="q"
             type="text"
             value={query.q}
             onChange={(event) => setQuery({ ...query, q: event.target.value })}
-            className="mt-1 rounded-md border border-border px-3 py-1.5 text-sm"
+            className="h-auto py-1.5"
           />
         </div>
-        <div>
-          <label htmlFor="skills" className="block text-xs font-medium text-muted-foreground">
+        <div className="space-y-1.5">
+          <Label htmlFor="skills" className="text-xs text-muted-foreground">
             Skills (comma-separated)
-          </label>
-          <input
+          </Label>
+          <Input
             id="skills"
             type="text"
             value={query.skills}
             onChange={(event) => setQuery({ ...query, skills: event.target.value })}
-            className="mt-1 rounded-md border border-border px-3 py-1.5 text-sm"
+            className="h-auto py-1.5"
           />
         </div>
-        <div>
-          <label htmlFor="sort" className="block text-xs font-medium text-muted-foreground">
+        <div className="space-y-1.5">
+          <Label htmlFor="sort" className="text-xs text-muted-foreground">
             Sort
-          </label>
-          <select
-            id="sort"
-            value={query.sort}
-            onChange={(event) => setQuery({ ...query, sort: event.target.value })}
-            className="mt-1 rounded-md border border-border px-3 py-1.5 text-sm"
-          >
-            <option value="relevance">Relevance</option>
-            <option value="trust-desc">Trust (highest)</option>
-            <option value="rate-asc">Rate (lowest)</option>
-            <option value="rate-desc">Rate (highest)</option>
-          </select>
+          </Label>
+          <Select value={query.sort} onValueChange={(value) => setQuery({ ...query, sort: value })}>
+            <SelectTrigger id="sort" className="h-auto py-1.5 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="relevance">Relevance</SelectItem>
+              <SelectItem value="trust-desc">Trust (highest)</SelectItem>
+              <SelectItem value="rate-asc">Rate (lowest)</SelectItem>
+              <SelectItem value="rate-desc">Rate (highest)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </form>
 
@@ -146,16 +156,13 @@ export default function Talent() {
                       ` · ${freelancer.activeEngagementCount} active engagement${freelancer.activeEngagementCount === 1 ? '' : 's'}`}
                   </p>
                   {freelancer.skills.length > 0 && (
-                    <ul className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-2 flex flex-wrap gap-1.5">
                       {freelancer.skills.map((skill) => (
-                        <li
-                          key={skill}
-                          className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground"
-                        >
+                        <Badge key={skill} variant="secondary">
                           {skill}
-                        </li>
+                        </Badge>
                       ))}
-                    </ul>
+                    </div>
                   )}
                 </div>
                 <TrustBadge entry={freelancer.trust} />

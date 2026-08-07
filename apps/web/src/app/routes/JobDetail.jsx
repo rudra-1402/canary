@@ -10,6 +10,17 @@ import Spinner from '../../components/ui/Spinner.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import Button from '../../components/ui/Button.jsx';
+import { Badge } from '../../components/ui/badge.jsx';
+import { Input } from '../../components/ui/input.jsx';
+import { Label } from '../../components/ui/label.jsx';
+import { Textarea } from '../../components/ui/textarea.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select.jsx';
 import { ApiError } from '../../lib/apiClient.js';
 
 const BAND_LABEL = { BAND_HIGH: 'High trust', BAND_MED: 'Med trust', BAND_LOW: 'Low trust' };
@@ -81,11 +92,9 @@ function RiskPreview({ jobPostId }) {
     <div className="rounded-md border border-border bg-card p-4">
       <div className="flex items-center gap-3">
         <span className="text-2xl font-semibold text-foreground">{riskAssessment.score}</span>
-        <span
-          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${RISK_LEVEL_STYLE[riskAssessment.level]}`}
-        >
+        <Badge className={`px-3 py-1 text-sm ${RISK_LEVEL_STYLE[riskAssessment.level]}`}>
           {riskAssessment.verdict}
-        </span>
+        </Badge>
         <span className="text-xs text-muted-foreground">
           confidence {Math.round(riskAssessment.confidence * 100)}%
         </span>
@@ -180,53 +189,51 @@ function ProposalForm({ jobPostId, screeningQuestions }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div>
-        <label htmlFor="bid" className="block text-sm font-medium text-foreground">
-          Your bid (USD)
-        </label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="bid">Your bid (USD)</Label>
+        <Input
           id="bid"
           type="number"
           min="1"
           required
           value={form.bid}
           onChange={(event) => setForm({ ...form, bid: event.target.value })}
-          className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
         />
       </div>
-      <div>
-        <label htmlFor="payModel" className="block text-sm font-medium text-foreground">
-          Pay model
-        </label>
-        <select
-          id="payModel"
+      <div className="space-y-1.5">
+        <Label htmlFor="payModel">Pay model</Label>
+        <Select
           value={form.payModel}
-          onChange={(event) => setForm({ ...form, payModel: event.target.value })}
-          className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+          onValueChange={(value) => setForm({ ...form, payModel: value })}
         >
-          <option value="project">Project</option>
-          <option value="milestone">Milestone</option>
-        </select>
+          <SelectTrigger id="payModel" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="project">Project</SelectItem>
+            <SelectItem value="milestone">Milestone</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       {form.payModel === 'milestone' && (
         <div className="space-y-2">
           <span className="block text-sm font-medium text-foreground">Milestones</span>
           {milestones.map((milestone, index) => (
             <div key={index} className="flex gap-2">
-              <input
+              <Input
                 type="text"
                 placeholder="Description"
                 value={milestone.description}
                 onChange={(event) => setMilestone(index, 'description', event.target.value)}
-                className="w-2/3 rounded-md border border-border px-3 py-2 text-sm"
+                className="w-2/3"
               />
-              <input
+              <Input
                 type="number"
                 min="1"
                 placeholder="Amount"
                 value={milestone.amount}
                 onChange={(event) => setMilestone(index, 'amount', event.target.value)}
-                className="w-1/3 rounded-md border border-border px-3 py-2 text-sm"
+                className="w-1/3"
               />
             </div>
           ))}
@@ -243,11 +250,11 @@ function ProposalForm({ jobPostId, screeningQuestions }) {
         <div className="space-y-3">
           <span className="block text-sm font-medium text-foreground">Screening questions</span>
           {screeningQuestions.map((question, index) => (
-            <div key={question}>
-              <label htmlFor={`screening-${index}`} className="block text-sm text-muted-foreground">
+            <div key={question} className="space-y-1.5">
+              <Label htmlFor={`screening-${index}`} className="font-normal text-muted-foreground">
                 {question}
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 id={`screening-${index}`}
                 value={screeningAnswers[index]}
                 onChange={(event) =>
@@ -256,17 +263,14 @@ function ProposalForm({ jobPostId, screeningQuestions }) {
                   )
                 }
                 rows={2}
-                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
               />
             </div>
           ))}
         </div>
       )}
-      <div>
-        <label htmlFor="proposedDurationDays" className="block text-sm font-medium text-foreground">
-          Estimated duration (days)
-        </label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="proposedDurationDays">Estimated duration (days)</Label>
+        <Input
           id="proposedDurationDays"
           type="number"
           min="1"
@@ -274,19 +278,15 @@ function ProposalForm({ jobPostId, screeningQuestions }) {
           required
           value={form.proposedDurationDays}
           onChange={(event) => setForm({ ...form, proposedDurationDays: event.target.value })}
-          className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
         />
       </div>
-      <div>
-        <label htmlFor="coverLetter" className="block text-sm font-medium text-foreground">
-          Cover letter (optional)
-        </label>
-        <textarea
+      <div className="space-y-1.5">
+        <Label htmlFor="coverLetter">Cover letter (optional)</Label>
+        <Textarea
           id="coverLetter"
           value={form.coverLetter}
           onChange={(event) => setForm({ ...form, coverLetter: event.target.value })}
           rows={4}
-          className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
         />
       </div>
       {status === 'error' && <ErrorNotice message={error} />}
@@ -423,16 +423,13 @@ export default function JobDetail() {
           </div>
         </dl>
         {job.skills.length > 0 && (
-          <ul className="mt-4 flex flex-wrap gap-1.5">
+          <div className="mt-4 flex flex-wrap gap-1.5">
             {job.skills.map((skill) => (
-              <li
-                key={skill}
-                className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground"
-              >
+              <Badge key={skill} variant="secondary">
                 {skill}
-              </li>
+              </Badge>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 
@@ -486,11 +483,9 @@ export default function JobDetail() {
               <span className="text-3xl font-semibold text-foreground">
                 {Math.round(trustScore.score)}
               </span>
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${BAND_STYLE[trustScore.band]}`}
-              >
+              <Badge className={`px-3 py-1 text-sm ${BAND_STYLE[trustScore.band]}`}>
                 {BAND_LABEL[trustScore.band]}
-              </span>
+              </Badge>
             </div>
             {(trustScore.signals ?? []).length > 0 && (
               <ul className="mt-4 space-y-2">

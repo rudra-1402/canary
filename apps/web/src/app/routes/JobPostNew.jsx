@@ -5,6 +5,16 @@ import { createJobPost } from '../../lib/api/jobPosts.js';
 import Button from '../../components/ui/Button.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { Input } from '../../components/ui/input.jsx';
+import { Label } from '../../components/ui/label.jsx';
+import { Textarea } from '../../components/ui/textarea.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select.jsx';
 
 const csv = (value) =>
   value
@@ -103,142 +113,121 @@ export default function JobPostNew() {
       <h1 className="text-xl font-semibold tracking-tight text-foreground">Create a JobPost</h1>
 
       <form onSubmit={(event) => event.preventDefault()} className="mt-6 space-y-4" noValidate>
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-foreground">
-            Title
-          </label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="title">Title</Label>
+          <Input
             id="title"
             type="text"
             value={form.title}
             onChange={(event) => setField('title', event.target.value)}
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
           />
         </div>
-        <div>
-          <label htmlFor="category" className="block text-sm font-medium text-foreground">
-            Category
-          </label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="category">Category</Label>
+          <Input
             id="category"
             type="text"
             value={form.category}
             onChange={(event) => setField('category', event.target.value)}
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
           />
         </div>
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-foreground">
-            Description
-          </label>
-          <textarea
+        <div className="space-y-1.5">
+          <Label htmlFor="description">Description</Label>
+          <Textarea
             id="description"
             rows={4}
             value={form.description}
             onChange={(event) => setField('description', event.target.value)}
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
           />
         </div>
-        <div>
-          <label htmlFor="skills" className="block text-sm font-medium text-foreground">
-            Skills (comma-separated)
-          </label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="skills">Skills (comma-separated)</Label>
+          <Input
             id="skills"
             type="text"
             value={form.skills}
             onChange={(event) => setField('skills', event.target.value)}
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="jobType" className="block text-sm font-medium text-foreground">
-              Job type
-            </label>
-            <select
-              id="jobType"
-              value={form.jobType}
-              onChange={(event) => setField('jobType', event.target.value)}
-              className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
-            >
-              <option value="fixed">Fixed</option>
-              <option value="hourly">Hourly</option>
-            </select>
+          <div className="space-y-1.5">
+            <Label htmlFor="jobType">Job type</Label>
+            <Select value={form.jobType} onValueChange={(value) => setField('jobType', value)}>
+              <SelectTrigger id="jobType" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fixed">Fixed</SelectItem>
+                <SelectItem value="hourly">Hourly</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div>
-            <label htmlFor="budgetOrRate" className="block text-sm font-medium text-foreground">
-              Budget / rate (USD)
-            </label>
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="budgetOrRate">Budget / rate (USD)</Label>
+            <Input
               id="budgetOrRate"
               type="number"
               min="1"
               value={form.budgetOrRate}
               onChange={(event) => setField('budgetOrRate', event.target.value)}
-              className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="experienceLevel" className="block text-sm font-medium text-foreground">
-              Experience level
-            </label>
-            <select
-              id="experienceLevel"
+          <div className="space-y-1.5">
+            <Label htmlFor="experienceLevel">Experience level</Label>
+            <Select
               value={form.experienceLevel}
-              onChange={(event) => setField('experienceLevel', event.target.value)}
-              className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              onValueChange={(value) => setField('experienceLevel', value)}
             >
-              <option value="entry">Entry</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="expert">Expert</option>
-            </select>
+              <SelectTrigger id="experienceLevel" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="entry">Entry</SelectItem>
+                <SelectItem value="intermediate">Intermediate</SelectItem>
+                <SelectItem value="expert">Expert</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div>
-            <label htmlFor="projectLength" className="block text-sm font-medium text-foreground">
-              Project length
-            </label>
-            <select
-              id="projectLength"
+          <div className="space-y-1.5">
+            <Label htmlFor="projectLength">Project length</Label>
+            <Select
               value={form.projectLength}
-              onChange={(event) => setField('projectLength', event.target.value)}
-              className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              onValueChange={(value) => setField('projectLength', value)}
             >
-              <option value="less-than-1-month">Less than 1 month</option>
-              <option value="1-to-3-months">1 to 3 months</option>
-              <option value="3-to-6-months">3 to 6 months</option>
-              <option value="more-than-6-months">More than 6 months</option>
-            </select>
+              <SelectTrigger id="projectLength" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="less-than-1-month">Less than 1 month</SelectItem>
+                <SelectItem value="1-to-3-months">1 to 3 months</SelectItem>
+                <SelectItem value="3-to-6-months">3 to 6 months</SelectItem>
+                <SelectItem value="more-than-6-months">More than 6 months</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         {form.jobType === 'hourly' && (
-          <div>
-            <label htmlFor="hoursPerWeek" className="block text-sm font-medium text-foreground">
-              Hours per week
-            </label>
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="hoursPerWeek">Hours per week</Label>
+            <Input
               id="hoursPerWeek"
               type="number"
               min="1"
               max="168"
               value={form.hoursPerWeek}
               onChange={(event) => setField('hoursPerWeek', event.target.value)}
-              className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             />
           </div>
         )}
-        <div>
-          <label htmlFor="screeningQuestions" className="block text-sm font-medium text-foreground">
-            Screening questions (one per line, optional)
-          </label>
-          <textarea
+        <div className="space-y-1.5">
+          <Label htmlFor="screeningQuestions">Screening questions (one per line, optional)</Label>
+          <Textarea
             id="screeningQuestions"
             rows={3}
             value={form.screeningQuestions}
             onChange={(event) => setField('screeningQuestions', event.target.value)}
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
           />
         </div>
 

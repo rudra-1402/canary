@@ -7,6 +7,7 @@ import Spinner from '../../components/ui/Spinner.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import TrustBadge from '../../components/ui/TrustBadge.jsx';
+import { Badge } from '../../components/ui/badge.jsx';
 
 const budgetFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -151,11 +152,11 @@ export default function EngagementDetail() {
               <span className="text-2xl font-semibold text-foreground">
                 {engagement.riskAssessment.score}
               </span>
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${RISK_LEVEL_STYLE[engagement.riskAssessment.level]}`}
+              <Badge
+                className={`px-3 py-1 text-sm ${RISK_LEVEL_STYLE[engagement.riskAssessment.level]}`}
               >
                 {engagement.riskAssessment.verdict}
-              </span>
+              </Badge>
               {engagement.riskAssessment.status === 'stale' && (
                 <span className="text-xs font-medium text-destructive">stale</span>
               )}
