@@ -162,7 +162,7 @@ function scopeContribution(jobPost) {
   };
 }
 
-const projectLengthDays = {
+export const projectLengthDays = {
   'less-than-1-month': 30,
   '1-to-3-months': 90,
   '3-to-6-months': 180,

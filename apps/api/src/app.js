@@ -16,6 +16,7 @@ import {
   engagementRiskAssessmentRouter,
   proposalRiskAssessmentRouter,
 } from './riskAssessment/riskAssessment.routes.js';
+import { jobPostRiskPreviewRouter } from './riskAssessment/riskPreview.routes.js';
 import { buildSessionMiddleware } from './config/session.js';
 import { configurePassport } from './config/passport.js';
 import { errorMiddleware } from './lib/errorMiddleware.js';
@@ -37,6 +38,7 @@ export function createApp() {
 
   app.get('/api/health', (req, res) => res.json(getHealthStatus()));
   app.use('/api/jobposts', jobPostRouter);
+  app.use('/api/jobposts', jobPostRiskPreviewRouter);
   app.use('/api/proposals', proposalRouter);
   app.use('/api/proposals', proposalRiskAssessmentRouter);
   app.use('/api/engagements', engagementRiskAssessmentRouter);

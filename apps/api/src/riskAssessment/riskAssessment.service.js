@@ -90,7 +90,7 @@ function toStandingInput(state) {
   };
 }
 
-function scoringInput(jobPost, proposal, trustByProfileId) {
+export function scoringInput(jobPost, proposal, trustByProfileId) {
   return {
     jobPost: {
       id: jobPost._id.toString(),
@@ -122,13 +122,13 @@ function scoringInput(jobPost, proposal, trustByProfileId) {
   };
 }
 
-async function loadCurrentTrustScores(profileIds, identityId) {
+export async function loadCurrentTrustScores(profileIds, identityId) {
   const ids = profileIds.map(String);
   const states = await getTrustScores(ids, identityId, { visibilityGrantedProfileIds: ids });
   return new Map(states.map((state) => [state.profileId, state]));
 }
 
-async function ensureSignals(assessmentId, signals) {
+export async function ensureSignals(assessmentId, signals) {
   if (signals.length === 0) return;
   await RiskSignal.bulkWrite(
     signals.map((item) => ({

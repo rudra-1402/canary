@@ -6,9 +6,11 @@ import {
   ProposalDecisionResponseSchema,
   ProposalDeclineResponseSchema,
   RequestRiskAssessmentSchema,
+  RequestRiskPreviewSchema,
   RiskAssessmentCommandResponseSchema,
   RiskAssessmentResponseSchema,
   RiskAssessmentSummarySchema,
+  RiskPreviewResponseSchema,
 } from '@canary/shared';
 
 const id = 'a'.repeat(24);
@@ -74,6 +76,32 @@ describe('RiskAssessment and Proposal-decision contracts', () => {
     expect(RequestRiskAssessmentSchema.parse({})).toEqual({ recompute: false });
     expect(RequestRiskAssessmentSchema.parse({ recompute: true })).toEqual({ recompute: true });
     expect(() => RequestRiskAssessmentSchema.parse({ recompute: true, confirm: true })).toThrow();
+  });
+
+  it('limits preview requests to the recompute command', () => {
+    expect(RequestRiskPreviewSchema.parse({})).toEqual({ recompute: false });
+    expect(RequestRiskPreviewSchema.parse({ recompute: true })).toEqual({ recompute: true });
+  });
+
+  it('parses a preview envelope with a prospective-only Engagement (no proposal/agreedTerms)', () => {
+    const previewEngagement = {
+      id: otherId,
+      status: 'prospective',
+      freelancerProfileId: id,
+      clientProfileId: otherId,
+      jobPostId: id,
+      createdAt: generatedAt,
+    };
+    expect(() =>
+      RiskPreviewResponseSchema.parse({
+        data: { engagement: previewEngagement, riskAssessment },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      RiskPreviewResponseSchema.parse({
+        data: { engagement: { ...previewEngagement, status: 'active' }, riskAssessment },
+      }),
+    ).toThrow();
   });
 
   it('requires literal confirmation for acceptance', () => {

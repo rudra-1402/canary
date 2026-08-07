@@ -70,6 +70,10 @@ export {
   ProposalRiskAssessmentParamSchema,
   EngagementRiskAssessmentParamSchema,
   RiskAssessmentResponseSchema,
+  JobPostRiskPreviewParamSchema,
+  RequestRiskPreviewSchema,
+  RiskPreviewEngagementSchema,
+  RiskPreviewResponseSchema,
 } from './contracts/riskAssessment.js';
 export {
   OutcomeSchema,

@@ -43,3 +43,31 @@ export const EngagementRiskAssessmentParamSchema = z.object({ engagementId: obje
 export const RiskAssessmentResponseSchema = z
   .object({ data: z.object({ riskAssessment: RiskAssessmentSummarySchema }).strict() })
   .strict();
+
+export const JobPostRiskPreviewParamSchema = z.object({ jobPostId: objectId }).strict();
+
+export const RequestRiskPreviewSchema = z
+  .object({ recompute: z.boolean().default(false) })
+  .strict();
+
+export const RiskPreviewEngagementSchema = z
+  .object({
+    id: objectId,
+    status: z.literal('prospective'),
+    freelancerProfileId: objectId,
+    clientProfileId: objectId,
+    jobPostId: objectId,
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+
+export const RiskPreviewResponseSchema = z
+  .object({
+    data: z
+      .object({
+        engagement: RiskPreviewEngagementSchema,
+        riskAssessment: RiskAssessmentSummarySchema,
+      })
+      .strict(),
+  })
+  .strict();
