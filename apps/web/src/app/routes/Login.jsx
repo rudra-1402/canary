@@ -36,8 +36,8 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Canary</h1>
         <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
 
@@ -67,7 +67,12 @@ export default function Login() {
 
           {error && <ErrorNotice message={error} />}
 
-          <Button type="submit" disabled={submitting} className="w-full">
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="w-full"
+            style={{ borderRadius: '9999px' }}
+          >
             {submitting ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>

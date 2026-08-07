@@ -46,8 +46,8 @@ export default function SignUp() {
 
   if (pendingVerification) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
-        <div className="w-full max-w-sm text-center">
+      <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Check your email
           </h1>
@@ -72,8 +72,8 @@ export default function SignUp() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Create your account
         </h1>
@@ -109,7 +109,12 @@ export default function SignUp() {
 
           {error && <ErrorNotice message={error} />}
 
-          <Button type="submit" disabled={submitting} className="w-full">
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="w-full"
+            style={{ borderRadius: '9999px' }}
+          >
             {submitting ? 'Creating account…' : 'Create account'}
           </Button>
         </form>

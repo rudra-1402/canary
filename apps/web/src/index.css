@@ -81,6 +81,31 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
 }
+
+/*
+ * Chromatic Proof brand tokens — scoped, not global. Product pages stay on the
+ * neutral palette above until Gate BRAND's product-page pass; only public/auth
+ * surfaces (Login, SignUp) opt in via this class. Five anchors from the build
+ * contract (canary-chromatic-proof-build-contract.md §4): Cobalt/Vermilion/
+ * Canary/Ink/Mineral. Light-first: Mineral canvas, Ink text/controls. Exact
+ * WCAG-verified token values and the full signature-interaction set are
+ * deliberately deferred — see 05-build/gate-brand-full-plan-archived-2026-08-08.md.
+ */
+.theme-chromatic-public {
+  --color-background: #e9e7e1; /* Mineral */
+  --color-foreground: #0b0f14; /* Ink */
+  --color-card: #ffffff;
+  --color-card-foreground: #0b0f14;
+  --color-primary: #1e5bff; /* Cobalt */
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #dedad0;
+  --color-secondary-foreground: #0b0f14;
+  --color-muted: #dedad0;
+  --color-muted-foreground: #55595e;
+  --color-border: #d3cfc3;
+  --color-input: #d3cfc3;
+  --color-ring: #1e5bff;
+}
 /*
  ---break---
  */
