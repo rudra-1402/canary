@@ -12,8 +12,11 @@ export default function SignUp() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   // Anti-enumeration: the server returns the same 201 whether the email is new or already
@@ -25,12 +28,21 @@ export default function SignUp() {
     return <Navigate to="/onboarding" replace />;
   }
 
+  const passwordsMatch = confirmPassword === '' || password === confirmPassword;
+
   async function handleSubmit(event) {
     event.preventDefault();
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      const authenticated = await register(email, password);
+      const authenticated = await register(email, password, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      });
       if (authenticated) {
         navigate(location.state?.from?.pathname || '/onboarding', { replace: true });
       } else {
@@ -71,9 +83,10 @@ export default function SignUp() {
   }
 
   return (
-    <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+    <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6 py-12">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-sm">
+        <p className="text-xs font-semibold tracking-widest text-primary uppercase">Canary</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
           Create your account
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -81,6 +94,33 @@ export default function SignUp() {
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="firstName">First name</Label>
+              <Input
+                id="firstName"
+                type="text"
+                autoComplete="given-name"
+                required
+                maxLength={80}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lastName">Last name</Label>
+              <Input
+                id="lastName"
+                type="text"
+                autoComplete="family-name"
+                required
+                maxLength={80}
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -92,25 +132,43 @@ export default function SignUp() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                aria-invalid={!passwordsMatch}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
           </div>
+          <p className={`text-xs ${passwordsMatch ? 'text-muted-foreground' : 'text-destructive'}`}>
+            {passwordsMatch ? 'At least 8 characters.' : 'Passwords do not match.'}
+          </p>
 
           {error && <ErrorNotice message={error} />}
 
           <Button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !passwordsMatch}
             className="w-full"
             style={{ borderRadius: '9999px' }}
           >

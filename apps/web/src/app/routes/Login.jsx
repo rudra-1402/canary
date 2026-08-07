@@ -35,9 +35,10 @@ export default function Login() {
   }
 
   return (
-    <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Canary</h1>
+    <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6 py-12">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-sm">
+        <p className="text-xs font-semibold tracking-widest text-primary uppercase">Canary</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Welcome back</h1>
         <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>

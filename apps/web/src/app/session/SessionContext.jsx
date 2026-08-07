@@ -48,8 +48,8 @@ export function SessionProvider({ children }) {
   // Anti-enumeration: the server always answers 201, whether the email was new or already
   // registered — it only starts a session (and this resolves true) for a genuinely new one.
   const register = useCallback(
-    async (email, password) => {
-      await registerRequest(email, password);
+    async (email, password, nameFields) => {
+      await registerRequest(email, password, nameFields);
       return refresh();
     },
     [refresh],

@@ -61,8 +61,11 @@ describe('SignUp', () => {
 
     renderSignUp();
     const user = userEvent.setup();
+    await user.type(screen.getByLabelText('First name'), 'Ada');
+    await user.type(screen.getByLabelText('Last name'), 'Lovelace');
     await user.type(screen.getByLabelText('Email'), 'new@example.com');
     await user.type(screen.getByLabelText('Password'), 'a-strong-password');
+    await user.type(screen.getByLabelText('Confirm password'), 'a-strong-password');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     await waitFor(() => expect(screen.queryByText('Check your email')).not.toBeInTheDocument());
@@ -79,8 +82,11 @@ describe('SignUp', () => {
 
     renderSignUp();
     const user = userEvent.setup();
+    await user.type(screen.getByLabelText('First name'), 'Ada');
+    await user.type(screen.getByLabelText('Last name'), 'Lovelace');
     await user.type(screen.getByLabelText('Email'), 'existing@example.com');
     await user.type(screen.getByLabelText('Password'), 'a-strong-password');
+    await user.type(screen.getByLabelText('Confirm password'), 'a-strong-password');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(await screen.findByText('Check your email')).toBeInTheDocument();

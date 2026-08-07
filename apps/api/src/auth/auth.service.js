@@ -4,12 +4,18 @@ import { hashPassword, verifyPassword, DUMMY_HASH } from '../lib/password.js';
 
 // Register a local account. Returns null (no duplicate) if the email exists, so the caller
 // can respond generically — no user enumeration.
-export async function registerLocal(email, password) {
+export async function registerLocal(email, password, { firstName, lastName } = {}) {
   const normalized = email.toLowerCase().trim();
   const existing = await Identity.findOne({ email: normalized });
   if (existing) return null;
   const passwordHash = await hashPassword(password);
-  return Identity.create({ email: normalized, passwordHash, emailVerified: false });
+  return Identity.create({
+    email: normalized,
+    passwordHash,
+    emailVerified: false,
+    ...(firstName ? { firstName } : {}),
+    ...(lastName ? { lastName } : {}),
+  });
 }
 
 // Verify local credentials; null on any failure. Always runs one bcrypt compare (dummy hash

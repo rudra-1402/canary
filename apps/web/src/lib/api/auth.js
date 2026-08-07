@@ -6,8 +6,16 @@ export async function login(email, password) {
   return result;
 }
 
-export async function register(email, password) {
-  const result = await apiRequest('/auth/register', { method: 'POST', body: { email, password } });
+export async function register(email, password, { firstName, lastName } = {}) {
+  const result = await apiRequest('/auth/register', {
+    method: 'POST',
+    body: {
+      email,
+      password,
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
+    },
+  });
   resetCsrfToken();
   return result;
 }
