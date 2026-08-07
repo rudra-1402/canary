@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { listMyEngagements } from '../../lib/api/engagements.js';
 import { getProfile } from '../../lib/api/profiles.js';
 import { submitOutcomeReview } from '../../lib/api/outcomeReviews.js';
@@ -155,11 +156,14 @@ export default function RecordOutcome() {
       const payload = buildPayload(state.engagement.id, role, form);
       const result = await submitOutcomeReview(payload);
       setState((prev) => ({ ...prev, submitted: result }));
+      toast.success('Outcome and review recorded.');
     } catch (err) {
       if (err.message === ALREADY_SUBMITTED_MESSAGE) {
         setState((prev) => ({ ...prev, alreadySubmitted: true }));
       } else {
-        setSubmitError(err.message || 'Failed to submit outcome and review');
+        const message = err.message || 'Failed to submit outcome and review';
+        setSubmitError(message);
+        toast.error(message);
       }
     } finally {
       setSubmitting(false);
@@ -229,7 +233,7 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8 rounded-md border-2 border-foreground bg-card p-6">
+        <div className="mt-6 rounded-md border-2 border-foreground bg-card p-6">
           <p className="text-sm font-medium text-foreground">
             Both sides have submitted. This engagement is concluded, and reviews are now visible.
           </p>
@@ -243,7 +247,7 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8">
+        <div className="mt-6">
           <EmptyState
             title="Not yet active"
             description="Outcomes and reviews can only be recorded for an active engagement."
@@ -257,7 +261,7 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8 rounded-md border border-border bg-card p-6">
+        <div className="mt-6 rounded-md border border-border bg-card p-6">
           <p className="text-sm font-medium text-foreground">
             You&apos;ve already submitted an outcome and review for this engagement.
           </p>
@@ -275,7 +279,7 @@ export default function RecordOutcome() {
       return (
         <div>
           {header}
-          <div className="mt-8 rounded-md border-2 border-foreground bg-card p-6">
+          <div className="mt-6 rounded-md border-2 border-foreground bg-card p-6">
             <p className="text-sm font-medium text-foreground">
               Both sides have submitted. This engagement is concluded, and reviews are now visible.
             </p>
@@ -287,7 +291,7 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8 rounded-md border border-border bg-card p-6">
+        <div className="mt-6 rounded-md border border-border bg-card p-6">
           <p className="text-sm font-medium text-foreground">
             Your side is recorded. Waiting on {counterparty} to submit their outcome and review.
           </p>

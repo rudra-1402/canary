@@ -1,18 +1,91 @@
 import PropTypes from 'prop-types';
 import { useEffect, useRef, useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Search, Briefcase, Handshake, Users, FolderKanban } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import { useSession } from './session/SessionContext.jsx';
 
-const railLinkClass = ({ isActive }) =>
-  `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-    isActive
-      ? 'bg-background text-foreground'
-      : 'text-muted-foreground hover:bg-background hover:text-foreground'
-  }`;
+const navLinkClass = ({ isActive }) =>
+  `text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`;
 
 const menuLinkClass = ({ isActive }) =>
   `block px-4 py-2 text-sm ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`;
+
+// Same click-toggle + outside-click-close + Escape pattern as ProfileMenu below —
+// kept local rather than extracted since each menu's trigger/content differ.
+function useDismissableMenu() {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function handlePointerDown(event) {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+    }
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  return { open, setOpen, rootRef };
+}
+
+function NavGroupDropdown({ label, items, active }) {
+  const { open, setOpen, rootRef } = useDismissableMenu();
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={`flex items-center gap-1 text-sm font-medium ${
+          active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        {label}
+        <ChevronDown className="size-3.5" aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 z-10 mt-2 w-48 rounded-md border border-border bg-card py-1 shadow-md"
+        >
+          {items.map((item) => (
+            <NavLink
+              key={item.to}
+              role="menuitem"
+              to={item.to}
+              end={item.end}
+              className={menuLinkClass}
+              onClick={() => setOpen(false)}
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+NavGroupDropdown.propTypes = {
+  label: PropTypes.string.isRequired,
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      to: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      end: PropTypes.bool,
+    }),
+  ).isRequired,
+  active: PropTypes.bool.isRequired,
+};
 
 function ProfileMenu({ identity, logout }) {
   const [open, setOpen] = useState(false);
@@ -111,56 +184,47 @@ ProfileMenu.defaultProps = {
   identity: null,
 };
 
+const WORK_GROUP_ITEMS = [
+  { to: '/', label: 'Find Work', end: true },
+  { to: '/work', label: 'My Work' },
+  { to: '/engagements', label: 'Engagements' },
+];
+
+const HIRING_GROUP_ITEMS = [
+  { to: '/talent', label: 'Find Talent' },
+  { to: '/job-posts', label: 'Manage Jobs' },
+];
+
 export default function AppShell({ children }) {
   const { identity, logout } = useSession();
+  const location = useLocation();
   const isClient = identity?.activeProfile?.role === 'client';
 
-  return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
-        <div className="p-4">
-          <span className="text-lg font-semibold tracking-tight text-foreground">Canary</span>
-        </div>
-        <nav className="flex-1 space-y-1 px-2">
-          <NavLink to="/dashboard" className={railLinkClass}>
-            <LayoutDashboard className="size-4" aria-hidden="true" />
-            Dashboard
-          </NavLink>
-          <NavLink to="/" className={railLinkClass} end>
-            <Search className="size-4" aria-hidden="true" />
-            Find Work
-          </NavLink>
-          <NavLink to="/work" className={railLinkClass}>
-            <Briefcase className="size-4" aria-hidden="true" />
-            My Work
-          </NavLink>
-          <NavLink to="/engagements" className={railLinkClass}>
-            <Handshake className="size-4" aria-hidden="true" />
-            Engagements
-          </NavLink>
-          {isClient && (
-            <>
-              <NavLink to="/talent" className={railLinkClass}>
-                <Users className="size-4" aria-hidden="true" />
-                Find Talent
-              </NavLink>
-              <NavLink to="/job-posts" className={railLinkClass}>
-                <FolderKanban className="size-4" aria-hidden="true" />
-                Manage Jobs
-              </NavLink>
-            </>
-          )}
-        </nav>
-      </aside>
+  const workActive = WORK_GROUP_ITEMS.some((item) =>
+    item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
+  );
+  const hiringActive = HIRING_GROUP_ITEMS.some((item) => location.pathname.startsWith(item.to));
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b border-border bg-card">
-          <div className="flex items-center justify-end px-6 py-4">
-            <ProfileMenu identity={identity} logout={logout} />
+  return (
+    <div className="min-h-screen">
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-8">
+            <span className="text-lg font-semibold tracking-tight text-foreground">Canary</span>
+            <nav className="flex items-center gap-6">
+              <NavLink to="/dashboard" className={navLinkClass}>
+                Dashboard
+              </NavLink>
+              <NavGroupDropdown label="Work" items={WORK_GROUP_ITEMS} active={workActive} />
+              {isClient && (
+                <NavGroupDropdown label="Hiring" items={HIRING_GROUP_ITEMS} active={hiringActive} />
+              )}
+            </nav>
           </div>
-        </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
-      </div>
+          <ProfileMenu identity={identity} logout={logout} />
+        </div>
+      </header>
+      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
     </div>
   );
 }

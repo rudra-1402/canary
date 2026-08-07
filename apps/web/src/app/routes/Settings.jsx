@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useSession } from '../session/SessionContext.jsx';
 import { listProfiles, switchProfile } from '../../lib/api/auth.js';
 import { getProfile, updateProfile } from '../../lib/api/profiles.js';
@@ -49,8 +50,11 @@ export default function Settings() {
     try {
       await switchProfile(profileId);
       await refresh();
+      toast.success('Switched active Profile.');
     } catch (err) {
-      setError(err.message || 'Could not switch Profile');
+      const message = err.message || 'Could not switch Profile';
+      setError(message);
+      toast.error(message);
     } finally {
       setSwitching(false);
     }
@@ -82,8 +86,10 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-lg space-y-10">
-      <section>
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight text-foreground">Settings</h1>
+
+      <section className="mt-6">
         <h2 className="text-lg font-semibold text-foreground">Your profiles</h2>
         <ul className="mt-3 space-y-2">
           {profiles.map((item) => (
@@ -109,11 +115,11 @@ export default function Settings() {
         </ul>
       </section>
 
-      <section>
+      <section className="mt-10">
         <h2 className="text-lg font-semibold text-foreground">Edit Profile</h2>
         {error && <ErrorNotice message={error} />}
         {profile && (
-          <div className="mt-3">
+          <div className="mt-3 max-w-lg">
             <ProfileFieldsForm
               role={activeProfile.role}
               initialValues={profile}
@@ -123,7 +129,7 @@ export default function Settings() {
         )}
       </section>
 
-      <section>
+      <section className="mt-10">
         <h2 className="text-lg font-semibold text-foreground">Account</h2>
         <div className="mt-3 flex items-center gap-4">
           <Link to="/onboarding" className="text-sm font-medium text-foreground underline">

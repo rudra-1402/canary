@@ -97,104 +97,104 @@ export default function EngagementDetail() {
         {isProspective && ' — terms shown are proposed, not yet agreed'}
       </p>
 
-      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-md border border-border bg-card p-4">
-          <p className="text-xs font-medium text-muted-foreground">Freelancer</p>
-          <p className="mt-1 font-medium text-foreground">
-            {engagement.parties.freelancer.displayName}
-          </p>
-          <div className="mt-2">
-            <TrustBadge entry={engagement.trustByParty.freelancer} />
+      <div className="mt-6 space-y-6">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="rounded-md border border-border bg-card p-4">
+            <p className="text-xs font-medium text-muted-foreground">Freelancer</p>
+            <p className="mt-1 font-medium text-foreground">
+              {engagement.parties.freelancer.displayName}
+            </p>
+            <div className="mt-2">
+              <TrustBadge entry={engagement.trustByParty.freelancer} />
+            </div>
           </div>
-        </div>
-        <div className="rounded-md border border-border bg-card p-4">
-          <p className="text-xs font-medium text-muted-foreground">Client</p>
-          <p className="mt-1 font-medium text-foreground">
-            {engagement.parties.client.displayName}
-          </p>
-          <div className="mt-2">
-            <TrustBadge entry={engagement.trustByParty.client} />
+          <div className="rounded-md border border-border bg-card p-4">
+            <p className="text-xs font-medium text-muted-foreground">Client</p>
+            <p className="mt-1 font-medium text-foreground">
+              {engagement.parties.client.displayName}
+            </p>
+            <div className="mt-2">
+              <TrustBadge entry={engagement.trustByParty.client} />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="mt-6 rounded-md border border-border bg-card p-4">
-        <h2 className="text-sm font-medium text-foreground">
-          {isProspective ? 'Proposed terms' : 'Agreed terms'}
-        </h2>
-        <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-          <div>
-            <dt className="text-muted-foreground">Price</dt>
-            <dd className="text-foreground">{budgetFormatter.format(terms.price)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Payment terms</dt>
-            <dd className="text-foreground">{terms.paymentTerms}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Timeline</dt>
-            <dd className="text-foreground">{terms.timeline}</dd>
-          </div>
-          {terms.dueAt && (
+        <section className="rounded-md border border-border bg-card p-4">
+          <h2 className="text-sm font-medium text-foreground">
+            {isProspective ? 'Proposed terms' : 'Agreed terms'}
+          </h2>
+          <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
             <div>
-              <dt className="text-muted-foreground">Due</dt>
-              <dd className="text-foreground">{dateFormatter.format(new Date(terms.dueAt))}</dd>
+              <dt className="text-muted-foreground">Price</dt>
+              <dd className="text-foreground">{budgetFormatter.format(terms.price)}</dd>
             </div>
+            <div>
+              <dt className="text-muted-foreground">Payment terms</dt>
+              <dd className="text-foreground">{terms.paymentTerms}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Timeline</dt>
+              <dd className="text-foreground">{terms.timeline}</dd>
+            </div>
+            {terms.dueAt && (
+              <div>
+                <dt className="text-muted-foreground">Due</dt>
+                <dd className="text-foreground">{dateFormatter.format(new Date(terms.dueAt))}</dd>
+              </div>
+            )}
+          </dl>
+        </section>
+
+        <section className="rounded-md border-2 border-foreground bg-card p-4">
+          <h2 className="text-sm font-medium text-foreground">RiskAssessment</h2>
+          {engagement.riskAssessment ? (
+            <>
+              <div className="mt-2 flex items-center gap-3">
+                <span className="text-2xl font-semibold text-foreground">
+                  {engagement.riskAssessment.score}
+                </span>
+                <Badge
+                  className={`px-3 py-1 text-sm ${RISK_LEVEL_STYLE[engagement.riskAssessment.level]}`}
+                >
+                  {engagement.riskAssessment.verdict}
+                </Badge>
+                {engagement.riskAssessment.status === 'stale' && (
+                  <span className="text-xs font-medium text-destructive">stale</span>
+                )}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {engagement.riskAssessment.explanation}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                This supports the decision to accept — it does not decide automatically.
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">No RiskAssessment generated yet.</p>
           )}
-        </dl>
-      </section>
+        </section>
 
-      <section className="mt-6 rounded-md border-2 border-foreground bg-card p-4">
-        <h2 className="text-sm font-medium text-foreground">RiskAssessment</h2>
-        {engagement.riskAssessment ? (
-          <>
-            <div className="mt-2 flex items-center gap-3">
-              <span className="text-2xl font-semibold text-foreground">
-                {engagement.riskAssessment.score}
-              </span>
-              <Badge
-                className={`px-3 py-1 text-sm ${RISK_LEVEL_STYLE[engagement.riskAssessment.level]}`}
-              >
-                {engagement.riskAssessment.verdict}
-              </Badge>
-              {engagement.riskAssessment.status === 'stale' && (
-                <span className="text-xs font-medium text-destructive">stale</span>
-              )}
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {engagement.riskAssessment.explanation}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              This supports the decision to accept — it does not decide automatically.
-            </p>
-          </>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">No RiskAssessment generated yet.</p>
-        )}
-      </section>
+        <section>
+          <h2 className="text-sm font-medium text-foreground">Timeline</h2>
+          <ul className="mt-2 space-y-1 text-sm">
+            {engagement.timeline.map((event) => (
+              <li key={event.event} className="text-muted-foreground">
+                {TIMELINE_LABEL[event.event] ?? event.event} —{' '}
+                {dateFormatter.format(new Date(event.at))}
+              </li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="mt-6">
-        <h2 className="text-sm font-medium text-foreground">Timeline</h2>
-        <ul className="mt-2 space-y-1 text-sm">
-          {engagement.timeline.map((event) => (
-            <li key={event.event} className="text-muted-foreground">
-              {TIMELINE_LABEL[event.event] ?? event.event} —{' '}
-              {dateFormatter.format(new Date(event.at))}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {canRecordOutcome && (
-        <div className="mt-6">
+        {canRecordOutcome && (
           <Link
             to={`/engagements/${engagement.id}/review`}
             className="inline-flex items-center rounded-md border border-foreground bg-foreground px-4 py-2 text-sm font-medium text-card hover:bg-secondary-foreground"
           >
             Record outcome{myRole ? ` as ${myRole}` : ''}
           </Link>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
