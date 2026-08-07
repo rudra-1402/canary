@@ -1,10 +1,15 @@
 import PropTypes from 'prop-types';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Search, Briefcase, Handshake, Users, FolderKanban } from 'lucide-react';
 import { useSession } from './session/SessionContext.jsx';
 
-const navLinkClass = ({ isActive }) =>
-  `text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`;
+const railLinkClass = ({ isActive }) =>
+  `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+    isActive
+      ? 'bg-background text-foreground'
+      : 'text-muted-foreground hover:bg-background hover:text-foreground'
+  }`;
 
 const menuLinkClass = ({ isActive }) =>
   `block px-4 py-2 text-sm ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`;
@@ -108,42 +113,54 @@ ProfileMenu.defaultProps = {
 
 export default function AppShell({ children }) {
   const { identity, logout } = useSession();
+  const isClient = identity?.activeProfile?.role === 'client';
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-8">
-            <span className="text-lg font-semibold tracking-tight text-foreground">Canary</span>
-            <nav className="flex items-center gap-6">
-              <NavLink to="/dashboard" className={navLinkClass}>
-                Dashboard
-              </NavLink>
-              <NavLink to="/" className={navLinkClass} end>
-                Find Work
-              </NavLink>
-              <NavLink to="/work" className={navLinkClass}>
-                My Work
-              </NavLink>
-              <NavLink to="/engagements" className={navLinkClass}>
-                Engagements
-              </NavLink>
-              {identity?.activeProfile?.role === 'client' && (
-                <>
-                  <NavLink to="/talent" className={navLinkClass}>
-                    Find Talent
-                  </NavLink>
-                  <NavLink to="/job-posts" className={navLinkClass}>
-                    Manage Jobs
-                  </NavLink>
-                </>
-              )}
-            </nav>
-          </div>
-          <ProfileMenu identity={identity} logout={logout} />
+    <div className="flex min-h-screen">
+      <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
+        <div className="p-4">
+          <span className="text-lg font-semibold tracking-tight text-foreground">Canary</span>
         </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
+        <nav className="flex-1 space-y-1 px-2">
+          <NavLink to="/dashboard" className={railLinkClass}>
+            <LayoutDashboard className="size-4" aria-hidden="true" />
+            Dashboard
+          </NavLink>
+          <NavLink to="/" className={railLinkClass} end>
+            <Search className="size-4" aria-hidden="true" />
+            Find Work
+          </NavLink>
+          <NavLink to="/work" className={railLinkClass}>
+            <Briefcase className="size-4" aria-hidden="true" />
+            My Work
+          </NavLink>
+          <NavLink to="/engagements" className={railLinkClass}>
+            <Handshake className="size-4" aria-hidden="true" />
+            Engagements
+          </NavLink>
+          {isClient && (
+            <>
+              <NavLink to="/talent" className={railLinkClass}>
+                <Users className="size-4" aria-hidden="true" />
+                Find Talent
+              </NavLink>
+              <NavLink to="/job-posts" className={railLinkClass}>
+                <FolderKanban className="size-4" aria-hidden="true" />
+                Manage Jobs
+              </NavLink>
+            </>
+          )}
+        </nav>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="border-b border-border bg-card">
+          <div className="flex items-center justify-end px-6 py-4">
+            <ProfileMenu identity={identity} logout={logout} />
+          </div>
+        </header>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
+      </div>
     </div>
   );
 }

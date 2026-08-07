@@ -126,27 +126,55 @@ export default function Dashboard() {
         {state.trust && <TrustBadge entry={state.trust} clientName="My TrustScore" />}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {state.stats.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </div>
+      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-2">
+          {state.stats.map((stat) => (
+            <StatCard key={stat.label} {...stat} />
+          ))}
+        </div>
 
-      <div className="mt-6 flex gap-4 text-sm">
-        {activeProfile?.role === 'client' ? (
-          <>
-            <Link to="/job-posts/new" className="font-medium text-primary underline">
-              Create a JobPost
-            </Link>
-            <Link to="/talent" className="font-medium text-primary underline">
-              Find talent
-            </Link>
-          </>
-        ) : (
-          <Link to="/" className="font-medium text-primary underline">
-            Find work
-          </Link>
-        )}
+        <section className="rounded-md border border-border bg-card p-5">
+          <h2 className="text-sm font-medium text-foreground">Quick actions</h2>
+          <div className="mt-3 flex flex-col gap-2 text-sm">
+            {activeProfile?.role === 'client' ? (
+              <>
+                <Link
+                  to="/job-posts/new"
+                  className="rounded-md border border-border px-3 py-2 font-medium text-foreground hover:bg-background"
+                >
+                  Create a JobPost
+                </Link>
+                <Link
+                  to="/talent"
+                  className="rounded-md border border-border px-3 py-2 font-medium text-foreground hover:bg-background"
+                >
+                  Find talent
+                </Link>
+                <Link
+                  to="/job-posts"
+                  className="rounded-md border border-border px-3 py-2 font-medium text-foreground hover:bg-background"
+                >
+                  Review Proposals
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/"
+                  className="rounded-md border border-border px-3 py-2 font-medium text-foreground hover:bg-background"
+                >
+                  Find work
+                </Link>
+                <Link
+                  to="/work"
+                  className="rounded-md border border-border px-3 py-2 font-medium text-foreground hover:bg-background"
+                >
+                  Track my Proposals
+                </Link>
+              </>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { SessionProvider } from './session/SessionContext.jsx';
 import RequireAuth from './RequireAuth.jsx';
 import AppShell from './AppShell.jsx';
@@ -22,6 +23,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <SessionProvider>
+        <Toaster richColors position="top-right" />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />

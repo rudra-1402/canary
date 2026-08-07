@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { getJobPostById, requestRiskPreview } from '../../lib/api/jobPosts.js';
 import { getProfile, listProfileReviews } from '../../lib/api/profiles.js';
 import { getTrustScore } from '../../lib/api/trustScores.js';
@@ -177,6 +178,7 @@ function ProposalForm({ jobPostId, screeningQuestions }) {
           : {}),
       });
       setStatus('success');
+      toast.success('Proposal submitted.');
     } catch (err) {
       setStatus('error');
       setError(err.message || 'Failed to submit proposal');
@@ -402,163 +404,175 @@ export default function JobDetail() {
         {` · ${job.proposalCount ?? 0} proposal${job.proposalCount === 1 ? '' : 's'}`}
       </p>
 
-      <section className="mt-6 rounded-md border border-border bg-card p-6">
-        <p className="text-sm whitespace-pre-wrap text-foreground">{job.description}</p>
-        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-          <div>
-            <dt className="text-muted-foreground">Type</dt>
-            <dd className="text-foreground">{job.jobType}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Budget/rate</dt>
-            <dd className="text-foreground">{budgetLabel(job)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Experience level</dt>
-            <dd className="text-foreground">{job.experienceLevel}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Project length</dt>
-            <dd className="text-foreground">{job.projectLength}</dd>
-          </div>
-        </dl>
-        {job.skills.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {job.skills.map((skill) => (
-              <Badge key={skill} variant="secondary">
-                {skill}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="mt-8">
-        <h2 className="text-lg font-medium text-foreground">Posted by</h2>
-        {clientError && (
-          <div className="mt-2">
-            <ErrorNotice message={clientError} onRetry={load} />
-          </div>
-        )}
-        {!clientError && client && (
-          <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-border bg-card p-4 text-sm sm:grid-cols-4">
-            <div>
-              <dt className="text-muted-foreground">Client</dt>
-              <dd className="text-foreground">{client.displayName}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Verification</dt>
-              <dd className="text-foreground">
-                {client.verificationStatus === 'id-verified' ? 'ID verified' : 'Not verified'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Member since</dt>
-              <dd className="text-foreground">
-                {client.createdAt ? dateFormatter.format(new Date(client.createdAt)) : 'Unknown'}
-              </dd>
-            </div>
-            {client.industry && (
+      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Main column: what the job actually is and who's behind it. */}
+        <div className="space-y-8 lg:col-span-2">
+          <section className="rounded-md border border-border bg-card p-6">
+            <p className="text-sm whitespace-pre-wrap text-foreground">{job.description}</p>
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
               <div>
-                <dt className="text-muted-foreground">Industry</dt>
-                <dd className="text-foreground">{client.industry}</dd>
+                <dt className="text-muted-foreground">Type</dt>
+                <dd className="text-foreground">{job.jobType}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Budget/rate</dt>
+                <dd className="text-foreground">{budgetLabel(job)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Experience level</dt>
+                <dd className="text-foreground">{job.experienceLevel}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Project length</dt>
+                <dd className="text-foreground">{job.projectLength}</dd>
+              </div>
+            </dl>
+            {job.skills.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {job.skills.map((skill) => (
+                  <Badge key={skill} variant="secondary">
+                    {skill}
+                  </Badge>
+                ))}
               </div>
             )}
-            {client.typicalBudget != null && (
-              <div>
-                <dt className="text-muted-foreground">Typical budget</dt>
-                <dd className="text-foreground">{budgetFormatter.format(client.typicalBudget)}</dd>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-medium text-foreground">Posted by</h2>
+            {clientError && (
+              <div className="mt-2">
+                <ErrorNotice message={clientError} onRetry={load} />
               </div>
             )}
-          </dl>
-        )}
-      </section>
+            {!clientError && client && (
+              <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-border bg-card p-4 text-sm sm:grid-cols-4">
+                <div>
+                  <dt className="text-muted-foreground">Client</dt>
+                  <dd className="text-foreground">{client.displayName}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Verification</dt>
+                  <dd className="text-foreground">
+                    {client.verificationStatus === 'id-verified' ? 'ID verified' : 'Not verified'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Member since</dt>
+                  <dd className="text-foreground">
+                    {client.createdAt
+                      ? dateFormatter.format(new Date(client.createdAt))
+                      : 'Unknown'}
+                  </dd>
+                </div>
+                {client.industry && (
+                  <div>
+                    <dt className="text-muted-foreground">Industry</dt>
+                    <dd className="text-foreground">{client.industry}</dd>
+                  </div>
+                )}
+                {client.typicalBudget != null && (
+                  <div>
+                    <dt className="text-muted-foreground">Typical budget</dt>
+                    <dd className="text-foreground">
+                      {budgetFormatter.format(client.typicalBudget)}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            )}
+          </section>
 
-      <section className="mt-8 rounded-md border-2 border-foreground bg-card p-6">
-        <h2 className="text-lg font-medium text-foreground">Client trust score</h2>
-        {trustScoreError && <ErrorNotice message={trustScoreError} onRetry={load} />}
-        {!trustScoreError && trustScore && hasScore && (
-          <>
-            <div className="mt-3 flex items-center gap-4">
-              <span className="text-3xl font-semibold text-foreground">
-                {Math.round(trustScore.score)}
-              </span>
-              <Badge className={`px-3 py-1 text-sm ${BAND_STYLE[trustScore.band]}`}>
-                {BAND_LABEL[trustScore.band]}
-              </Badge>
-            </div>
-            {(trustScore.signals ?? []).length > 0 && (
-              <ul className="mt-4 space-y-2">
-                {trustScore.signals.map((signal) => (
-                  <li
-                    key={signal.name}
-                    className="flex items-center justify-between gap-4 border-t border-border pt-2 text-sm first:border-t-0 first:pt-0"
-                  >
-                    <span className="text-foreground">{signal.name}</span>
-                    <span
-                      className={
-                        signal.direction === 'favorable' ? 'text-band-high' : 'text-destructive'
-                      }
-                    >
-                      {signal.direction === 'favorable' ? 'Favorable' : 'Unfavorable'} ·{' '}
-                      {STRENGTH_LABEL[signal.strength]}
-                    </span>
+          <section>
+            <h2 className="text-lg font-medium text-foreground">Client reviews</h2>
+            {reviewsError && (
+              <div className="mt-2">
+                <ErrorNotice message={reviewsError} onRetry={load} />
+              </div>
+            )}
+            {!reviewsError && reviews.length === 0 && (
+              <div className="mt-2">
+                <EmptyState title="No reviews yet" />
+              </div>
+            )}
+            {!reviewsError && reviews.length > 0 && (
+              <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-card">
+                {reviews.map((review) => (
+                  <li key={review.id} className="px-4 py-3 text-sm">
+                    <p className="font-medium text-foreground">{review.rating} / 5</p>
+                    {review.text && <p className="mt-1 text-muted-foreground">{review.text}</p>}
                   </li>
                 ))}
               </ul>
             )}
-            <Link
-              to={`/trust/${job.clientProfileId}`}
-              className="mt-4 inline-block text-sm font-medium text-primary underline underline-offset-2"
-            >
-              View full trust score detail
-            </Link>
-          </>
-        )}
-        {!trustScoreError && trustScore && !hasScore && (
-          <p className="mt-3 text-sm text-muted-foreground">No score yet.</p>
-        )}
-      </section>
+          </section>
+        </div>
 
-      <section className="mt-8">
-        <h2 className="text-lg font-medium text-foreground">Client reviews</h2>
-        {reviewsError && (
-          <div className="mt-2">
-            <ErrorNotice message={reviewsError} onRetry={load} />
-          </div>
-        )}
-        {!reviewsError && reviews.length === 0 && (
-          <div className="mt-2">
-            <EmptyState title="No reviews yet" />
-          </div>
-        )}
-        {!reviewsError && reviews.length > 0 && (
-          <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-card">
-            {reviews.map((review) => (
-              <li key={review.id} className="px-4 py-3 text-sm">
-                <p className="font-medium text-foreground">{review.rating} / 5</p>
-                {review.text && <p className="mt-1 text-muted-foreground">{review.text}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        {/* Sidebar: everything that feeds the freelancer's decision to propose. */}
+        <div className="space-y-6 lg:sticky lg:top-8 lg:self-start">
+          <section className="rounded-md border-2 border-foreground bg-card p-6">
+            <h2 className="text-lg font-medium text-foreground">Client trust score</h2>
+            {trustScoreError && <ErrorNotice message={trustScoreError} onRetry={load} />}
+            {!trustScoreError && trustScore && hasScore && (
+              <>
+                <div className="mt-3 flex items-center gap-4">
+                  <span className="text-3xl font-semibold text-foreground">
+                    {Math.round(trustScore.score)}
+                  </span>
+                  <Badge className={`px-3 py-1 text-sm ${BAND_STYLE[trustScore.band]}`}>
+                    {BAND_LABEL[trustScore.band]}
+                  </Badge>
+                </div>
+                {(trustScore.signals ?? []).length > 0 && (
+                  <ul className="mt-4 space-y-2">
+                    {trustScore.signals.map((signal) => (
+                      <li
+                        key={signal.name}
+                        className="flex items-center justify-between gap-4 border-t border-border pt-2 text-sm first:border-t-0 first:pt-0"
+                      >
+                        <span className="text-foreground">{signal.name}</span>
+                        <span
+                          className={
+                            signal.direction === 'favorable' ? 'text-band-high' : 'text-destructive'
+                          }
+                        >
+                          {signal.direction === 'favorable' ? 'Favorable' : 'Unfavorable'} ·{' '}
+                          {STRENGTH_LABEL[signal.strength]}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link
+                  to={`/trust/${job.clientProfileId}`}
+                  className="mt-4 inline-block text-sm font-medium text-primary underline underline-offset-2"
+                >
+                  View full trust score detail
+                </Link>
+              </>
+            )}
+            {!trustScoreError && trustScore && !hasScore && (
+              <p className="mt-3 text-sm text-muted-foreground">No score yet.</p>
+            )}
+          </section>
 
-      <section className="mt-8">
-        <h2 className="text-lg font-medium text-foreground">Submit a proposal</h2>
-        {canPropose ? (
-          <div className="mt-3 max-w-md space-y-4">
-            <RiskPreview jobPostId={job.id} />
-            <ProposalForm jobPostId={job.id} screeningQuestions={job.screeningQuestions} />
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">
-            {job.status !== 'open'
-              ? 'This job post is not accepting proposals.'
-              : 'Only freelancers can submit proposals.'}
-          </p>
-        )}
-      </section>
+          <section className="rounded-md border border-border bg-card p-6">
+            <h2 className="text-lg font-medium text-foreground">Submit a proposal</h2>
+            {canPropose ? (
+              <div className="mt-3 space-y-4">
+                <RiskPreview jobPostId={job.id} />
+                <ProposalForm jobPostId={job.id} screeningQuestions={job.screeningQuestions} />
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {job.status !== 'open'
+                  ? 'This job post is not accepting proposals.'
+                  : 'Only freelancers can submit proposals.'}
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useSession } from '../session/SessionContext.jsx';
 import { listMyJobPosts } from '../../lib/api/jobPosts.js';
 import {
@@ -21,6 +22,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select.jsx';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../../components/ui/alert-dialog.jsx';
 
 const RISK_LEVEL_STYLE = {
   low: 'bg-band-high-soft text-band-high',
@@ -46,8 +58,11 @@ function RiskCell({ proposal, onChange }) {
     try {
       const { data } = await requestProposalRiskAssessment(proposal.id, { recompute });
       onChange(data.riskAssessment);
+      toast.success(recompute ? 'RiskAssessment recomputed.' : 'RiskAssessment generated.');
     } catch (err) {
-      setError(err.message || 'Could not generate a RiskAssessment');
+      const message = err.message || 'Could not generate a RiskAssessment';
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -113,7 +128,6 @@ const proposalShape = PropTypes.shape({
 
 function ProposalRow({ proposal, onUpdated }) {
   const [current, setCurrent] = useState(proposal);
-  const [confirmingAccept, setConfirmingAccept] = useState(false);
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionError, setDecisionError] = useState(null);
   const [reasonCode, setReasonCode] = useState('none');
@@ -125,9 +139,12 @@ function ProposalRow({ proposal, onUpdated }) {
     setDecisionError(null);
     try {
       await acceptProposal(current.id);
+      toast.success(`Accepted ${current.freelancer.displayName}'s Proposal.`);
       onUpdated();
     } catch (err) {
-      setDecisionError(err.message || 'Could not accept this Proposal');
+      const message = err.message || 'Could not accept this Proposal';
+      setDecisionError(message);
+      toast.error(message);
     } finally {
       setDecisionBusy(false);
     }
@@ -138,9 +155,12 @@ function ProposalRow({ proposal, onUpdated }) {
     setDecisionError(null);
     try {
       await declineProposal(current.id, reasonCode === 'none' ? undefined : reasonCode);
+      toast.success(`Declined ${current.freelancer.displayName}'s Proposal.`);
       onUpdated();
     } catch (err) {
-      setDecisionError(err.message || 'Could not decline this Proposal');
+      const message = err.message || 'Could not decline this Proposal';
+      setDecisionError(message);
+      toast.error(message);
     } finally {
       setDecisionBusy(false);
     }
@@ -180,20 +200,27 @@ function ProposalRow({ proposal, onUpdated }) {
               : 'Generate a RiskAssessment before accepting.'}
           </p>
         )}
-        {confirmingAccept ? (
-          <div className="flex items-center gap-2">
-            <Button type="button" disabled={decisionBusy} onClick={handleAccept}>
-              {decisionBusy ? 'Accepting…' : 'Confirm accept'}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button type="button" disabled={!canAccept || decisionBusy}>
+              {decisionBusy ? 'Accepting…' : 'Accept'}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setConfirmingAccept(false)}>
-              Cancel
-            </Button>
-          </div>
-        ) : (
-          <Button type="button" disabled={!canAccept} onClick={() => setConfirmingAccept(true)}>
-            Accept
-          </Button>
-        )}
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Accept this Proposal?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {current.freelancer.displayName} bid ${current.bid} ({current.payModel},{' '}
+                {current.proposedDurationDays} days). Accepting starts the Engagement and closes
+                this JobPost to further acceptance. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleAccept}>Confirm accept</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <div className="flex items-center gap-2">
           <Select value={reasonCode} onValueChange={setReasonCode}>
             <SelectTrigger className="h-auto py-1 text-xs">

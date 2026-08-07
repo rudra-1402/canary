@@ -4,7 +4,15 @@ import * as React from 'react';
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+
+// Deliberately not importing the shadcn `button` component here: this project's
+// Button lives at `components/ui/Button.jsx` (capital B, default export, 'primary'/
+// 'ghost' variants) and on a case-insensitive filesystem a generated lowercase
+// `button.jsx` would collide with it. Style the Radix primitives directly instead.
+const actionClass =
+  'inline-flex items-center justify-center gap-2 rounded-md border border-foreground bg-foreground px-4 py-2 text-sm font-medium text-card transition-colors hover:bg-secondary-foreground disabled:cursor-not-allowed disabled:opacity-60';
+const cancelClass =
+  'inline-flex items-center justify-center gap-2 rounded-md border border-border bg-transparent px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-60';
 
 function AlertDialog({ ...props }) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
@@ -110,27 +118,23 @@ function AlertDialogMedia({ className, ...props }) {
   );
 }
 
-function AlertDialogAction({ className, variant = 'default', size = 'default', ...props }) {
+function AlertDialogAction({ className, ...props }) {
   return (
-    <Button variant={variant} size={size} asChild>
-      <AlertDialogPrimitive.Action
-        data-slot="alert-dialog-action"
-        className={cn(className)}
-        {...props}
-      />
-    </Button>
+    <AlertDialogPrimitive.Action
+      data-slot="alert-dialog-action"
+      className={cn(actionClass, className)}
+      {...props}
+    />
   );
 }
 
-function AlertDialogCancel({ className, variant = 'outline', size = 'default', ...props }) {
+function AlertDialogCancel({ className, ...props }) {
   return (
-    <Button variant={variant} size={size} asChild>
-      <AlertDialogPrimitive.Cancel
-        data-slot="alert-dialog-cancel"
-        className={cn(className)}
-        {...props}
-      />
-    </Button>
+    <AlertDialogPrimitive.Cancel
+      data-slot="alert-dialog-cancel"
+      className={cn(cancelClass, className)}
+      {...props}
+    />
   );
 }
 
