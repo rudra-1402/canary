@@ -2,7 +2,7 @@
 // One CSRF token is fetched lazily and cached; the session cookie is what
 // actually authenticates, the CSRF token only proves same-origin intent.
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+export const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 export class ApiError extends Error {
   constructor(message, { status, code, details } = {}) {

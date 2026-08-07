@@ -3,6 +3,9 @@ import { SessionProvider } from './session/SessionContext.jsx';
 import RequireAuth from './RequireAuth.jsx';
 import AppShell from './AppShell.jsx';
 import Login from './routes/Login.jsx';
+import SignUp from './routes/SignUp.jsx';
+import Onboarding from './routes/Onboarding.jsx';
+import Settings from './routes/Settings.jsx';
 import FindWork from './routes/FindWork.jsx';
 import JobDetail from './routes/JobDetail.jsx';
 import TrustScoreDetail from './routes/TrustScoreDetail.jsx';
@@ -15,6 +18,25 @@ export default function App() {
       <SessionProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route
+            path="/onboarding"
+            element={
+              <RequireAuth>
+                <Onboarding />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <Settings />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
           <Route
             path="/"
             element={

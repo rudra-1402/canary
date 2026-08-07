@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../session/SessionContext.jsx';
+import { resendVerification } from '../../lib/api/auth.js';
 import { BASE_URL } from '../../lib/apiClient.js';
 import Button from '../../components/ui/Button.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 
-export default function Login() {
-  const { status, login } = useSession();
+export default function SignUp() {
+  const { status, register } = useSession();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -14,9 +15,13 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Anti-enumeration: the server returns the same 201 whether the email is new or already
+  // registered, and only logs a new Identity in. If the session is still anonymous after
+  // register(), we cannot say which case happened — so the message stays generic.
+  const [pendingVerification, setPendingVerification] = useState(false);
 
   if (status === 'authenticated') {
-    return <Navigate to={location.state?.from?.pathname || '/'} replace />;
+    return <Navigate to="/onboarding" replace />;
   }
 
   async function handleSubmit(event) {
@@ -24,20 +29,55 @@ export default function Login() {
     setSubmitting(true);
     setError(null);
     try {
-      await login(email, password);
-      navigate(location.state?.from?.pathname || '/', { replace: true });
+      const authenticated = await register(email, password);
+      if (authenticated) {
+        navigate(location.state?.from?.pathname || '/onboarding', { replace: true });
+      } else {
+        setPendingVerification(true);
+      }
     } catch (err) {
-      setError(err.message || 'Login failed');
+      setError(err.message || 'Sign up failed');
     } finally {
       setSubmitting(false);
     }
   }
 
+  if (pendingVerification) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="w-full max-w-sm text-center">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Check your email
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            If <strong>{email}</strong> is a new address, we sent a verification link. If you
+            already have an account, sign in instead.
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-4 w-full"
+            onClick={() => resendVerification(email)}
+          >
+            Resend verification email
+          </Button>
+          <Link to="/login" className="mt-4 block text-sm font-medium text-foreground underline">
+            Go to sign in
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Canary</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Create your account
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          You will choose Freelancer or Client next.
+        </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
           <div>
@@ -61,22 +101,23 @@ export default function Login() {
             <input
               id="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               required
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 block w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-ring focus:outline-none"
             />
+            <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>
           </div>
 
           {error && <ErrorNotice message={error} />}
 
           <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? 'Signing in…' : 'Sign in'}
+            {submitting ? 'Creating account…' : 'Create account'}
           </Button>
         </form>
 
-        {/* Full-page navigation, not a router Link — this leaves the SPA for Passport's redirect flow. */}
         <a
           href={`${BASE_URL}/auth/google`}
           className="mt-4 block w-full rounded-md border border-border bg-card px-4 py-2 text-center text-sm font-medium text-foreground hover:bg-background"
@@ -85,10 +126,10 @@ export default function Login() {
         </a>
 
         <Link
-          to="/signup"
+          to="/login"
           className="mt-6 block text-center text-sm text-muted-foreground underline"
         >
-          Need an account? Sign up
+          Already have an account? Sign in
         </Link>
       </div>
     </div>

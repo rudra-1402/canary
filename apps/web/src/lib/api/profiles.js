@@ -4,6 +4,10 @@ export function getProfile(id) {
   return apiRequest(`/profiles/${id}`);
 }
 
+export function updateProfile(id, patch) {
+  return apiRequest(`/profiles/${id}`, { method: 'PATCH', body: patch });
+}
+
 // query: { page, pageSize }
 export function listProfileReviews(id, query = {}) {
   const params = new URLSearchParams(

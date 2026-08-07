@@ -1,6 +1,11 @@
 import PropTypes from 'prop-types';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { getMe, login as loginRequest, logout as logoutRequest } from '../../lib/api/auth.js';
+import {
+  getMe,
+  login as loginRequest,
+  logout as logoutRequest,
+  register as registerRequest,
+} from '../../lib/api/auth.js';
 
 const SessionContext = createContext(null);
 
@@ -16,9 +21,11 @@ export function SessionProvider({ children }) {
       const me = await getMe();
       setIdentity(me);
       setStatus('authenticated');
+      return true;
     } catch {
       setIdentity(null);
       setStatus('anonymous');
+      return false;
     }
   }, []);
 
@@ -38,6 +45,16 @@ export function SessionProvider({ children }) {
     [refresh],
   );
 
+  // Anti-enumeration: the server always answers 201, whether the email was new or already
+  // registered — it only starts a session (and this resolves true) for a genuinely new one.
+  const register = useCallback(
+    async (email, password) => {
+      await registerRequest(email, password);
+      return refresh();
+    },
+    [refresh],
+  );
+
   const logout = useCallback(async () => {
     await logoutRequest();
     setIdentity(null);
@@ -45,7 +62,7 @@ export function SessionProvider({ children }) {
   }, []);
 
   return (
-    <SessionContext.Provider value={{ status, identity, login, logout }}>
+    <SessionContext.Provider value={{ status, identity, login, register, logout, refresh }}>
       {children}
     </SessionContext.Provider>
   );
