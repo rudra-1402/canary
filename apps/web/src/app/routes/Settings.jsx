@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useSession } from '../session/SessionContext.jsx';
-import { listProfiles, switchProfile } from '../../lib/api/auth.js';
+import { createProfile, listProfiles, switchProfile } from '../../lib/api/auth.js';
 import { getProfile, updateProfile } from '../../lib/api/profiles.js';
 import ProfileFieldsForm from '../../components/profile/ProfileFieldsForm.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import Button from '../../components/ui/Button.jsx';
+import { Input } from '../../components/ui/input.jsx';
+import { Label } from '../../components/ui/label.jsx';
+
+const OTHER_ROLE = { freelancer: 'client', client: 'freelancer' };
 
 export default function Settings() {
   const { identity, refresh, logout } = useSession();
+  const navigate = useNavigate();
   const activeProfile = identity?.activeProfile ?? null;
 
   const [profiles, setProfiles] = useState([]);
@@ -19,6 +24,8 @@ export default function Settings() {
   const [state, setState] = useState('loading'); // loading | ready | error
   const [error, setError] = useState(null);
   const [switching, setSwitching] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [creatingProfile, setCreatingProfile] = useState(false);
 
   const load = useCallback(async () => {
     if (!activeProfile) {
@@ -64,6 +71,24 @@ export default function Settings() {
     return updateProfile(activeProfile.id, patch);
   }
 
+  async function handleCreateOtherProfile(missingRole) {
+    setCreatingProfile(true);
+    setError(null);
+    try {
+      const created = await createProfile(missingRole, newProfileName.trim());
+      await switchProfile(created.id);
+      await refresh();
+      toast.success(`${missingRole === 'client' ? 'Client' : 'Freelancer'} Profile created.`);
+      navigate('/onboarding');
+    } catch (err) {
+      const message = err.message || 'Could not create Profile';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setCreatingProfile(false);
+    }
+  }
+
   if (state === 'loading') {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -84,6 +109,10 @@ export default function Settings() {
       />
     );
   }
+
+  const missingRole = profiles.some((p) => p.role === OTHER_ROLE[activeProfile.role])
+    ? null
+    : OTHER_ROLE[activeProfile.role];
 
   return (
     <div>
@@ -113,6 +142,35 @@ export default function Settings() {
             </li>
           ))}
         </ul>
+
+        {missingRole && (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleCreateOtherProfile(missingRole);
+            }}
+            className="mt-4 flex flex-wrap items-end gap-3 rounded-md border border-border bg-card p-4"
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="newProfileName">
+                {missingRole === 'client' ? 'Also become a Client' : 'Also become a Freelancer'}
+              </Label>
+              <Input
+                id="newProfileName"
+                type="text"
+                placeholder="Display name"
+                required
+                value={newProfileName}
+                onChange={(event) => setNewProfileName(event.target.value)}
+              />
+            </div>
+            <Button type="submit" variant="ghost" disabled={creatingProfile}>
+              {creatingProfile
+                ? 'Creating…'
+                : `Create ${missingRole === 'client' ? 'Client' : 'Freelancer'} Profile`}
+            </Button>
+          </form>
+        )}
       </section>
 
       <section className="mt-10">
