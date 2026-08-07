@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import JobDetail from '../../src/app/routes/JobDetail.jsx';
 import { resetCsrfToken } from '../../src/lib/apiClient.js';
@@ -112,8 +113,7 @@ describe('JobDetail', () => {
       `/trust/${CLIENT_ID}`,
     );
 
-    // Explicitly excluded per spec: no fabricated aggregate stats, no screening questions.
-    expect(screen.queryByText(/Have you done this before/)).not.toBeInTheDocument();
+    // Explicitly excluded per spec: no fabricated aggregate stats.
     expect(screen.queryByText(/hire rate/i)).not.toBeInTheDocument();
   });
 
@@ -133,6 +133,67 @@ describe('JobDetail', () => {
 
     await screen.findByRole('heading', { name: 'Radio broadcast assistant' });
     expect(screen.getByRole('button', { name: 'Submit proposal' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Have you done this before?')).toBeInTheDocument();
+  });
+
+  it('generates a risk preview on request and shows its verdict, confidence, and signals', async () => {
+    vi.spyOn(global, 'fetch').mockImplementation((url, init) => {
+      const href = url.toString();
+      if (href.endsWith('/auth/csrf-token')) return jsonResponse({ csrfToken: 'test-token' });
+      if (href.includes(`/jobposts/${JOB_ID}/risk-preview`)) {
+        return jsonResponse({
+          data: {
+            engagement: {
+              id: 'eng-1',
+              status: 'prospective',
+              freelancerProfileId: 'viewer-profile',
+              clientProfileId: CLIENT_ID,
+              jobPostId: JOB_ID,
+              createdAt: '2026-08-07T00:00:00.000Z',
+            },
+            riskAssessment: {
+              id: 'ra-1',
+              engagementId: 'eng-1',
+              status: 'current',
+              score: 22,
+              level: 'low',
+              verdict: 'proceed',
+              confidence: 0.72,
+              explanation: 'Structured terms and available Party standing support proceeding.',
+              signals: [
+                {
+                  code: 'CLEAR_SCOPE',
+                  severity: 'positive',
+                  label: 'Scope is specific',
+                  evidence: '...',
+                },
+              ],
+              generatedAt: '2026-08-07T00:00:00.000Z',
+              inputVersion: 'sha256:x',
+              modelVersion: 'risk-deterministic-v1',
+            },
+          },
+        });
+      }
+      if (href.includes(`/jobposts/${JOB_ID}`)) return jsonResponse(REAL_JOB);
+      if (href.includes(`/profiles/${CLIENT_ID}/reviews`)) {
+        return jsonResponse({ data: [], pagination: { page: 1, pageSize: 20, total: 0 } });
+      }
+      if (href.includes(`/profiles/${CLIENT_ID}`)) return jsonResponse(REAL_CLIENT);
+      if (href.includes(`/trust-scores/${CLIENT_ID}`)) return jsonResponse(REAL_TRUSTSCORE);
+      throw new Error(`Unhandled fetch: ${href} ${init?.method}`);
+    });
+
+    renderJobDetail();
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Radio broadcast assistant' });
+    await user.click(screen.getByRole('button', { name: 'Preview risk before proposing' }));
+
+    expect(await screen.findByText('proceed')).toBeInTheDocument();
+    expect(screen.getByText('22')).toBeInTheDocument();
+    expect(screen.getByText('confidence 72%')).toBeInTheDocument();
+    expect(screen.getByText('Scope is specific')).toBeInTheDocument();
   });
 
   it('hides the proposal form for a client viewer', async () => {
@@ -155,6 +216,9 @@ describe('JobDetail', () => {
     await screen.findByRole('heading', { name: 'Radio broadcast assistant' });
     expect(screen.queryByRole('button', { name: 'Submit proposal' })).not.toBeInTheDocument();
     expect(screen.getByText('Only freelancers can submit proposals.')).toBeInTheDocument();
+    // Screening questions are only ever shown as part of answering them in the Proposal
+    // form — a client viewer, who never sees that form, should not see them either.
+    expect(screen.queryByText(/Have you done this before/)).not.toBeInTheDocument();
   });
 
   it('shows an honest "no score yet" panel without fabricating a score', async () => {

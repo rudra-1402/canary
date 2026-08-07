@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link, useParams } from 'react-router-dom';
-import { getJobPostById } from '../../lib/api/jobPosts.js';
+import { getJobPostById, requestRiskPreview } from '../../lib/api/jobPosts.js';
 import { getProfile, listProfileReviews } from '../../lib/api/profiles.js';
 import { getTrustScore } from '../../lib/api/trustScores.js';
 import { createProposal } from '../../lib/api/proposals.js';
@@ -36,27 +36,136 @@ function budgetLabel(post) {
   return post.jobType === 'hourly' ? `${amount}/hr` : amount;
 }
 
-function ProposalForm({ jobPostId }) {
+const RISK_LEVEL_STYLE = {
+  low: 'bg-band-high-soft text-band-high',
+  med: 'bg-band-med-soft text-band-med',
+  high: 'bg-destructive-soft text-destructive',
+};
+
+// Pre-Proposal preview, per Gate 3: a separate use case from the post-Proposal Client
+// assessment. It scores the JobPost's own listed terms — a real Proposal has not been
+// submitted yet, so this can only ever be "if you proposed around these terms," not a
+// prediction of the freelancer's actual bid.
+function RiskPreview({ jobPostId }) {
+  const [state, setState] = useState({ status: 'idle' });
+
+  async function runPreview(recompute) {
+    setState({ status: 'loading' });
+    try {
+      const { data } = await requestRiskPreview(jobPostId, { recompute });
+      const { engagement, riskAssessment } = data;
+      setState({ status: 'ready', engagement, riskAssessment });
+    } catch (err) {
+      setState({ status: 'error', error: err.message || 'Could not generate a risk preview' });
+    }
+  }
+
+  if (state.status === 'idle') {
+    return (
+      <Button type="button" variant="ghost" onClick={() => runPreview(false)}>
+        Preview risk before proposing
+      </Button>
+    );
+  }
+
+  if (state.status === 'loading') {
+    return <Spinner label="Generating risk preview" />;
+  }
+
+  if (state.status === 'error') {
+    return <ErrorNotice message={state.error} onRetry={() => runPreview(false)} />;
+  }
+
+  const { riskAssessment } = state;
+  return (
+    <div className="rounded-md border border-border bg-card p-4">
+      <div className="flex items-center gap-3">
+        <span className="text-2xl font-semibold text-foreground">{riskAssessment.score}</span>
+        <span
+          className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${RISK_LEVEL_STYLE[riskAssessment.level]}`}
+        >
+          {riskAssessment.verdict}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          confidence {Math.round(riskAssessment.confidence * 100)}%
+        </span>
+        {riskAssessment.status === 'stale' && (
+          <span className="text-xs font-medium text-destructive">stale — terms changed</span>
+        )}
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">{riskAssessment.explanation}</p>
+      {riskAssessment.signals.length > 0 && (
+        <ul className="mt-3 space-y-1 text-sm">
+          {riskAssessment.signals.map((signal) => (
+            <li key={signal.code} className="text-foreground">
+              <span
+                className={signal.severity === 'positive' ? 'text-band-high' : 'text-destructive'}
+              >
+                {signal.severity === 'positive' ? '+' : '−'}
+              </span>{' '}
+              {signal.label}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-xs text-muted-foreground">
+        This supports your decision to propose; it does not decide for you.
+      </p>
+      {riskAssessment.status === 'stale' && (
+        <Button type="button" variant="ghost" className="mt-2" onClick={() => runPreview(true)}>
+          Recompute
+        </Button>
+      )}
+    </div>
+  );
+}
+
+RiskPreview.propTypes = {
+  jobPostId: PropTypes.string.isRequired,
+};
+
+function ProposalForm({ jobPostId, screeningQuestions }) {
   const [form, setForm] = useState({
     bid: '',
     payModel: 'project',
     proposedDurationDays: '',
     coverLetter: '',
   });
+  const [milestones, setMilestones] = useState([{ description: '', amount: '' }]);
+  const [screeningAnswers, setScreeningAnswers] = useState(screeningQuestions.map(() => ''));
   const [status, setStatus] = useState('idle'); // idle | submitting | success | error
   const [error, setError] = useState(null);
+
+  function setMilestone(index, field, value) {
+    setMilestones((prev) =>
+      prev.map((milestone, i) => (i === index ? { ...milestone, [field]: value } : milestone)),
+    );
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setStatus('submitting');
     setError(null);
     try {
+      const answeredQuestions = screeningAnswers.filter((answer) => answer.trim() !== '');
+      const filledMilestones = milestones.filter(
+        (milestone) => milestone.description.trim() !== '' && milestone.amount !== '',
+      );
       await createProposal({
         jobPostId,
         bid: Number(form.bid),
         payModel: form.payModel,
         proposedDurationDays: Number(form.proposedDurationDays),
         ...(form.coverLetter ? { coverLetter: form.coverLetter } : {}),
+        ...(answeredQuestions.length > 0 ? { screeningAnswers: answeredQuestions } : {}),
+        ...(form.payModel === 'milestone' && filledMilestones.length > 0
+          ? {
+              proposedMilestones: filledMilestones.map((m) => ({
+                description: m.description,
+                amount: Number(m.amount),
+              })),
+            }
+          : {}),
       });
       setStatus('success');
     } catch (err) {
@@ -99,6 +208,60 @@ function ProposalForm({ jobPostId }) {
           <option value="milestone">Milestone</option>
         </select>
       </div>
+      {form.payModel === 'milestone' && (
+        <div className="space-y-2">
+          <span className="block text-sm font-medium text-foreground">Milestones</span>
+          {milestones.map((milestone, index) => (
+            <div key={index} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Description"
+                value={milestone.description}
+                onChange={(event) => setMilestone(index, 'description', event.target.value)}
+                className="w-2/3 rounded-md border border-border px-3 py-2 text-sm"
+              />
+              <input
+                type="number"
+                min="1"
+                placeholder="Amount"
+                value={milestone.amount}
+                onChange={(event) => setMilestone(index, 'amount', event.target.value)}
+                className="w-1/3 rounded-md border border-border px-3 py-2 text-sm"
+              />
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setMilestones((prev) => [...prev, { description: '', amount: '' }])}
+          >
+            Add milestone
+          </Button>
+        </div>
+      )}
+      {screeningQuestions.length > 0 && (
+        <div className="space-y-3">
+          <span className="block text-sm font-medium text-foreground">Screening questions</span>
+          {screeningQuestions.map((question, index) => (
+            <div key={question}>
+              <label htmlFor={`screening-${index}`} className="block text-sm text-muted-foreground">
+                {question}
+              </label>
+              <textarea
+                id={`screening-${index}`}
+                value={screeningAnswers[index]}
+                onChange={(event) =>
+                  setScreeningAnswers((prev) =>
+                    prev.map((answer, i) => (i === index ? event.target.value : answer)),
+                  )
+                }
+                rows={2}
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+              />
+            </div>
+          ))}
+        </div>
+      )}
       <div>
         <label htmlFor="proposedDurationDays" className="block text-sm font-medium text-foreground">
           Estimated duration (days)
@@ -136,6 +299,11 @@ function ProposalForm({ jobPostId }) {
 
 ProposalForm.propTypes = {
   jobPostId: PropTypes.string.isRequired,
+  screeningQuestions: PropTypes.arrayOf(PropTypes.string),
+};
+
+ProposalForm.defaultProps = {
+  screeningQuestions: [],
 };
 
 export default function JobDetail() {
@@ -384,8 +552,9 @@ export default function JobDetail() {
       <section className="mt-8">
         <h2 className="text-lg font-medium text-foreground">Submit a proposal</h2>
         {canPropose ? (
-          <div className="mt-3 max-w-md">
-            <ProposalForm jobPostId={job.id} />
+          <div className="mt-3 max-w-md space-y-4">
+            <RiskPreview jobPostId={job.id} />
+            <ProposalForm jobPostId={job.id} screeningQuestions={job.screeningQuestions} />
           </div>
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">

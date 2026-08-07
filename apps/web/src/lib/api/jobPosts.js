@@ -12,3 +12,9 @@ export function listJobPosts(query = {}) {
 export function getJobPostById(id) {
   return apiRequest(`/jobposts/${id}`);
 }
+
+// Pre-Proposal RiskAssessment preview. Idempotent per (Freelancer, JobPost, input hash) on
+// the server; recompute:true forces a fresh score after JobPost terms or trust inputs change.
+export function requestRiskPreview(jobPostId, { recompute = false } = {}) {
+  return apiRequest(`/jobposts/${jobPostId}/risk-preview`, { method: 'POST', body: { recompute } });
+}
