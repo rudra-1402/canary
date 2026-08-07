@@ -122,6 +122,16 @@ export default function AppShell({ children }) {
               <NavLink to="/engagements" className={navLinkClass}>
                 Engagements
               </NavLink>
+              {identity?.activeProfile?.role === 'client' && (
+                <>
+                  <NavLink to="/talent" className={navLinkClass}>
+                    Find Talent
+                  </NavLink>
+                  <NavLink to="/job-posts" className={navLinkClass}>
+                    Manage Jobs
+                  </NavLink>
+                </>
+              )}
             </nav>
           </div>
           <ProfileMenu identity={identity} logout={logout} />

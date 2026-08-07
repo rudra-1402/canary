@@ -11,6 +11,8 @@ import JobDetail from './routes/JobDetail.jsx';
 import TrustScoreDetail from './routes/TrustScoreDetail.jsx';
 import Engagements from './routes/Engagements.jsx';
 import RecordOutcome from './routes/RecordOutcome.jsx';
+import Talent from './routes/Talent.jsx';
+import JobPostsOwner from './routes/JobPostsOwner.jsx';
 
 export default function App() {
   return (
@@ -83,6 +85,26 @@ export default function App() {
               <RequireAuth>
                 <AppShell>
                   <RecordOutcome />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/talent"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <Talent />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/job-posts"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <JobPostsOwner />
                 </AppShell>
               </RequireAuth>
             }

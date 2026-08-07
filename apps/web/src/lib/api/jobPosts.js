@@ -13,6 +13,15 @@ export function getJobPostById(id) {
   return apiRequest(`/jobposts/${id}`);
 }
 
+// Owner-only. query: { status, q, page, pageSize }
+export function listMyJobPosts(query = {}) {
+  const params = new URLSearchParams(
+    Object.entries(query).filter(([, value]) => value !== undefined && value !== ''),
+  );
+  const qs = params.toString();
+  return apiRequest(`/me/jobposts${qs ? `?${qs}` : ''}`);
+}
+
 // Pre-Proposal RiskAssessment preview. Idempotent per (Freelancer, JobPost, input hash) on
 // the server; recompute:true forces a fresh score after JobPost terms or trust inputs change.
 export function requestRiskPreview(jobPostId, { recompute = false } = {}) {
