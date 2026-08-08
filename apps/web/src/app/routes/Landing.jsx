@@ -101,7 +101,7 @@ function Hero() {
       <CornerMarks />
       <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-12">
         <div className="lg:col-span-6">
-          <h1 className="font-display-brand leading-1.05 text-4xl font-bold text-mineral sm:text-5xl lg:text-6xl">
+          <h1 className="font-display-brand text-4xl leading-tight font-bold text-mineral sm:text-5xl lg:text-6xl">
             Both sides earn the score.
             <br />
             Neither side can fake it.
