@@ -145,4 +145,58 @@ describe('My Work routes', () => {
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].counterpartyProfileId).toBe(freelancer.body.id);
   });
+
+  it('returns only the active Client Profile JobPosts with proposal counts', async () => {
+    const { agent, profileId } = await activeProfileAgent(app, 'client');
+    const otherClient = await profileForRole(app, 'client', 'Other Client');
+    const own = await JobPost.create({
+      ...jobPost(profileId),
+      title: 'Own [React] dashboard',
+      status: 'open',
+    });
+    await JobPost.create({ ...jobPost(profileId), title: 'Own draft', status: 'draft' });
+    await JobPost.create({ ...jobPost(otherClient.body.id), title: 'Not mine', status: 'open' });
+    const freelancerA = await profileForRole(app, 'freelancer', 'Freelancer A');
+    const freelancerB = await profileForRole(app, 'freelancer', 'Freelancer B');
+    await Proposal.create({
+      jobPostId: own._id,
+      freelancerProfileId: freelancerA.body.id,
+      bid: 1000,
+      payModel: 'project',
+      proposedDurationDays: 10,
+      status: 'submitted',
+    });
+    await Proposal.create({
+      jobPostId: own._id,
+      freelancerProfileId: freelancerB.body.id,
+      bid: 1200,
+      payModel: 'project',
+      proposedDurationDays: 12,
+      status: 'shortlisted',
+    });
+
+    const res = await agent.get('/api/me/jobposts?status=open&q=%5BReact%5D');
+
+    expect(res.status).toBe(200);
+    expect(res.body.pagination).toEqual({ page: 1, pageSize: 20, total: 1 });
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0]).toMatchObject({
+      id: own._id.toString(),
+      clientProfileId: profileId,
+      proposalCounts: {
+        submitted: 1,
+        shortlisted: 1,
+        accepted: 0,
+        declined: 0,
+        withdrawn: 0,
+        total: 2,
+      },
+    });
+  });
+
+  it('requires an active Client Profile for owned JobPosts', async () => {
+    expect((await request(app).get('/api/me/jobposts')).status).toBe(401);
+    const freelancer = await activeProfileAgent(app, 'freelancer');
+    expect((await freelancer.agent.get('/api/me/jobposts')).status).toBe(403);
+  });
 });

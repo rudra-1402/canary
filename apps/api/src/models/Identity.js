@@ -4,6 +4,8 @@ const { Schema, model } = mongoose;
 const identitySchema = new Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    firstName: { type: String, trim: true },
+    lastName: { type: String, trim: true },
     phone: { type: String },
     authProviderId: { type: String }, // Google `sub`; absent for local-only accounts
     passwordHash: { type: String }, // bcrypt; absent for social-only accounts

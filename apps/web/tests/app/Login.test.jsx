@@ -83,4 +83,22 @@ describe('Login', () => {
 
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   });
+
+  it('blocks submission with an empty password without calling the API', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      const href = url.toString();
+      if (href.endsWith('/auth/me')) return jsonResponse({}, 401);
+      if (href.endsWith('/auth/csrf-token')) return jsonResponse({ csrfToken: 'test-token' });
+      throw new Error(`Unhandled fetch: ${href}`);
+    });
+
+    renderLogin();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText('Email'), 'johnsonjoshua@example.org');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter your email and password.');
+    expect(fetchSpy.mock.calls.some(([url]) => url.toString().endsWith('/auth/login'))).toBe(false);
+  });
 });

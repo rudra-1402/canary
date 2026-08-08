@@ -6,3 +6,9 @@ import { apiRequest } from '../apiClient.js';
 export function listMyEngagements() {
   return apiRequest('/me/engagements');
 }
+
+// Parties only. Full detail: both parties, agreed/proposed terms, timeline, both
+// TrustScores, current RiskAssessment, outcome eligibility, allowed actions.
+export function getEngagement(id) {
+  return apiRequest(`/engagements/${id}`);
+}

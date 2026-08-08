@@ -81,4 +81,11 @@ describe('Proposal schema', () => {
     const err = doc.validateSync();
     expect(err.errors.status).toBeDefined();
   });
+
+  it('declares the Client inbox index alongside the unique submission index', () => {
+    expect(Proposal.schema.indexes()).toContainEqual([
+      { jobPostId: 1, status: 1, createdAt: -1 },
+      {},
+    ]);
+  });
 });

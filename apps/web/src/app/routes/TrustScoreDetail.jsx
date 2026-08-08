@@ -6,6 +6,7 @@ import { useSession } from '../session/SessionContext.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
+import { Badge } from '../../components/ui/badge.jsx';
 import { ApiError } from '../../lib/apiClient.js';
 
 const BAND_LABEL = { BAND_HIGH: 'High trust', BAND_MED: 'Med trust', BAND_LOW: 'Low trust' };
@@ -138,11 +139,9 @@ export default function TrustScoreDetail() {
             <span className="text-3xl font-semibold text-foreground">
               {Math.round(trustScore.score)}
             </span>
-            <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${BAND_STYLE[trustScore.band]}`}
-            >
+            <Badge className={`px-3 py-1 text-sm ${BAND_STYLE[trustScore.band]}`}>
               {BAND_LABEL[trustScore.band]}
-            </span>
+            </Badge>
             {trustScore.status === 'stale' && (
               <span className="text-xs text-muted-foreground">
                 {trustScore.outcomesSince} outcome(s) since this snapshot

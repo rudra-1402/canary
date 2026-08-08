@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import PropTypes from 'prop-types';
+import { Link, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { listMyEngagements } from '../../lib/api/engagements.js';
 import { getProfile } from '../../lib/api/profiles.js';
 import { submitOutcomeReview } from '../../lib/api/outcomeReviews.js';
@@ -8,6 +10,17 @@ import Spinner from '../../components/ui/Spinner.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import Button from '../../components/ui/Button.jsx';
+import { Input } from '../../components/ui/input.jsx';
+import { Label } from '../../components/ui/label.jsx';
+import { Textarea } from '../../components/ui/textarea.jsx';
+import { Checkbox } from '../../components/ui/checkbox.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select.jsx';
 
 const budgetFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -25,6 +38,36 @@ const TRISTATE_OPTIONS = [
   { value: 'yes', label: 'Yes' },
   { value: 'no', label: 'No' },
 ];
+
+// Honest causal sequence per Gate 5: recording an Outcome does not instantly change a
+// TrustScore — it stales the current evidence and queues a rescore for the next scoring
+// pass. No synchronous "rescore requested -> current" step exists in this API to report,
+// so this states the true sequence rather than implying an instant, unshown change.
+function CausalSequenceNote({ profileId }) {
+  return (
+    <p className="mt-2 text-xs text-muted-foreground">
+      Outcome recorded → the affected TrustScore evidence is now stale → it recomputes in the next
+      scoring pass, not instantly.
+      {profileId && (
+        <>
+          {' '}
+          <Link to={`/trust/${profileId}`} className="underline">
+            View current TrustScore
+          </Link>
+          .
+        </>
+      )}
+    </p>
+  );
+}
+
+CausalSequenceNote.propTypes = {
+  profileId: PropTypes.string,
+};
+
+CausalSequenceNote.defaultProps = {
+  profileId: null,
+};
 
 function initialForm() {
   return {
@@ -113,11 +156,14 @@ export default function RecordOutcome() {
       const payload = buildPayload(state.engagement.id, role, form);
       const result = await submitOutcomeReview(payload);
       setState((prev) => ({ ...prev, submitted: result }));
+      toast.success('Outcome and review recorded.');
     } catch (err) {
       if (err.message === ALREADY_SUBMITTED_MESSAGE) {
         setState((prev) => ({ ...prev, alreadySubmitted: true }));
       } else {
-        setSubmitError(err.message || 'Failed to submit outcome and review');
+        const message = err.message || 'Failed to submit outcome and review';
+        setSubmitError(message);
+        toast.error(message);
       }
     } finally {
       setSubmitting(false);
@@ -187,10 +233,11 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8 rounded-md border-2 border-foreground bg-card p-6">
+        <div className="mt-6 rounded-md border-2 border-foreground bg-card p-6">
           <p className="text-sm font-medium text-foreground">
             Both sides have submitted. This engagement is concluded, and reviews are now visible.
           </p>
+          <CausalSequenceNote profileId={engagement.counterpartyProfileId} />
         </div>
       </div>
     );
@@ -200,7 +247,7 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8">
+        <div className="mt-6">
           <EmptyState
             title="Not yet active"
             description="Outcomes and reviews can only be recorded for an active engagement."
@@ -214,7 +261,7 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8 rounded-md border border-border bg-card p-6">
+        <div className="mt-6 rounded-md border border-border bg-card p-6">
           <p className="text-sm font-medium text-foreground">
             You&apos;ve already submitted an outcome and review for this engagement.
           </p>
@@ -232,10 +279,11 @@ export default function RecordOutcome() {
       return (
         <div>
           {header}
-          <div className="mt-8 rounded-md border-2 border-foreground bg-card p-6">
+          <div className="mt-6 rounded-md border-2 border-foreground bg-card p-6">
             <p className="text-sm font-medium text-foreground">
               Both sides have submitted. This engagement is concluded, and reviews are now visible.
             </p>
+            <CausalSequenceNote profileId={engagement.counterpartyProfileId} />
           </div>
         </div>
       );
@@ -243,7 +291,7 @@ export default function RecordOutcome() {
     return (
       <div>
         {header}
-        <div className="mt-8 rounded-md border border-border bg-card p-6">
+        <div className="mt-6 rounded-md border border-border bg-card p-6">
           <p className="text-sm font-medium text-foreground">
             Your side is recorded. Waiting on {counterparty} to submit their outcome and review.
           </p>
@@ -269,139 +317,126 @@ export default function RecordOutcome() {
       </div>
 
       <form onSubmit={handleSubmit} className="mt-6 max-w-md space-y-4">
-        <div>
-          <label htmlFor="endedAs" className="block text-sm font-medium text-foreground">
-            How did this engagement end?
-          </label>
-          <select
-            id="endedAs"
+        <div className="space-y-1.5">
+          <Label htmlFor="endedAs">How did this engagement end?</Label>
+          <Select
             value={form.endedAs}
-            onChange={(event) => setForm({ ...form, endedAs: event.target.value })}
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+            onValueChange={(value) => setForm({ ...form, endedAs: value })}
           >
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="ghosted">Ghosted</option>
-          </select>
+            <SelectTrigger id="endedAs" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="ghosted">Ghosted</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
+        <Label htmlFor="ghosted" className="font-normal">
+          <Checkbox
             id="ghosted"
-            type="checkbox"
             checked={form.ghosted}
-            onChange={(event) => setForm({ ...form, ghosted: event.target.checked })}
-            className="size-4 rounded border-border accent-current"
+            onCheckedChange={(checked) => setForm({ ...form, ghosted: checked === true })}
           />
-          <label htmlFor="ghosted" className="text-sm text-foreground">
-            The other party stopped responding (ghosted)
-          </label>
-        </div>
+          The other party stopped responding (ghosted)
+        </Label>
 
         {!form.ghosted && role === 'client' && (
-          <div>
-            <label htmlFor="daysLate" className="block text-sm font-medium text-foreground">
+          <div className="space-y-1.5">
+            <Label htmlFor="daysLate">
               Days late for the other party (leave blank if delivered on time)
-            </label>
-            <input
+            </Label>
+            <Input
               id="daysLate"
               type="number"
               min="0"
               step="1"
               value={form.daysLate}
               onChange={(event) => setForm({ ...form, daysLate: event.target.value })}
-              className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
             />
           </div>
         )}
 
         {!form.ghosted && role === 'freelancer' && (
           <>
-            <div>
-              <label htmlFor="paidInFull" className="block text-sm font-medium text-foreground">
-                Paid in full by the other party?
-              </label>
-              <select
-                id="paidInFull"
+            <div className="space-y-1.5">
+              <Label htmlFor="paidInFull">Paid in full by the other party?</Label>
+              <Select
                 value={form.paidInFull}
-                onChange={(event) => setForm({ ...form, paidInFull: event.target.value })}
-                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+                onValueChange={(value) => setForm({ ...form, paidInFull: value })}
               >
-                {TRISTATE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="paidInFull" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRISTATE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div>
-              <label
-                htmlFor="revisionsRequested"
-                className="block text-sm font-medium text-foreground"
-              >
-                Revisions requested by the other party
-              </label>
-              <input
+            <div className="space-y-1.5">
+              <Label htmlFor="revisionsRequested">Revisions requested by the other party</Label>
+              <Input
                 id="revisionsRequested"
                 type="number"
                 min="0"
                 step="1"
                 value={form.revisionsRequested}
                 onChange={(event) => setForm({ ...form, revisionsRequested: event.target.value })}
-                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
               />
             </div>
-            <div>
-              <label
-                htmlFor="scopeCreepOccurred"
-                className="block text-sm font-medium text-foreground"
-              >
-                Scope creep caused by the other party?
-              </label>
-              <select
-                id="scopeCreepOccurred"
+            <div className="space-y-1.5">
+              <Label htmlFor="scopeCreepOccurred">Scope creep caused by the other party?</Label>
+              <Select
                 value={form.scopeCreepOccurred}
-                onChange={(event) => setForm({ ...form, scopeCreepOccurred: event.target.value })}
-                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+                onValueChange={(value) => setForm({ ...form, scopeCreepOccurred: value })}
               >
-                {TRISTATE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="scopeCreepOccurred" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRISTATE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </>
         )}
 
-        <div>
-          <label htmlFor="rating" className="block text-sm font-medium text-foreground">
-            Rating
-          </label>
-          <select
-            id="rating"
+        <div className="space-y-1.5">
+          <Label htmlFor="rating">Rating</Label>
+          <Select
             value={form.rating}
-            onChange={(event) => setForm({ ...form, rating: event.target.value })}
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
+            onValueChange={(value) => setForm({ ...form, rating: value })}
           >
-            {[5, 4, 3, 2, 1].map((n) => (
-              <option key={n} value={n}>
-                {n} / 5
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="rating" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[5, 4, 3, 2, 1].map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n} / 5
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div>
-          <label htmlFor="reviewText" className="block text-sm font-medium text-foreground">
-            Review (optional)
-          </label>
-          <textarea
+        <div className="space-y-1.5">
+          <Label htmlFor="reviewText">Review (optional)</Label>
+          <Textarea
             id="reviewText"
             value={form.reviewText}
             onChange={(event) => setForm({ ...form, reviewText: event.target.value })}
             rows={4}
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm"
           />
         </div>
 

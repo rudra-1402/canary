@@ -5,6 +5,11 @@ export {
   JobPostIdParamSchema,
   JobPostSchema,
   JobPostListResponseSchema,
+  CreateJobPostRequestSchema,
+  UpdateJobPostRequestSchema,
+  MyJobPostListQuerySchema,
+  MyJobPostSchema,
+  MyJobPostListResponseSchema,
 } from './contracts/jobPost.js';
 export { RegisterRequestSchema, LoginRequestSchema, MeResponseSchema } from './contracts/auth.js';
 export {
@@ -13,7 +18,17 @@ export {
   ResetPasswordRequestSchema,
 } from './contracts/auth.js';
 export { CreateProfileRequestSchema, SwitchProfileRequestSchema } from './contracts/auth.js';
-export { ProfileIdParamSchema, PublicProfileSchema } from './contracts/profile.js';
+export {
+  ProfileIdParamSchema,
+  PublicProfileSchema,
+  FreelancerProfilePatchSchema,
+  ClientProfilePatchSchema,
+  OwnerProfileSchema,
+  ProfileUpdateResponseSchema,
+  FreelancerGalleryQuerySchema,
+  FreelancerGalleryItemSchema,
+  FreelancerGalleryResponseSchema,
+} from './contracts/profile.js';
 export {
   TrustScoreIdParamSchema,
   TrustScoreBatchQuerySchema,
@@ -27,6 +42,10 @@ export {
   EngagementSchema,
   MyEngagementSchema,
   MyEngagementsResponseSchema,
+  EngagementCommandSchema,
+  EngagementDetailSchema,
+  EngagementDetailResponseSchema,
+  RiskAssessmentCommandResponseSchema,
 } from './contracts/engagement.js';
 export {
   ProposalSchema,
@@ -34,7 +53,28 @@ export {
   CreateProposalResponseSchema,
   MyProposalSchema,
   MyProposalsResponseSchema,
+  JobPostProposalListQuerySchema,
+  JobPostProposalSchema,
+  JobPostProposalListResponseSchema,
+  AcceptProposalRequestSchema,
+  DeclineProposalRequestSchema,
+  AcceptedProposalCommandSummarySchema,
+  DeclinedProposalCommandSummarySchema,
+  ProposalDecisionResponseSchema,
+  ProposalDeclineResponseSchema,
 } from './contracts/proposal.js';
+export {
+  RiskAssessmentSignalSchema,
+  RiskAssessmentSummarySchema,
+  RequestRiskAssessmentSchema,
+  ProposalRiskAssessmentParamSchema,
+  EngagementRiskAssessmentParamSchema,
+  RiskAssessmentResponseSchema,
+  JobPostRiskPreviewParamSchema,
+  RequestRiskPreviewSchema,
+  RiskPreviewEngagementSchema,
+  RiskPreviewResponseSchema,
+} from './contracts/riskAssessment.js';
 export {
   OutcomeSchema,
   CreateOutcomeReviewRequestSchema,

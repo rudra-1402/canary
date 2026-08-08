@@ -37,8 +37,8 @@ async function bestEffortSend(promise) {
 
 // eslint-disable-next-line no-unused-vars
 export async function register(req, res, next) {
-  const { email, password } = RegisterRequestSchema.parse(req.body);
-  const identity = await registerLocal(email, password);
+  const { email, password, firstName, lastName } = RegisterRequestSchema.parse(req.body);
+  const identity = await registerLocal(email, password, { firstName, lastName });
   // Anti-enumeration: same 201 whether or not the email already existed. If it did,
   // registerLocal returned null and we simply do not create a session.
   if (identity) {

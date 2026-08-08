@@ -212,12 +212,13 @@ export async function createOutcomeReview(input, activeProfileId) {
     hasBothPartyRows(outcomes, 'subjectProfileId', engagement) &&
     hasBothPartyRows(reviews, 'authorProfileId', engagement);
   if (complete) {
+    const concludedAt = new Date();
     const transition = await Engagement.updateOne(
       { _id: engagement._id, status: 'active' },
-      { $set: { status: 'concluded' } },
+      { $set: { status: 'concluded', concludedAt } },
     );
     if (transition.modifiedCount === 1) {
-      const visibleAt = new Date();
+      const visibleAt = concludedAt;
       await Review.updateMany(
         {
           engagementId: engagement._id,

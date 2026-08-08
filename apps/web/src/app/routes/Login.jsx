@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../session/SessionContext.jsx';
-import Button from '../../components/ui/Button.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
+import { Input } from '../../components/ui/input.jsx';
+import { Label } from '../../components/ui/label.jsx';
+import AuthSplit from '../../components/landing/AuthSplit.jsx';
+import RegistrationPressButton from '../../components/landing/RegistrationPressButton.jsx';
 
 export default function Login() {
   const { status, login } = useSession();
@@ -20,6 +23,14 @@ export default function Login() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    // The form has `noValidate` (below), so the native required attributes never
+    // fire — this is the only real check that these aren't empty before we hit
+    // the API (backend still enforces its own rules; this just avoids a round
+    // trip for an obviously incomplete form).
+    if (!email.trim() || !password) {
+      setError('Enter your email and password.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -33,48 +44,44 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Canary</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
+    <AuthSplit>
+      <h1 className="font-display-brand mt-8 text-2xl font-bold text-foreground">Welcome back</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-ring focus:outline-none"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-ring focus:outline-none"
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-          {error && <ErrorNotice message={error} />}
+        {error && <ErrorNotice message={error} />}
 
-          <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
-      </div>
-    </div>
+        <RegistrationPressButton type="submit" disabled={submitting} className="w-full">
+          {submitting ? 'Signing in…' : 'Sign in'}
+        </RegistrationPressButton>
+      </form>
+
+      <Link to="/signup" className="mt-6 block text-center text-sm text-muted-foreground underline">
+        Need an account? Sign up
+      </Link>
+    </AuthSplit>
   );
 }

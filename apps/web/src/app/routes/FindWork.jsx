@@ -6,6 +6,9 @@ import Spinner from '../../components/ui/Spinner.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import TrustBadge from '../../components/ui/TrustBadge.jsx';
+import { Badge } from '../../components/ui/badge.jsx';
+import { Checkbox } from '../../components/ui/checkbox.jsx';
+import { Label } from '../../components/ui/label.jsx';
 
 const budgetFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -70,15 +73,14 @@ export default function FindWork() {
     <div>
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">Find Work</h1>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
+        <Label htmlFor="trackRecordOnly" className="text-sm font-normal text-muted-foreground">
+          <Checkbox
+            id="trackRecordOnly"
             checked={trackRecordOnly}
-            onChange={(event) => setTrackRecordOnly(event.target.checked)}
-            className="size-4 rounded border-border accent-current"
+            onCheckedChange={(checked) => setTrackRecordOnly(checked === true)}
           />
           Clients with a track record
-        </label>
+        </Label>
       </div>
 
       {state.status === 'loading' && (
@@ -122,16 +124,13 @@ export default function FindWork() {
                         ` · ${post.proposalCount} proposal${post.proposalCount === 1 ? '' : 's'}`}
                     </p>
                     {post.skills.length > 0 && (
-                      <ul className="mt-2 flex flex-wrap gap-1.5">
+                      <div className="mt-2 flex flex-wrap gap-1.5">
                         {post.skills.map((skill) => (
-                          <li
-                            key={skill}
-                            className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground"
-                          >
+                          <Badge key={skill} variant="secondary">
                             {skill}
-                          </li>
+                          </Badge>
                         ))}
-                      </ul>
+                      </div>
                     )}
                   </div>
                   <TrustBadge

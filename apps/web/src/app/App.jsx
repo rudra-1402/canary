@@ -1,30 +1,51 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { SessionProvider } from './session/SessionContext.jsx';
 import RequireAuth from './RequireAuth.jsx';
 import AppShell from './AppShell.jsx';
+import RootRoute from './RootRoute.jsx';
 import Login from './routes/Login.jsx';
-import FindWork from './routes/FindWork.jsx';
+import SignUp from './routes/SignUp.jsx';
+import Onboarding from './routes/Onboarding.jsx';
+import Settings from './routes/Settings.jsx';
 import JobDetail from './routes/JobDetail.jsx';
 import TrustScoreDetail from './routes/TrustScoreDetail.jsx';
 import Engagements from './routes/Engagements.jsx';
+import EngagementDetail from './routes/EngagementDetail.jsx';
 import RecordOutcome from './routes/RecordOutcome.jsx';
+import Talent from './routes/Talent.jsx';
+import JobPostsOwner from './routes/JobPostsOwner.jsx';
+import JobPostNew from './routes/JobPostNew.jsx';
+import Work from './routes/Work.jsx';
+import Dashboard from './routes/Dashboard.jsx';
 
 export default function App() {
   return (
     <BrowserRouter>
       <SessionProvider>
+        <Toaster richColors position="top-right" />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
           <Route
-            path="/"
+            path="/onboarding"
+            element={
+              <RequireAuth>
+                <Onboarding />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings"
             element={
               <RequireAuth>
                 <AppShell>
-                  <FindWork />
+                  <Settings />
                 </AppShell>
               </RequireAuth>
             }
           />
+          <Route path="/" element={<RootRoute />} />
           <Route
             path="/jobs/:id"
             element={
@@ -56,11 +77,71 @@ export default function App() {
             }
           />
           <Route
+            path="/engagements/:id"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <EngagementDetail />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/engagements/:id/review"
             element={
               <RequireAuth>
                 <AppShell>
                   <RecordOutcome />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/talent"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <Talent />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/job-posts"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <JobPostsOwner />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/job-posts/new"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <JobPostNew />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/work"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <Work />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <Dashboard />
                 </AppShell>
               </RequireAuth>
             }
