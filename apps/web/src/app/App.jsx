@@ -3,11 +3,11 @@ import { Toaster } from 'sonner';
 import { SessionProvider } from './session/SessionContext.jsx';
 import RequireAuth from './RequireAuth.jsx';
 import AppShell from './AppShell.jsx';
+import RootRoute from './RootRoute.jsx';
 import Login from './routes/Login.jsx';
 import SignUp from './routes/SignUp.jsx';
 import Onboarding from './routes/Onboarding.jsx';
 import Settings from './routes/Settings.jsx';
-import FindWork from './routes/FindWork.jsx';
 import JobDetail from './routes/JobDetail.jsx';
 import TrustScoreDetail from './routes/TrustScoreDetail.jsx';
 import Engagements from './routes/Engagements.jsx';
@@ -45,16 +45,7 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route
-            path="/"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <FindWork />
-                </AppShell>
-              </RequireAuth>
-            }
-          />
+          <Route path="/" element={<RootRoute />} />
           <Route
             path="/jobs/:id"
             element={

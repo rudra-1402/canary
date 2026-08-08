@@ -39,3 +39,31 @@ if (typeof Element.prototype.hasPointerCapture === 'undefined') {
 if (typeof Element.prototype.scrollIntoView === 'undefined') {
   Element.prototype.scrollIntoView = () => {};
 }
+
+// jsdom has no matchMedia; anything reading prefers-reduced-motion/prefers-color-scheme needs one.
+if (typeof window.matchMedia === 'undefined') {
+  window.matchMedia = (query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  });
+}
+
+// jsdom ships no canvas 2D rendering backend (would need the native `canvas`
+// package); stub getContext with a no-op surface so components that draw on
+// mount don't crash under test — pixel output is out of scope here.
+const NOOP_2D_CONTEXT = new Proxy(
+  {},
+  {
+    get: (target, prop) => (prop in target ? target[prop] : () => {}),
+    set: () => true,
+  },
+);
+HTMLCanvasElement.prototype.getContext = function getContext(type) {
+  return type === '2d' ? NOOP_2D_CONTEXT : null;
+};

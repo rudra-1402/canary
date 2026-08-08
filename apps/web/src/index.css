@@ -74,6 +74,17 @@
 
   /* Corner radius — registry components read this */
   --radius: 0.5rem;
+
+  /* Raw Chromatic Proof anchors (contract §4) — registered globally so
+     bg-ink/text-mineral/etc exist as real Tailwind utilities. Global
+     registration is just utility generation, not application: nothing
+     outside .theme-chromatic-public scopes actually uses them yet. Never
+     map these permanently to party/status meaning. */
+  --color-cobalt: #1e5bff;
+  --color-vermilion: #ff4a24;
+  --color-canary-yellow: #ffd100;
+  --color-ink: #0b0f14;
+  --color-mineral: #e9e7e1;
 }
 
 body {
@@ -105,6 +116,49 @@ body {
   --color-border: #d3cfc3;
   --color-input: #d3cfc3;
   --color-ring: #1e5bff;
+}
+
+/*
+ * Martian Grotesk / Martian Mono — Evil Martians, OFL-1.1, self-hosted.
+ * Only static Regular/Bold instances are on hand (no variable width axis),
+ * so the contract's "SemiExpanded/Expanded" display character is approximated
+ * with letter-spacing on display type rather than fabricated with a width
+ * axis that doesn't exist in these files — see public/fonts/*/OFL.txt.
+ */
+@font-face {
+  font-family: 'Martian Grotesk';
+  src: url('/fonts/martian-grotesk/MartianGrotesk-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Martian Grotesk';
+  src: url('/fonts/martian-grotesk/MartianGrotesk-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Martian Mono';
+  src: url('/fonts/martian-mono/MartianMono-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Martian Mono';
+  src: url('/fonts/martian-mono/MartianMono-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+.font-display-brand {
+  font-family: 'Martian Grotesk', ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+.font-mono-brand {
+  font-family: 'Martian Mono', ui-monospace, 'SF Mono', monospace;
 }
 /*
  ---break---

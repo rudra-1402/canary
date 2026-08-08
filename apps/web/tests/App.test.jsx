@@ -16,14 +16,30 @@ describe('App', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     resetCsrfToken();
+    window.history.pushState({}, '', '/');
   });
 
-  it('redirects an unauthenticated visitor to /login', async () => {
+  it('shows the public Landing page to an unauthenticated visitor at /', async () => {
     vi.spyOn(global, 'fetch').mockImplementation((url) => {
       const href = url.toString();
       if (href.endsWith('/auth/me')) return jsonResponse({ error: 'UnauthorizedError' }, 401);
       throw new Error(`Unhandled fetch: ${href}`);
     });
+
+    render(<App />);
+
+    expect(
+      await screen.findByText('Both sides earn the score.', { exact: false }),
+    ).toBeInTheDocument();
+  });
+
+  it('redirects an unauthenticated visitor away from a protected route to /login', async () => {
+    vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      const href = url.toString();
+      if (href.endsWith('/auth/me')) return jsonResponse({ error: 'UnauthorizedError' }, 401);
+      throw new Error(`Unhandled fetch: ${href}`);
+    });
+    window.history.pushState({}, '', '/dashboard');
 
     render(<App />);
 
