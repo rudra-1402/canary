@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../session/SessionContext.jsx';
-import Button from '../../components/ui/Button.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import { Input } from '../../components/ui/input.jsx';
 import { Label } from '../../components/ui/label.jsx';
+import AuthSplit from '../../components/landing/AuthSplit.jsx';
+import RegistrationPressButton from '../../components/landing/RegistrationPressButton.jsx';
 
 export default function Login() {
   const { status, login } = useSession();
@@ -35,55 +36,44 @@ export default function Login() {
   }
 
   return (
-    <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6 py-12">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-sm">
-        <p className="text-xs font-semibold tracking-widest text-primary uppercase">Canary</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Welcome back</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
+    <AuthSplit>
+      <h1 className="font-display-brand mt-8 text-2xl font-bold text-foreground">Welcome back</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-          {error && <ErrorNotice message={error} />}
+        {error && <ErrorNotice message={error} />}
 
-          <Button
-            type="submit"
-            disabled={submitting}
-            className="w-full"
-            style={{ borderRadius: '9999px' }}
-          >
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
+        <RegistrationPressButton type="submit" disabled={submitting} className="w-full">
+          {submitting ? 'Signing in…' : 'Sign in'}
+        </RegistrationPressButton>
+      </form>
 
-        <Link
-          to="/signup"
-          className="mt-6 block text-center text-sm text-muted-foreground underline"
-        >
-          Need an account? Sign up
-        </Link>
-      </div>
-    </div>
+      <Link to="/signup" className="mt-6 block text-center text-sm text-muted-foreground underline">
+        Need an account? Sign up
+      </Link>
+    </AuthSplit>
   );
 }

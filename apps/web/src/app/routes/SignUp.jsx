@@ -6,6 +6,8 @@ import Button from '../../components/ui/Button.jsx';
 import ErrorNotice from '../../components/ui/ErrorNotice.jsx';
 import { Input } from '../../components/ui/input.jsx';
 import { Label } from '../../components/ui/label.jsx';
+import AuthSplit from '../../components/landing/AuthSplit.jsx';
+import RegistrationPressButton from '../../components/landing/RegistrationPressButton.jsx';
 
 export default function SignUp() {
   const { status, register } = useSession();
@@ -57,132 +59,123 @@ export default function SignUp() {
 
   if (pendingVerification) {
     return (
-      <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6">
-        <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Check your email
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            If <strong>{email}</strong> is a new address, we sent a verification link. If you
-            already have an account, sign in instead.
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            className="mt-4 w-full"
-            onClick={() => resendVerification(email)}
-          >
-            Resend verification email
-          </Button>
-          <Link to="/login" className="mt-4 block text-sm font-medium text-foreground underline">
-            Go to sign in
-          </Link>
-        </div>
-      </div>
+      <AuthSplit>
+        <h1 className="font-display-brand mt-8 text-2xl font-bold text-foreground">
+          Check your email
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          If <strong>{email}</strong> is a new address, we sent a verification link. If you already
+          have an account, sign in instead.
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-4 w-full"
+          onClick={() => resendVerification(email)}
+        >
+          Resend verification email
+        </Button>
+        <Link to="/login" className="mt-4 block text-sm font-medium text-foreground underline">
+          Go to sign in
+        </Link>
+      </AuthSplit>
     );
   }
 
   return (
-    <div className="theme-chromatic-public flex min-h-screen items-center justify-center bg-background px-6 py-12">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-sm">
-        <p className="text-xs font-semibold tracking-widest text-primary uppercase">Canary</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-          Create your account
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          You will choose Freelancer or Client next.
-        </p>
+    <AuthSplit>
+      <h1 className="font-display-brand mt-8 text-2xl font-bold text-foreground">
+        Create your account
+      </h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        You will choose Freelancer or Client next.
+      </p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="firstName">First name</Label>
-              <Input
-                id="firstName"
-                type="text"
-                autoComplete="given-name"
-                required
-                maxLength={80}
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lastName">Last name</Label>
-              <Input
-                id="lastName"
-                type="text"
-                autoComplete="family-name"
-                required
-                maxLength={80}
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-              />
-            </div>
-          </div>
-
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="firstName">First name</Label>
             <Input
-              id="email"
-              type="email"
-              autoComplete="email"
+              id="firstName"
+              type="text"
+              autoComplete="given-name"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              maxLength={80}
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                aria-invalid={!passwordsMatch}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="lastName">Last name</Label>
+            <Input
+              id="lastName"
+              type="text"
+              autoComplete="family-name"
+              required
+              maxLength={80}
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+            />
           </div>
-          <p className={`text-xs ${passwordsMatch ? 'text-muted-foreground' : 'text-destructive'}`}>
-            {passwordsMatch ? 'At least 8 characters.' : 'Passwords do not match.'}
-          </p>
+        </div>
 
-          {error && <ErrorNotice message={error} />}
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
 
-          <Button
-            type="submit"
-            disabled={submitting || !passwordsMatch}
-            className="w-full"
-            style={{ borderRadius: '9999px' }}
-          >
-            {submitting ? 'Creating account…' : 'Create account'}
-          </Button>
-        </form>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirmPassword">Confirm password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              aria-invalid={!passwordsMatch}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+        </div>
+        <p className={`text-xs ${passwordsMatch ? 'text-muted-foreground' : 'text-destructive'}`}>
+          {passwordsMatch ? 'At least 8 characters.' : 'Passwords do not match.'}
+        </p>
 
-        <Link
-          to="/login"
-          className="mt-6 block text-center text-sm text-muted-foreground underline"
+        {error && <ErrorNotice message={error} />}
+
+        <RegistrationPressButton
+          type="submit"
+          disabled={submitting || !passwordsMatch}
+          className="w-full"
         >
-          Already have an account? Sign in
-        </Link>
-      </div>
-    </div>
+          {submitting ? 'Creating account…' : 'Create account'}
+        </RegistrationPressButton>
+      </form>
+
+      <Link to="/login" className="mt-6 block text-center text-sm text-muted-foreground underline">
+        Already have an account? Sign in
+      </Link>
+    </AuthSplit>
   );
 }
