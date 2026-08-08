@@ -9,6 +9,13 @@ import { Label } from '../../components/ui/label.jsx';
 import AuthSplit from '../../components/landing/AuthSplit.jsx';
 import RegistrationPressButton from '../../components/landing/RegistrationPressButton.jsx';
 
+// Mirrors the backend's actual policy (RegisterRequestSchema:
+// z.string().min(8).max(200) in packages/shared/contracts/auth.js) — the form
+// has `noValidate` set (see below) so the native minLength/maxLength/required
+// attributes never fire; this is the only real enforcement on the client.
+const PASSWORD_MIN = 8;
+const PASSWORD_MAX = 200;
+
 export default function SignUp() {
   const { status, register } = useSession();
   const location = useLocation();
@@ -31,9 +38,22 @@ export default function SignUp() {
   }
 
   const passwordsMatch = confirmPassword === '' || password === confirmPassword;
+  const passwordTooShort = password.length > 0 && password.length < PASSWORD_MIN;
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!email.trim() || !firstName.trim() || !lastName.trim()) {
+      setError('First name, last name, and email are required.');
+      return;
+    }
+    if (password.length < PASSWORD_MIN) {
+      setError(`Password must be at least ${PASSWORD_MIN} characters.`);
+      return;
+    }
+    if (password.length > PASSWORD_MAX) {
+      setError(`Password must be ${PASSWORD_MAX} characters or fewer.`);
+      return;
+    }
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
@@ -139,7 +159,9 @@ export default function SignUp() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN}
+              maxLength={PASSWORD_MAX}
+              aria-invalid={passwordTooShort}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -151,22 +173,31 @@ export default function SignUp() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN}
+              maxLength={PASSWORD_MAX}
               aria-invalid={!passwordsMatch}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
           </div>
         </div>
-        <p className={`text-xs ${passwordsMatch ? 'text-muted-foreground' : 'text-destructive'}`}>
-          {passwordsMatch ? 'At least 8 characters.' : 'Passwords do not match.'}
+        <p
+          className={`text-xs ${
+            passwordTooShort || !passwordsMatch ? 'text-destructive' : 'text-muted-foreground'
+          }`}
+        >
+          {passwordTooShort
+            ? `At least ${PASSWORD_MIN} characters (${password.length}/${PASSWORD_MIN}).`
+            : !passwordsMatch
+              ? 'Passwords do not match.'
+              : `At least ${PASSWORD_MIN} characters.`}
         </p>
 
         {error && <ErrorNotice message={error} />}
 
         <RegistrationPressButton
           type="submit"
-          disabled={submitting || !passwordsMatch}
+          disabled={submitting || !passwordsMatch || passwordTooShort || password.length === 0}
           className="w-full"
         >
           {submitting ? 'Creating account…' : 'Create account'}

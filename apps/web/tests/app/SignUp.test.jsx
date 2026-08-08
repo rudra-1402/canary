@@ -92,4 +92,27 @@ describe('SignUp', () => {
     expect(await screen.findByText('Check your email')).toBeInTheDocument();
     expect(screen.getByText('existing@example.com')).toBeInTheDocument();
   });
+
+  it('blocks submission for a password under 8 characters without calling the API', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation((url) => {
+      const href = url.toString();
+      if (href.endsWith('/auth/me')) return jsonResponse({}, 401);
+      if (href.endsWith('/auth/csrf-token')) return jsonResponse({ csrfToken: 'test-token' });
+      throw new Error(`Unhandled fetch: ${href}`);
+    });
+
+    renderSignUp();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText('First name'), 'Ada');
+    await user.type(screen.getByLabelText('Last name'), 'Lovelace');
+    await user.type(screen.getByLabelText('Email'), 'new@example.com');
+    await user.type(screen.getByLabelText('Password'), 'short');
+    await user.type(screen.getByLabelText('Confirm password'), 'short');
+
+    expect(screen.getByText('At least 8 characters (5/8).')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeDisabled();
+    expect(fetchSpy.mock.calls.some(([url]) => url.toString().endsWith('/auth/register'))).toBe(
+      false,
+    );
+  });
 });

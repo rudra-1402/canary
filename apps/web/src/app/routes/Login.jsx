@@ -23,6 +23,14 @@ export default function Login() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    // The form has `noValidate` (below), so the native required attributes never
+    // fire — this is the only real check that these aren't empty before we hit
+    // the API (backend still enforces its own rules; this just avoids a round
+    // trip for an obviously incomplete form).
+    if (!email.trim() || !password) {
+      setError('Enter your email and password.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
